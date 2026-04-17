@@ -10,7 +10,7 @@ A Spanish language learning app that uses voice recognition and AI-powered text-
 - **Adjustable playback speed** — replay phrases at normal or slow speed
 - **Cross-platform** — runs as a Next.js web app and an Expo mobile app (iOS & Android)
 
-## Monorepo Structure
+## Project Structure
 
 ```
 apps/
@@ -40,15 +40,19 @@ npm install
 
 ### Environment variables
 
-**Web** — create `apps/web/.env.local`:
-```
-DEEPGRAM_API_KEY=your_key_here
+Both apps use the same Deepgram API key. Copy the example files and fill in your key:
+
+```bash
+cp apps/web/.env.example apps/web/.env.local
+cp apps/mobile/.env.example apps/mobile/.env.local
 ```
 
-**Mobile** — create `apps/mobile/.env.local`:
-```
-EXPO_PUBLIC_DEEPGRAM_API_KEY=your_key_here
-```
+Then open each file and set your key (get one at [console.deepgram.com](https://console.deepgram.com)):
+
+- `apps/web/.env.local` → `DEEPGRAM_API_KEY`
+- `apps/mobile/.env.local` → `EXPO_PUBLIC_DEEPGRAM_API_KEY`
+
+> The `EXPO_PUBLIC_` prefix is required by Expo to include the value in the client bundle.
 
 ---
 
@@ -72,29 +76,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ### Mobile app (Expo)
 
-From the monorepo root:
-```bash
-npm run dev:mobile
-```
-
-Or from the app directory:
-```bash
-cd apps/mobile && npx expo start
-```
-
-Scan the QR code with [Expo Go](https://expo.dev/go) on your phone, or press `i` for iOS simulator / `a` for Android emulator.
-
-> **Note:** Audio playback (`expo-av`) requires a development build and will not work in standard Expo Go. See below.
-
----
-
-## Building the Expo binary
-
-A development build installs a full native binary on your device that supports all native modules (including audio). You only need to rebuild when native dependencies change.
-
-### Using EAS Build (recommended — no local toolchain required)
-
-From the monorepo root:
+Before running the mobile app for the first time, build the native binary:
 
 ```bash
 npm run build:mobile        # Android (.apk)
@@ -102,20 +84,30 @@ npm run build:mobile:ios    # iOS (.ipa)
 ```
 
 Or from the app directory:
-
 ```bash
 cd apps/mobile
 eas build --profile development --platform android
 eas build --profile development --platform ios
 ```
 
-Once the build finishes, install it on your device/simulator via the link EAS provides, then run the dev server:
+Once built, install the binary on your device/simulator via the link EAS provides. You only need to rebuild when native dependencies change.
+
+Then start the dev server from the monorepo root:
 
 ```bash
 npm run dev:mobile
 ```
 
-### Using a local build (requires Android Studio / Xcode)
+Scan the QR code with the installed dev build on your device, or press `i` for iOS simulator / `a` for Android emulator.
+
+Or from the app directory:
+```bash
+cd apps/mobile && npx expo start
+```
+
+> **Note:** Audio playback (`expo-av`) requires the development build above. It will not work in standard [Expo Go](https://expo.dev/go).
+
+### Local build (requires Android Studio / Xcode)
 
 ```bash
 cd apps/mobile
