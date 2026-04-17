@@ -32,6 +32,8 @@ packages/
 
 ### Install dependencies
 
+From the monorepo root:
+
 ```bash
 npm install
 ```
@@ -48,29 +50,80 @@ DEEPGRAM_API_KEY=your_key_here
 EXPO_PUBLIC_DEEPGRAM_API_KEY=your_key_here
 ```
 
-### Run the web app
+---
 
+## Running the apps
+
+### Web app
+
+From the monorepo root:
 ```bash
 npm run dev:web
 ```
 
+Or from the app directory:
+```bash
+cd apps/web && npm run dev
+```
+
 Open [http://localhost:3000](http://localhost:3000).
 
-### Run the mobile app
+---
 
-Start the Expo dev server:
+### Mobile app (Expo)
 
+From the monorepo root:
+```bash
+npm run dev:mobile
+```
+
+Or from the app directory:
 ```bash
 cd apps/mobile && npx expo start
 ```
 
-Scan the QR code with [Expo Go](https://expo.dev/go) on your phone, or press `i` for iOS simulator.
+Scan the QR code with [Expo Go](https://expo.dev/go) on your phone, or press `i` for iOS simulator / `a` for Android emulator.
 
-> **Note:** Audio playback (`expo-av`) requires a development build — it will not work in Expo Go. Build a development client with:
-> ```bash
-> npm run build:mobile      # Android
-> npm run build:mobile:ios  # iOS
-> ```
+> **Note:** Audio playback (`expo-av`) requires a development build and will not work in standard Expo Go. See below.
+
+---
+
+## Building the Expo binary
+
+A development build installs a full native binary on your device that supports all native modules (including audio). You only need to rebuild when native dependencies change.
+
+### Using EAS Build (recommended — no local toolchain required)
+
+From the monorepo root:
+
+```bash
+npm run build:mobile        # Android (.apk)
+npm run build:mobile:ios    # iOS (.ipa)
+```
+
+Or from the app directory:
+
+```bash
+cd apps/mobile
+eas build --profile development --platform android
+eas build --profile development --platform ios
+```
+
+Once the build finishes, install it on your device/simulator via the link EAS provides, then run the dev server:
+
+```bash
+npm run dev:mobile
+```
+
+### Using a local build (requires Android Studio / Xcode)
+
+```bash
+cd apps/mobile
+npx expo run:android   # requires Android Studio + emulator or connected device
+npx expo run:ios       # requires Xcode + simulator or connected device
+```
+
+---
 
 ## Available Scripts
 
