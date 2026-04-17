@@ -18,7 +18,7 @@ apps/
   mobile/     Expo mobile app (iOS & Android)
 packages/
   logic/      Shared business logic, state machine, phrase data, word diff
-  claude-api/ Deepgram TTS and STT adapters (web and native)
+  ai/ Deepgram TTS and STT adapters (web and native)
 ```
 
 ## Getting Started

@@ -9,7 +9,7 @@
     "prebuild": "expo prebuild"
   },
   "dependencies": {
-    "@ai-spanish/claude-api": "file:../../packages/claude-api",
+    "@ai-spanish/ai": "file:../../packages/ai",
     "@ai-spanish/logic": "file:../../packages/logic",
     "@deepgram/sdk": "^4.7.0",
     "expo": "~52.0.0",

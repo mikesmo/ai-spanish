@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { usePhraseDisplay } from '@ai-spanish/logic';
-import { useTTS, useSTT } from '@ai-spanish/claude-api';
+import { useTTS, useSTT } from '@ai-spanish/ai';
 import type { Phrase } from '@ai-spanish/logic';
 import AISpeaking from './AISpeaking';
 import UserRecording from './UserRecording';

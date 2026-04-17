@@ -1,7 +1,7 @@
 'use client';
 
 import { usePhraseDisplay } from '@ai-spanish/logic';
-import { useTTS, useSTT } from '@ai-spanish/claude-api';
+import { useTTS, useSTT } from '@ai-spanish/ai';
 import type { Phrase } from '@ai-spanish/logic';
 import AISpeaking from './phrase-display/AISpeaking';
 import UserRecording from './phrase-display/UserRecording';

@@ -9,7 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@ai-spanish/claude-api": "*",
+    "@ai-spanish/ai": "*",
     "@ai-spanish/logic": "*",
     "@deepgram/sdk": "^4.7.0",
     "@google-cloud/text-to-speech": "^6.1.0",

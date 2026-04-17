@@ -1,5 +1,5 @@
 {
-  "name": "@ai-spanish/claude-api",
+  "name": "@ai-spanish/ai",
   "version": "1.0.0",
   "private": true,
   "main": "src/index.ts",
