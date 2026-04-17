@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "AI Spanish",
+    "slug": "ai-spanish-mob",
+    "version": "1.0.0",
+    "scheme": "aispanish",
+    "orientation": "portrait",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.mikesmo.aispanish"
+    },
+    "android": {
+      "package": "com.mikesmo.aispanish",
+      "adaptiveIcon": {
+        "backgroundColor": "#1a1a2e"
+      }
+    },
+    "plugins": [
+      [
+        "react-native-deepgram",
+        {
+          "microphonePermission": "Allow AI Spanish to access your microphone for speech-to-text transcription."
+        }
+      ],
+      "expo-asset",
+      "expo-font"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "a4d411ab-6039-4a99-bd22-38002981d478"
+      }
+    }
+  }
+}

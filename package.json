@@ -1,0 +1,23 @@
+{
+  "name": "ai-spanish-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "packageManager": "npm@10.8.2",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "turbo dev --filter=@ai-spanish/web",
+    "dev:mobile": "npm run start --workspace=@ai-spanish/mobile",
+    "build:mobile": "cd apps/mobile && eas build --profile development --platform android",
+    "build:mobile:ios": "cd apps/mobile && eas build --profile development --platform ios",
+    "build": "turbo build",
+    "typecheck": "turbo typecheck"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "turbo": "^2.5.4",
+    "typescript": "~5.3.3"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "name": "@ai-spanish/claude-api",
+  "version": "1.0.0",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "react-native": "src/index.native.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ai-spanish/logic": "*",
+    "@deepgram/sdk": "^4.7.0"
+  },
+  "peerDependencies": {
+    "expo-av": "*",
+    "expo-file-system": "*",
+    "react": "*",
+    "react-native-deepgram": "*"
+  },
+  "peerDependenciesMeta": {
+    "expo-av": { "optional": true },
+    "expo-file-system": { "optional": true },
+    "react-native-deepgram": { "optional": true }
+  },
+  "devDependencies": {
+    "typescript": "~5.3.3"
+  }
+}
