@@ -1,9 +1,6 @@
 import { NextResponse } from 'next/server';
 import { TextToSpeechClient } from '@google-cloud/text-to-speech';
 
-// TTS Provider options
-type TTSProvider = 'deepgram' | 'google' | 'murf';
-
 // Language options
 type Language = 'es' | 'en';
 
@@ -15,7 +12,7 @@ export async function POST(request: Request) {
       text, 
       provider = 'deepgram',
       language = 'es' // Default to Spanish
-    } = body;
+    }: { text?: string; provider?: 'deepgram' | 'google' | 'murf'; language?: Language } = body;
 
     if (!text) {
       return NextResponse.json({ error: 'Text parameter is required' }, { status: 400 });
@@ -24,11 +21,11 @@ export async function POST(request: Request) {
     // Choose TTS provider based on request
     switch (provider) {
       case 'google':
-        return await useGoogleTTS(text, language);
+        return await generateGoogleTTS(text, language);
       case 'murf':
-        return await useMurfTTS(text, language);
+        return await generateMurfTTS(text, language);
       default:
-        return await useDeepgramTTS(text, language);
+        return await generateDeepgramTTS(text, language);
     }
     
   } catch (error) {
@@ -43,7 +40,7 @@ export async function POST(request: Request) {
 /**
  * Use Deepgram's TTS service
  */
-async function useDeepgramTTS(text: string, language: Language = 'es') {
+async function generateDeepgramTTS(text: string, language: Language = 'es') {
   // Set up API key
   const apiKey = process.env.DEEPGRAM_API_KEY;
   
@@ -93,7 +90,7 @@ async function useDeepgramTTS(text: string, language: Language = 'es') {
 /**
  * Use Google's TTS service
  */
-async function useGoogleTTS(text: string, language: Language = 'es') {
+async function generateGoogleTTS(text: string, language: Language = 'es') {
   // Check for Google credentials
   if (!process.env.GOOGLE_APPLICATION_CREDENTIALS) {
     return NextResponse.json(
@@ -151,7 +148,7 @@ async function useGoogleTTS(text: string, language: Language = 'es') {
 /**
  * Use Murf's TTS service
  */
-async function useMurfTTS(text: string, language: Language = 'es') {
+async function generateMurfTTS(text: string, language: Language = 'es') {
   // Check for Murf API key
   const apiKey = process.env.MURF_API_KEY;
   

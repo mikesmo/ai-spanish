@@ -1,31 +1,31 @@
-'use client';
+"use client";
 
-import { usePhraseDisplay } from '@ai-spanish/logic';
-import { useTTS, useSTT } from '@ai-spanish/ai';
-import type { Phrase } from '@ai-spanish/logic';
-import AISpeaking from './phrase-display/AISpeaking';
-import UserRecording from './phrase-display/UserRecording';
-import UserFeedback from './phrase-display/UserFeedback';
+import { usePhraseDisplay } from "@ai-spanish/logic";
+import { useSTT, useTTS } from "@ai-spanish/ai";
+import { AISpeaking } from "./components/AISpeaking";
+import { UserFeedback } from "./components/UserFeedback";
+import { UserRecording } from "./components/UserRecording";
+import type { PhraseDisplayProps } from "./PhraseDisplay.types";
 
-type Props = { phrases: Phrase[] };
-
-export default function PhraseDisplay({ phrases }: Props) {
+export const PhraseDisplay = ({ phrases }: PhraseDisplayProps): JSX.Element => {
   const tts = useTTS();
   const stt = useSTT();
   const display = usePhraseDisplay(phrases, stt, tts);
 
   return (
     <div className="w-full max-w-[390px] mx-auto bg-white flex flex-col items-center py-16 px-8 min-h-[500px]">
-
       <p className="text-[13px] text-gray-400 self-end mb-8">
         {display.currentIndex + 1} / {display.totalPhrases}
       </p>
 
-      {(display.status === 'loading' || display.status === 'idle') && (
-        <AISpeaking isLoading={display.status === 'loading'} isAudioPlaying={display.isAudioPlaying} />
+      {(display.status === "loading" || display.status === "idle") && (
+        <AISpeaking
+          isLoading={display.status === "loading"}
+          isAudioPlaying={display.isAudioPlaying}
+        />
       )}
 
-      {(display.status === 'recording' || display.status === 'tryAgain') && (
+      {(display.status === "recording" || display.status === "tryAgain") && (
         <UserRecording
           englishText={display.currentPhrase.English.question}
           transcription={display.caption}
@@ -34,7 +34,7 @@ export default function PhraseDisplay({ phrases }: Props) {
         />
       )}
 
-      {display.status === 'answer' && (
+      {display.status === "answer" && (
         <UserFeedback
           transcription={display.caption}
           spanishPhrase={display.spanishText}
@@ -49,4 +49,4 @@ export default function PhraseDisplay({ phrases }: Props) {
       )}
     </div>
   );
-}
+};
