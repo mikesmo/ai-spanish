@@ -1,0 +1,179 @@
+# Project Rules & Guidelines
+
+You are an expert senior developer specializing in TypeScript, React, React Native, and Expo. You produce clear, idiomatic, and maintainable code following current best practices.
+
+## Tech Stack
+
+- **Mobile**: Expo SDK (managed workflow), React Native
+- **Web**: React.js (Vite or Next.js)
+- **Language**: TypeScript (strict mode)
+- **Navigation**: React Navigation (mobile), React Router (web)
+- **State Management**: Zustand or React Context (prefer colocated state)
+- **Styling**: NativeWind / Tailwind CSS (web), StyleSheet (React Native fallback)
+- **API Layer**: TanStack Query (React Query) for server state
+
+## Code Style & Conventions
+
+### General TypeScript
+
+- Use `strict: true` in tsconfig. Never use `any`; prefer `unknown` and narrow with type guards.
+- Prefer `interface` for object shapes and `type` for unions, intersections, and mapped types.
+- Export types/interfaces alongside the module that owns them; avoid a global `types.ts` dump.
+- Use `as const` assertions and template literal types where they add safety.
+- Prefer `const` over `let`. Never use `var`.
+- Use early returns to reduce nesting.
+- Name booleans with `is`, `has`, `should` prefixes (e.g., `isLoading`, `hasError`).
+- Name event handlers with `handle` prefix (e.g., `handlePress`, `handleSubmit`).
+- Name render helpers with `render` prefix (e.g., `renderListItem`).
+
+### React & React Native Components
+
+- Always use functional components with arrow-function syntax and explicit return types.
+- Prefer named exports over default exports for components.
+- Colocate related files: `ComponentName/index.tsx`, `ComponentName/styles.ts`, `ComponentName/types.ts`.
+- Keep components small and single-purpose. Extract logic into custom hooks (`use` prefix).
+- Use `React.memo` only when profiling proves a re-render bottleneck—not by default.
+- Destructure props in the function signature.
+- Define prop types with an `interface` named `ComponentNameProps`.
+
+```tsx
+interface UserCardProps {
+  user: User;
+  onPress: (id: string) => void;
+}
+
+export const UserCard: React.FC<UserCardProps> = ({ user, onPress }) => {
+  // ...
+};
+```
+
+### Hooks
+
+- Custom hooks must start with `use` and live in a `hooks/` directory (or colocated with feature).
+- Declare dependency arrays accurately—never suppress the exhaustive-deps lint rule.
+- Prefer `useMemo` and `useCallback` only for expensive computations or stable callback references passed to memoized children.
+- Avoid `useEffect` for derived state; compute it during render instead.
+
+### File & Folder Naming
+
+- Use **kebab-case** for folders and non-component files (`utils/format-date.ts`).
+- Use **PascalCase** for component files and directories (`UserCard/index.tsx`).
+- Use **camelCase** for hooks (`useAuth.ts`), utilities, and variables.
+- Suffix type-only files with `.types.ts`; suffix constants files with `.constants.ts`.
+
+## Project Structure (monorepo-friendly)
+
+```
+apps/
+  mobile/          # Expo / React Native app
+    app/           # Expo Router file-based routes (or src/screens/)
+    components/
+    hooks/
+    services/
+    constants/
+    assets/
+  web/             # React.js web app
+    src/
+      pages/
+      components/
+      hooks/
+      services/
+      constants/
+packages/
+  shared/          # Shared code between mobile & web
+    src/
+      types/
+      utils/
+      hooks/
+      constants/
+      api/
+```
+
+## Cross-Platform Guidelines
+
+- Maximize code sharing by placing business logic, API calls, types, utilities, and non-UI hooks in `packages/shared`.
+- Keep UI components platform-specific—do NOT try to share React Native components on web or vice versa unless using a proven cross-platform UI library.
+- Use platform-specific file extensions (`.native.ts`, `.web.ts`) only when a single module must diverge per platform.
+- Abstract platform APIs behind shared interfaces (e.g., storage, analytics, auth) so each platform provides its own implementation.
+
+## Expo & React Native Specific
+
+- Use Expo Router for file-based navigation when possible.
+- Prefer Expo SDK modules (`expo-camera`, `expo-image-picker`, etc.) over bare React Native alternatives.
+- Use `expo-constants` and `expo-device` for environment/device info—never hard-code platform checks when an Expo API exists.
+- Avoid inline styles; use `StyleSheet.create()` for React Native styles (or NativeWind utility classes).
+- Use `FlashList` from `@shopify/flash-list` instead of `FlatList` for long lists.
+- Always handle safe areas with `SafeAreaView` or `useSafeAreaInsets`.
+- Handle keyboard avoidance with `KeyboardAvoidingView` or `react-native-keyboard-aware-scroll-view`.
+- Images: prefer `expo-image` over `<Image>` from React Native for caching and performance.
+- Animations: prefer `react-native-reanimated` over the built-in Animated API.
+
+## React.js (Web) Specific
+
+- Use semantic HTML elements (`<nav>`, `<main>`, `<section>`, `<article>`, `<button>`).
+- Ensure accessibility: all interactive elements must be keyboard-navigable and have ARIA attributes where needed.
+- Lazy-load routes and heavy components with `React.lazy` + `Suspense`.
+- Use CSS modules or Tailwind CSS—avoid CSS-in-JS unless the project already uses it.
+- Optimize images with `<picture>`, `srcSet`, or a framework image component.
+
+## State Management
+
+- Prefer colocated state (`useState`) when state is used by a single component.
+- Lift state only as far as necessary.
+- Use Zustand for global client state (auth, theme, feature flags). Keep stores small and domain-scoped.
+- Use TanStack Query (React Query) for all server/async state. Do not store API responses in Zustand.
+- Never duplicate server state in client state.
+
+## API & Data Fetching
+
+- Centralize API calls in a `services/` or `api/` directory.
+- Use TanStack Query's `useQuery` and `useMutation` hooks—never call `fetch` directly in components.
+- Define query keys as constants or key factories to ensure consistency.
+- Handle loading, error, and empty states explicitly in every data-consuming component.
+- Use Zod for runtime validation of API responses at the boundary.
+
+## Error Handling
+
+- Use `try/catch` at service boundaries; let errors propagate through React Query's error state in the UI.
+- Provide user-friendly error messages—never expose raw error objects to the UI.
+- Use Error Boundaries (`react-error-boundary`) at route or feature level for unexpected crashes.
+- Log errors to a monitoring service (Sentry, etc.) rather than just `console.error` in production.
+
+## Testing
+
+- Write unit tests for utilities and hooks with Vitest or Jest.
+- Write component tests with React Native Testing Library (mobile) or Testing Library (web).
+- Test behavior, not implementation details—query by role and accessible name, not test IDs.
+- Aim for meaningful coverage of critical user flows, not arbitrary coverage percentages.
+
+## Performance
+
+- Profile before optimizing. Avoid premature `useMemo`, `useCallback`, or `React.memo`.
+- Minimize re-renders by keeping state close to where it's consumed.
+- Use `FlashList` for large lists on mobile; virtualize long lists on web.
+- Split code by route (lazy loading) and avoid importing entire libraries when tree-shaking is available.
+- Optimize bundle size: audit with `expo-doctor` (mobile) and your bundler's analyzer (web).
+
+## Security
+
+- Never store secrets or API keys in client code—use environment variables and server-side proxies.
+- Sanitize user input; use parameterized queries on any backend.
+- Use HTTPS for all API communication.
+- Store tokens securely: `expo-secure-store` on mobile, `httpOnly` cookies on web.
+
+## Git & Workflow
+
+- Write conventional commits (`feat:`, `fix:`, `chore:`, `refactor:`, `docs:`, `test:`).
+- Keep PRs small and focused on a single concern.
+- Run lint and type-check in CI before merge.
+
+## When Generating Code
+
+1. Always include necessary imports.
+2. Always define types/interfaces for props, state, and API responses.
+3. Add brief JSDoc comments for exported functions and hooks.
+4. Handle loading, error, and empty states.
+5. Follow the naming and structure conventions above.
+6. Prefer composition over inheritance.
+7. If a piece of logic can be shared between mobile and web, place it in `packages/shared`.
+8. Never leave `TODO` or placeholder comments—implement the full solution.
