@@ -1,14 +1,12 @@
-import { View, Text, StyleSheet } from 'react-native';
-import { usePhraseDisplay } from '@ai-spanish/logic';
-import { useTTS, useSTT } from '@ai-spanish/ai';
-import type { Phrase } from '@ai-spanish/logic';
-import AISpeaking from './AISpeaking';
-import UserRecording from './UserRecording';
-import UserFeedback from './UserFeedback';
+import { StyleSheet, Text, View } from "react-native";
+import { usePhraseDisplay } from "@ai-spanish/logic";
+import { useSTT, useTTS } from "@ai-spanish/ai";
+import type { PhraseDisplayProps } from "./PhraseDisplay.types";
+import { AISpeaking } from "./components/AISpeaking";
+import { UserFeedback } from "./components/UserFeedback";
+import { UserRecording } from "./components/UserRecording";
 
-type Props = { phrases: Phrase[] };
-
-export default function PhraseDisplay({ phrases }: Props) {
+export const PhraseDisplay = ({ phrases }: PhraseDisplayProps): JSX.Element => {
   const tts = useTTS();
   const stt = useSTT();
   const display = usePhraseDisplay(phrases, stt, tts);
@@ -19,11 +17,14 @@ export default function PhraseDisplay({ phrases }: Props) {
         {display.currentIndex + 1} / {display.totalPhrases}
       </Text>
 
-      {(display.status === 'loading' || display.status === 'idle') && (
-        <AISpeaking isLoading={display.status === 'loading'} isAudioPlaying={display.isAudioPlaying} />
+      {(display.status === "loading" || display.status === "idle") && (
+        <AISpeaking
+          isLoading={display.status === "loading"}
+          isAudioPlaying={display.isAudioPlaying}
+        />
       )}
 
-      {(display.status === 'recording' || display.status === 'tryAgain') && (
+      {(display.status === "recording" || display.status === "tryAgain") && (
         <UserRecording
           englishText={display.currentPhrase.English.question}
           transcription={display.caption}
@@ -32,7 +33,7 @@ export default function PhraseDisplay({ phrases }: Props) {
         />
       )}
 
-      {display.status === 'answer' && (
+      {display.status === "answer" && (
         <UserFeedback
           transcription={display.caption}
           spanishPhrase={display.spanishText}
@@ -47,20 +48,21 @@ export default function PhraseDisplay({ phrases }: Props) {
       )}
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
     paddingVertical: 32,
     paddingHorizontal: 24,
-    backgroundColor: '#ffffff',
+    backgroundColor: "#ffffff",
   },
   counter: {
     fontSize: 13,
-    color: '#9ca3af',
-    alignSelf: 'flex-end',
+    color: "#9ca3af",
+    alignSelf: "flex-end",
     marginBottom: 16,
   },
 });
+
