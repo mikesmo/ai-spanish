@@ -9,6 +9,7 @@
     "prebuild": "expo prebuild"
   },
   "dependencies": {
+    "@ai-spanish/assets": "file:../../packages/assets",
     "@ai-spanish/ai": "file:../../packages/ai",
     "@ai-spanish/logic": "file:../../packages/logic",
     "@deepgram/sdk": "^4.7.0",

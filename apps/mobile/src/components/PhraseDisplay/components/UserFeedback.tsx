@@ -1,5 +1,5 @@
 import { Feather } from "@expo/vector-icons";
-import { diffWords } from "@ai-spanish/logic";
+import { diffWords, FEEDBACK_AUTO_ADVANCE_MS } from "@ai-spanish/logic";
 import { useEffect, useRef, useState } from "react";
 import {
   Animated,
@@ -13,7 +13,6 @@ import {
 import type { UserFeedbackProps } from "../PhraseDisplay.types";
 import { PillButton, pillStyles } from "./PillButton";
 
-const AUTO_ADVANCE_MS = 2000;
 const NEXT_PHRASE_LABEL = "Next phrase";
 
 interface AudioControlsProps {
@@ -79,10 +78,10 @@ const AutoNextButton = ({ label, onPress, onTimeout }: AutoNextButtonProps): JSX
 
   useEffect(() => {
     if (pillWidth <= 0) return;
-    timerRef.current = setTimeout(() => onTimeoutRef.current(), AUTO_ADVANCE_MS);
+    timerRef.current = setTimeout(() => onTimeoutRef.current(), FEEDBACK_AUTO_ADVANCE_MS);
     Animated.timing(fillWidth, {
       toValue: pillWidth,
-      duration: AUTO_ADVANCE_MS,
+      duration: FEEDBACK_AUTO_ADVANCE_MS,
       useNativeDriver: false,
     }).start();
     return () => {
@@ -171,11 +170,6 @@ export const UserFeedback = ({
                 onSpeedChange={onSpeedChange}
                 onReplay={onReplay}
               />
-            </View>
-
-            <View style={styles.bienHechoRow}>
-              <Feather name="check-circle" size={20} color="#1D9E75" />
-              <Text style={styles.bienHechoText}>bien hecho!</Text>
             </View>
           </View>
         ) : (
@@ -288,16 +282,6 @@ const styles = StyleSheet.create({
   },
   audioControlsRow: {
     marginTop: 4,
-  },
-  bienHechoRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginTop: 8,
-  },
-  bienHechoText: {
-    fontSize: 18,
-    color: "#1D9E75",
   },
   incorrectCenter: {
     flex: 1,

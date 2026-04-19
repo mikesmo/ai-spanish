@@ -38,30 +38,39 @@ export const UserRecording = ({
 
   return (
     <View style={styles.container}>
-      <View style={styles.center}>
-        <Animated.View
-          style={[
-            styles.micCircle,
-            isCorrect && styles.micCircleCorrect,
-            { transform: [{ scale: breatheScale }] },
-          ]}
-        >
-          <Feather name="mic" size={28} color="white" />
-        </Animated.View>
+      {showRecordingIndicator ? (
+        <View style={styles.recordingBadge} pointerEvents="none">
+          <Animated.View style={[styles.blinkerDot, { opacity: blinkOpacity }]} />
+          <Text style={styles.recordingLabel}>Recording</Text>
+        </View>
+      ) : null}
 
-        <Text style={styles.englishText}>{englishText}</Text>
+      <View style={styles.middle}>
+        <View style={styles.centerStack}>
+          {isCorrect ? (
+            <View style={styles.bienHechoRow}>
+              <Feather name="check-circle" size={20} color="#1D9E75" />
+              <Text style={styles.bienHechoText}>bien hecho!</Text>
+            </View>
+          ) : null}
 
-        {showRecordingIndicator ? (
-          <View style={styles.recordingRow}>
-            <Animated.View style={[styles.blinkerDot, { opacity: blinkOpacity }]} />
-            <Text style={styles.recordingLabel}>Recording</Text>
+          <Animated.View
+            style={[
+              styles.micCircle,
+              isCorrect && styles.micCircleCorrect,
+              { transform: [{ scale: breatheScale }] },
+            ]}
+          >
+            <Feather name="mic" size={28} color="white" />
+          </Animated.View>
+
+          <Text style={styles.englishText}>{englishText}</Text>
+
+          <View style={styles.transcriptArea}>
+            <Text style={[styles.transcriptText, isCorrect && styles.transcriptCorrect]}>
+              {transcription}
+            </Text>
           </View>
-        ) : null}
-
-        <View style={styles.transcriptArea}>
-          <Text style={[styles.transcriptText, isCorrect && styles.transcriptCorrect]}>
-            {transcription}
-          </Text>
         </View>
       </View>
 
@@ -81,10 +90,35 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     width: "100%",
   },
-  center: {
-    flex: 1,
+  recordingBadge: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    zIndex: 10,
+    flexDirection: "row",
     alignItems: "center",
+    gap: 8,
+  },
+  middle: {
+    flex: 1,
+    width: "100%",
+    minHeight: 0,
     justifyContent: "center",
+    alignItems: "center",
+  },
+  centerStack: {
+    alignItems: "center",
+    width: "100%",
+  },
+  bienHechoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 24,
+  },
+  bienHechoText: {
+    fontSize: 18,
+    color: "#1D9E75",
   },
   micCircle: {
     width: CIRCLE_SIZE,
@@ -126,12 +160,6 @@ const styles = StyleSheet.create({
     gap: 24,
     paddingBottom: 16,
   },
-  recordingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginTop: 12,
-  },
   blinkerDot: {
     width: 10,
     height: 10,
@@ -143,4 +171,3 @@ const styles = StyleSheet.create({
     color: "#9ca3af",
   },
 });
-
