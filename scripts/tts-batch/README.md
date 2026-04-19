@@ -2,7 +2,7 @@
 
 Batch-generates MP3 clips from the bilingual transcript using [Deepgram](https://deepgram.com/) text-to-speech (same models as `@ai-spanish/ai`), writes a local manifest, and optionally uploads audio plus `manifest.json` to Amazon S3.
 
-Run commands from the **monorepo root** so default paths resolve (`packages/logic/assets/transcript.json`, `./output`).
+Run commands from the **monorepo root** so default paths resolve (`apps/web/public/transcript.json`, `./output`).
 
 ## Setup
 
@@ -37,7 +37,7 @@ Secrets belong in `.env` (gitignored). Never commit real keys.
 
 | Flag | Description |
 |------|-------------|
-| `--input`, `-i` | Transcript JSON (default: `packages/logic/assets/transcript.json` from cwd) |
+| `--input`, `-i` | Transcript JSON (default: `apps/web/public/transcript.json` from cwd) |
 | `--out`, `-o` | Output directory (default: `./output`) |
 | `--bucket`, `-b` | S3 bucket name (default: `S3_BUCKET_NAME`) |
 | `--lesson` | Optional segment under `AUDIO_CONTENT_PREFIX` (overrides `S3_LESSON`) |

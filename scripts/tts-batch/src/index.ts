@@ -37,7 +37,7 @@ dotenv.config();
 
 const DEFAULT_INPUT = path.resolve(
   process.cwd(),
-  'packages/logic/assets/transcript.json'
+  'apps/web/public/transcript.json'
 );
 const DEFAULT_OUT = path.resolve(process.cwd(), 'output');
 
@@ -91,7 +91,7 @@ Usage:
   npm run tts:batch -- [options]
 
 Options:
-  --input, -i   Path to transcript JSON (default: packages/logic/assets/transcript.json from cwd)
+  --input, -i   Path to transcript JSON (default: apps/web/public/transcript.json from cwd)
   --out, -o     Output directory (default: ./output)
   --bucket, -b  S3 bucket name (default: S3_BUCKET_NAME env)
   --force       Regenerate all audio (ignore cache)

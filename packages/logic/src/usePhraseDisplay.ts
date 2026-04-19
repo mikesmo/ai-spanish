@@ -4,16 +4,7 @@ import { useState, useEffect } from 'react';
 import { normalizeStr } from './comparison';
 import type { Phrase, UIStatus, TTSAdapter, SpeechToTextHandle, PhraseDisplayAPI } from './types';
 
-// #region agent log
-// Hypothesis A/B: detect whether this module is evaluated in a server (non-browser) context
-if (typeof window === 'undefined') {
-  fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'b089b2' },
-    body: JSON.stringify({ sessionId: 'b089b2', hypothesisId: 'A-B-post-fix', location: 'usePhraseDisplay.ts:module-scope', message: 'POST-FIX: usePhraseDisplay still evaluated in SERVER context', data: {}, timestamp: Date.now() }),
-  }).catch(() => {});
-}
-// #endregion
+
 
 const PLAYBACK_RATES: Record<'1x' | 'slow', number> = { '1x': 1.0, slow: 0.5 };
 
