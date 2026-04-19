@@ -1,14 +1,14 @@
 "use client";
 
 import { usePhraseDisplay } from "@ai-spanish/logic";
-import { useSTT, useTTS } from "@ai-spanish/ai";
+import { useS3TTS, useSTT } from "@ai-spanish/ai";
 import { AISpeaking } from "./components/AISpeaking";
 import { UserFeedback } from "./components/UserFeedback";
 import { UserRecording } from "./components/UserRecording";
 import type { PhraseDisplayProps } from "./PhraseDisplay.types";
 
 export const PhraseDisplay = ({ phrases }: PhraseDisplayProps): JSX.Element => {
-  const tts = useTTS();
+  const tts = useS3TTS();
   const stt = useSTT();
   const display = usePhraseDisplay(phrases, stt, tts);
 

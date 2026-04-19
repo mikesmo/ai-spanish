@@ -3,80 +3,33 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 import type { Language } from '@ai-spanish/logic';
+import {
+  buildS3AudioKey,
+  DEFAULT_AUDIO_CONTENT_PREFIX,
+  normalizeAudioContentPrefix,
+  normalizeLessonSegment,
+} from '@ai-spanish/logic';
 
 import type { ManifestEntry, S3PathConfig, TtsJob } from './types.js';
 
-const MANIFEST_FILE = 'manifest.json';
+export { DEFAULT_AUDIO_CONTENT_PREFIX, normalizeAudioContentPrefix, normalizeLessonSegment };
 
-/** Default when AUDIO_CONTENT_PREFIX is unset or empty. */
-export const DEFAULT_AUDIO_CONTENT_PREFIX = 'audio-content';
+const MANIFEST_FILE = 'manifest.json';
 
 function isLanguage(value: unknown): value is Language {
   return value === 'en' || value === 'es';
 }
 
-function assertSafePathSegment(label: string, value: string): void {
-  if (value.includes('..')) {
-    throw new Error(`${label} must not contain ".."`);
-  }
-}
-
-/**
- * Normalizes env AUDIO_CONTENT_PREFIX (e.g. /audio-content/ → audio-content).
- * Defaults to DEFAULT_AUDIO_CONTENT_PREFIX when unset or blank.
- */
-export function normalizeAudioContentPrefix(raw: string | undefined): string {
-  if (raw === undefined || raw.trim() === '') {
-    return DEFAULT_AUDIO_CONTENT_PREFIX;
-  }
-  const trimmed = raw.trim().replace(/^\/+|\/+$/g, '');
-  if (trimmed === '') {
-    return DEFAULT_AUDIO_CONTENT_PREFIX;
-  }
-  assertSafePathSegment('AUDIO_CONTENT_PREFIX', trimmed);
-  const segments = trimmed.split('/').filter(Boolean);
-  if (segments.length !== 1) {
-    throw new Error(
-      'AUDIO_CONTENT_PREFIX must be a single path segment (e.g. audio-content), not a nested path'
-    );
-  }
-  return segments[0]!;
-}
-
-/**
- * Optional lesson segment: one folder under the prefix. Empty → undefined.
- */
-export function normalizeLessonSegment(raw: string | undefined): string | undefined {
-  if (raw === undefined || raw.trim() === '') {
-    return undefined;
-  }
-  const trimmed = raw.trim().replace(/^\/+|\/+$/g, '');
-  if (trimmed === '') {
-    return undefined;
-  }
-  assertSafePathSegment('lesson', trimmed);
-  if (trimmed.includes('/')) {
-    throw new Error('lesson must be a single path segment (no slashes), e.g. lesson1');
-  }
-  return trimmed;
-}
-
-export function buildS3BasePath(prefix: string, lesson?: string): string {
-  if (!lesson) {
-    return prefix;
-  }
-  return path.posix.join(prefix, lesson);
-}
-
 /** S3 object key for one mp3 under {base}/audio/{jobId}.mp3 */
 export function s3AudioObjectKey(jobId: string, config: S3PathConfig): string {
-  const base = buildS3BasePath(config.prefix, config.lesson);
-  return path.posix.join(base, 'audio', `${jobId}.mp3`);
+  return buildS3AudioKey(config.prefix, config.lesson, jobId);
 }
 
 /** S3 object key for manifest.json under the lesson (or prefix) folder. */
 export function s3ManifestObjectKey(config: S3PathConfig): string {
-  const base = buildS3BasePath(config.prefix, config.lesson);
+  const base = config.lesson
+    ? path.posix.join(config.prefix, config.lesson)
+    : config.prefix;
   return path.posix.join(base, MANIFEST_FILE);
 }
 

@@ -8,8 +8,17 @@ export type Phrase = {
 export type UIStatus = 'loading' | 'idle' | 'recording' | 'answer' | 'tryAgain';
 
 export type TTSAdapter = {
-  play: (text: string, lang: Language, rate?: number) => Promise<void>;
-  prefetch: (text: string, lang: Language) => Promise<void>;
+  /**
+   * Play audio for the given text and language.
+   * When `phraseIndex` is provided, adapters that support S3 delivery can use
+   * it to derive the clip key instead of synthesizing from text.
+   */
+  play: (text: string, lang: Language, rate?: number, phraseIndex?: number) => Promise<void>;
+  /**
+   * Prefetch / warm-up audio so playback starts immediately.
+   * `phraseIndex` has the same semantics as in `play`.
+   */
+  prefetch: (text: string, lang: Language, phraseIndex?: number) => Promise<void>;
   stop: () => void;
 };
 

@@ -1,4 +1,6 @@
-import type { Language } from '@ai-spanish/logic';
+import type { Language, S3PathConfig } from '@ai-spanish/logic';
+
+export type { S3PathConfig };
 
 /** One TTS synthesis unit after flattening a transcript phrase. */
 export interface TtsJob {
@@ -25,13 +27,6 @@ export interface ManifestEntry {
 
 /** On-disk cache: job id → content hash */
 export type HashCache = Record<string, string>;
-
-/** S3 key layout: {prefix}/[{lesson}/]audio/... and {prefix}/[{lesson}/]manifest.json */
-export interface S3PathConfig {
-  prefix: string;
-  /** Single path segment (e.g. lesson1); omitted when unset. */
-  lesson?: string;
-}
 
 export interface CliOptions {
   inputPath: string;

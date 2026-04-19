@@ -1,6 +1,19 @@
+'use client';
+
 import { useState, useEffect } from 'react';
 import { normalizeStr } from './comparison';
 import type { Phrase, UIStatus, TTSAdapter, SpeechToTextHandle, PhraseDisplayAPI } from './types';
+
+// #region agent log
+// Hypothesis A/B: detect whether this module is evaluated in a server (non-browser) context
+if (typeof window === 'undefined') {
+  fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'b089b2' },
+    body: JSON.stringify({ sessionId: 'b089b2', hypothesisId: 'A-B-post-fix', location: 'usePhraseDisplay.ts:module-scope', message: 'POST-FIX: usePhraseDisplay still evaluated in SERVER context', data: {}, timestamp: Date.now() }),
+  }).catch(() => {});
+}
+// #endregion
 
 const PLAYBACK_RATES: Record<'1x' | 'slow', number> = { '1x': 1.0, slow: 0.5 };
 
@@ -36,15 +49,19 @@ export function usePhraseDisplay(
     let cancelled = false;
 
     const init = async () => {
+      // #region agent log
+      // Hypothesis A: log what text is being displayed at each index
+      fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'b089b2'},body:JSON.stringify({sessionId:'b089b2',hypothesisId:'A',location:'usePhraseDisplay.ts:init',message:'phrase display state',data:{currentIndex,englishText,spanishText},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       try {
         await Promise.all([
-          tts.prefetch(englishText, 'en'),
-          tts.prefetch(spanishText, 'es'),
+          tts.prefetch(englishText, 'en', currentIndex),
+          tts.prefetch(spanishText, 'es', currentIndex),
         ]);
         if (cancelled) return;
         setStatus('idle');
         setIsAudioPlaying(true);
-        await tts.play(englishText, 'en');
+        await tts.play(englishText, 'en', undefined, currentIndex);
         if (cancelled) return;
         stt.clearTranscription();
         stt.start();
@@ -78,7 +95,7 @@ export function usePhraseDisplay(
     setStatus('answer');
     try {
       setIsAudioPlaying(true);
-      await tts.play(spanishText, 'es');
+      await tts.play(spanishText, 'es', undefined, currentIndex);
     } catch (error) {
       console.error('[usePhraseDisplay] Error playing Spanish:', error);
     } finally {
@@ -116,7 +133,7 @@ export function usePhraseDisplay(
   const handleReplay = async () => {
     try {
       setIsAudioPlaying(true);
-      await tts.play(spanishText, 'es', PLAYBACK_RATES[speed]);
+      await tts.play(spanishText, 'es', PLAYBACK_RATES[speed], currentIndex);
     } catch (error) {
       console.error('[usePhraseDisplay] Error replaying Spanish:', error);
     } finally {
