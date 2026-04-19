@@ -5,7 +5,8 @@
   "packageManager": "npm@10.8.2",
   "workspaces": [
     "apps/*",
-    "packages/*"
+    "packages/*",
+    "scripts/*"
   ],
   "scripts": {
     "dev:web": "turbo dev --filter=@ai-spanish/web",
@@ -13,10 +14,12 @@
     "build:mobile": "cd apps/mobile && eas build --profile development --platform android",
     "build:mobile:ios": "cd apps/mobile && eas build --profile development --platform ios",
     "build": "turbo build",
-    "typecheck": "turbo typecheck"
+    "typecheck": "turbo typecheck",
+    "tts:batch": "tsx scripts/tts-batch/src/index.ts"
   },
   "devDependencies": {
     "@types/react": "^18.3.12",
+    "tsx": "^4.19.2",
     "turbo": "^2.5.4",
     "typescript": "~5.3.3"
   }
