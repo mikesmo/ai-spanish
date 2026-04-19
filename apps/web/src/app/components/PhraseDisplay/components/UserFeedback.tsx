@@ -14,6 +14,7 @@ interface AutoNextButtonProps {
 }
 
 const AUTO_ADVANCE_MS = 2000;
+const NEXT_PHRASE_LABEL = "Next phrase";
 
 const autoNextPillClassName =
   "relative w-full overflow-hidden rounded-full bg-white border border-gray-200 h-[54px] flex items-center justify-center shadow-sm";
@@ -62,16 +63,16 @@ interface ContinueAfterAudioButtonProps {
   onNext: () => void;
 }
 
-/** 3s auto-advance + progress bar only after Spanish TTS has finished; replay restarts this gate. */
-const ContinueAfterAudioButton = ({
+/** Auto-advance + progress bar only after Spanish TTS has finished; replay restarts this gate. */
+const NextPhraseAfterAudioButton = ({
   isAudioPlaying,
   onNext,
 }: ContinueAfterAudioButtonProps): JSX.Element => {
   if (isAudioPlaying) {
-    return <PillNavButton label="Continue" onClick={onNext} />;
+    return <PillNavButton label={NEXT_PHRASE_LABEL} onClick={onNext} />;
   }
 
-  return <AutoNextButton label="Continue" onPress={onNext} onTimeout={onNext} />;
+  return <AutoNextButton label={NEXT_PHRASE_LABEL} onPress={onNext} onTimeout={onNext} />;
 };
 
 interface AudioControlsProps {
@@ -263,22 +264,23 @@ export const UserFeedback = ({
             onSpeedChange={onSpeedChange}
             onReplay={onReplay}
           />
-
-          <button
-            type="button"
-            onClick={onTryAgain}
-            className="text-[13px] text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            try again
-          </button>
         </div>
       )}
 
       <div className="mt-auto w-full pt-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
         {isCorrect ? (
-          <ContinueAfterAudioButton isAudioPlaying={isAudioPlaying} onNext={onNext} />
+          <NextPhraseAfterAudioButton isAudioPlaying={isAudioPlaying} onNext={onNext} />
         ) : (
-          <PillNavButton label="Next →" onClick={onNext} />
+          <div className="flex flex-col items-center gap-4">
+            <button
+              type="button"
+              onClick={onTryAgain}
+              className="text-[13px] text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              try again
+            </button>
+            <PillNavButton label={NEXT_PHRASE_LABEL} onClick={onNext} />
+          </div>
         )}
       </div>
     </div>
