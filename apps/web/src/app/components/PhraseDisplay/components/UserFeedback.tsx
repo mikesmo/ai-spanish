@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { FEEDBACK_AUTO_ADVANCE_MS } from "@ai-spanish/logic";
 import type {
   DiffWordResult,
   UserFeedbackProps,
@@ -13,7 +14,6 @@ interface AutoNextButtonProps {
   onTimeout: () => void;
 }
 
-const AUTO_ADVANCE_MS = 2000;
 const NEXT_PHRASE_LABEL = "Next phrase";
 
 const pillShellClassName =
@@ -57,7 +57,7 @@ const AutoNextButton = ({ label, onPress, onTimeout }: AutoNextButtonProps): JSX
   onTimeoutRef.current = onTimeout;
 
   useEffect(() => {
-    timerRef.current = setTimeout(() => onTimeoutRef.current(), AUTO_ADVANCE_MS);
+    timerRef.current = setTimeout(() => onTimeoutRef.current(), FEEDBACK_AUTO_ADVANCE_MS);
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
@@ -233,33 +233,6 @@ export const UserFeedback = ({
               onSpeedChange={onSpeedChange}
               onReplay={onReplay}
             />
-          </div>
-          <div className="flex items-center gap-2 mt-6">
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <circle
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="#1D9E75"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <polyline
-                points="7.5 12 10.5 15.5 16.5 8.5"
-                stroke="#1D9E75"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            <p className="text-[18px] text-[#1D9E75]">bien hecho!</p>
           </div>
         </div>
       ) : (

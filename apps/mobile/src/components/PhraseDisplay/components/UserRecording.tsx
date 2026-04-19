@@ -7,9 +7,11 @@ import { PillButton } from "./PillButton";
 export const UserRecording = ({
   englishText,
   transcription,
+  isRecording,
   isCorrect,
   onShowAnswer,
 }: UserRecordingProps): JSX.Element => {
+  const showRecordingIndicator = isRecording && !isCorrect;
   const blinkOpacity = useRef(new Animated.Value(1)).current;
   const breatheScale = useRef(new Animated.Value(1)).current;
 
@@ -49,10 +51,12 @@ export const UserRecording = ({
 
         <Text style={styles.englishText}>{englishText}</Text>
 
-        <View style={styles.recordingRow}>
-          <Animated.View style={[styles.blinkerDot, { opacity: blinkOpacity }]} />
-          <Text style={styles.recordingLabel}>Recording</Text>
-        </View>
+        {showRecordingIndicator ? (
+          <View style={styles.recordingRow}>
+            <Animated.View style={[styles.blinkerDot, { opacity: blinkOpacity }]} />
+            <Text style={styles.recordingLabel}>Recording</Text>
+          </View>
+        ) : null}
 
         <View style={styles.transcriptArea}>
           <Text style={[styles.transcriptText, isCorrect && styles.transcriptCorrect]}>

@@ -8,18 +8,55 @@ const showAnswerPillClassName =
 export const UserRecording = ({
   englishText,
   transcription,
+  isRecording,
   isCorrect,
   onShowAnswer,
-}: UserRecordingProps): JSX.Element => (
-  <div className="relative flex-1 flex flex-col items-center justify-between w-full animate-screen-fade-in">
-    <div className="absolute top-0 right-0 z-10 flex items-center gap-2">
-      <div className="w-[10px] h-[10px] rounded-full bg-[#1D9E75] animate-recording-blink" />
-      <p className="text-[12px] text-gray-400">Recording</p>
-    </div>
+}: UserRecordingProps): JSX.Element => {
+  const showRecordingIndicator = isRecording && !isCorrect;
 
-    <div className="flex flex-col items-center flex-1 justify-center">
+  return (
+  <div className="relative flex-1 flex flex-col items-center justify-between w-full animate-screen-fade-in">
+    {showRecordingIndicator ? (
+      <div className="absolute top-0 right-0 z-10 flex items-center gap-2">
+        <div className="w-[10px] h-[10px] rounded-full bg-[#1D9E75] animate-recording-blink" />
+        <p className="text-[12px] text-gray-400">Recording</p>
+      </div>
+    ) : null}
+
+    <div className="relative flex-1 w-full min-h-0">
+      <div className="absolute left-1/2 top-1/2 w-full -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
+      {isCorrect ? (
+        <div className="flex items-center justify-center gap-2 mb-6 shrink-0">
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <circle
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="#1D9E75"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <polyline
+              points="7.5 12 10.5 15.5 16.5 8.5"
+              stroke="#1D9E75"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          <p className="text-[18px] text-[#1D9E75]">bien hecho!</p>
+        </div>
+      ) : null}
+
       <div
-        className={`w-[120px] h-[120px] rounded-full flex items-center justify-center animate-breathe-fast ${
+        className={`w-[120px] h-[120px] rounded-full flex items-center justify-center animate-breathe-fast shrink-0 ${
           isCorrect ? "bg-[#1D9E75]/70" : "bg-[#1D9E75]"
         }`}
       >
@@ -45,10 +82,11 @@ export const UserRecording = ({
         {englishText}
       </p>
 
-      <div className="mt-6 min-h-[28px] flex items-center justify-center">
+      <div className="mt-6 min-h-[28px] flex items-center justify-center px-4">
         <p className={`text-[18px] text-center ${isCorrect ? "text-[#1D9E75]" : "text-gray-500"}`}>
           {transcription}
         </p>
+      </div>
       </div>
     </div>
 
@@ -58,4 +96,5 @@ export const UserRecording = ({
       </button>
     </div>
   </div>
-);
+  );
+};

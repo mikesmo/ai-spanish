@@ -28,6 +28,7 @@ export const PhraseDisplay = ({ phrases }: PhraseDisplayProps): JSX.Element => {
         <UserRecording
           englishText={display.currentPhrase.English.question}
           transcription={display.caption}
+          isRecording={stt.isRecording}
           isCorrect={display.isCorrect}
           onShowAnswer={display.handleShowAnswer}
         />

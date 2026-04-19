@@ -2,6 +2,7 @@
 
 import { usePhraseDisplay } from "@ai-spanish/logic";
 import { useS3TTS, useSTT } from "@ai-spanish/ai";
+import { playSuccessChime } from "@/lib/playSuccessChime";
 import { AISpeaking } from "./components/AISpeaking";
 import { UserFeedback } from "./components/UserFeedback";
 import { UserRecording } from "./components/UserRecording";
@@ -10,7 +11,7 @@ import type { PhraseDisplayProps } from "./PhraseDisplay.types";
 export const PhraseDisplay = ({ phrases }: PhraseDisplayProps): JSX.Element => {
   const tts = useS3TTS();
   const stt = useSTT();
-  const display = usePhraseDisplay(phrases, stt, tts);
+  const display = usePhraseDisplay(phrases, stt, tts, { playSuccessChime });
 
   return (
     <div className="w-full max-w-[390px] mx-auto bg-white flex flex-col min-h-[100dvh] py-16 px-8">
@@ -30,6 +31,7 @@ export const PhraseDisplay = ({ phrases }: PhraseDisplayProps): JSX.Element => {
         <UserRecording
           englishText={display.currentPhrase.English.question}
           transcription={display.caption}
+          isRecording={stt.isRecording}
           isCorrect={display.isCorrect}
           onShowAnswer={display.handleShowAnswer}
         />

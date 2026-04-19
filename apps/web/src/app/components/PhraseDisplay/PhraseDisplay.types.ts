@@ -12,6 +12,7 @@ export interface AISpeakingProps {
 export interface UserRecordingProps {
   englishText: string;
   transcription: string;
+  isRecording: boolean;
   isCorrect: boolean;
   onShowAnswer: () => void;
 }

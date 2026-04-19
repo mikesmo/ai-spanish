@@ -1,12 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { normalizeStr } from './comparison';
+import { POST_SUCCESS_EXTRA_PAUSE_MS, WRONG_ANSWER_PAUSE_MS } from './phraseDisplayTiming';
 import type { Phrase, UIStatus, TTSAdapter, SpeechToTextHandle, PhraseDisplayAPI } from './types';
 
-
-
 const PLAYBACK_RATES: Record<'1x' | 'slow', number> = { '1x': 1.0, slow: 0.5 };
+
+const noopSuccessChime = async (_signal: AbortSignal): Promise<void> => {};
+
+export type UsePhraseDisplayOptions = {
+  /** Web: play a short success sound; must resolve when finished or reject on abort. */
+  playSuccessChime?: (signal: AbortSignal) => Promise<void>;
+};
 
 // UI flows through these states in order:
 //
@@ -16,12 +22,22 @@ const PLAYBACK_RATES: Record<'1x' | 'slow', number> = { '1x': 1.0, slow: 0.5 };
 export function usePhraseDisplay(
   phrases: Phrase[],
   stt: SpeechToTextHandle,
-  tts: TTSAdapter
+  tts: TTSAdapter,
+  options?: UsePhraseDisplayOptions,
 ): PhraseDisplayAPI {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [status, setStatus] = useState<UIStatus>('loading');
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const [speed, setSpeed] = useState<'1x' | 'slow'>('1x');
+
+  const playSuccessChime = options?.playSuccessChime ?? noopSuccessChime;
+  const playSuccessChimeRef = useRef(playSuccessChime);
+  playSuccessChimeRef.current = playSuccessChime;
+
+  const sttRef = useRef(stt);
+  const ttsRef = useRef(tts);
+  sttRef.current = stt;
+  ttsRef.current = tts;
 
   const currentPhrase = phrases[currentIndex];
   const englishText = currentPhrase.English.intro
@@ -33,6 +49,19 @@ export function usePhraseDisplay(
   const isCorrect =
     !!caption?.trim() && normalizeStr(caption) === normalizeStr(spanishText);
 
+  const handleShowAnswer = useCallback(async () => {
+    sttRef.current.stop();
+    setStatus('answer');
+    try {
+      setIsAudioPlaying(true);
+      await ttsRef.current.play(spanishText, 'es', undefined, currentIndex);
+    } catch (error) {
+      console.error('[usePhraseDisplay] Error playing Spanish:', error);
+    } finally {
+      setIsAudioPlaying(false);
+    }
+  }, [spanishText, currentIndex]);
+
   // On phrase change: prefetch both audios, play English prompt, then auto-start recording.
   useEffect(() => {
     setStatus('loading');
@@ -40,22 +69,18 @@ export function usePhraseDisplay(
     let cancelled = false;
 
     const init = async () => {
-      // #region agent log
-      // Hypothesis A: log what text is being displayed at each index
-      fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'b089b2'},body:JSON.stringify({sessionId:'b089b2',hypothesisId:'A',location:'usePhraseDisplay.ts:init',message:'phrase display state',data:{currentIndex,englishText,spanishText},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       try {
         await Promise.all([
-          tts.prefetch(englishText, 'en', currentIndex),
-          tts.prefetch(spanishText, 'es', currentIndex),
+          ttsRef.current.prefetch(englishText, 'en', currentIndex),
+          ttsRef.current.prefetch(spanishText, 'es', currentIndex),
         ]);
         if (cancelled) return;
         setStatus('idle');
         setIsAudioPlaying(true);
-        await tts.play(englishText, 'en', undefined, currentIndex);
+        await ttsRef.current.play(englishText, 'en', undefined, currentIndex);
         if (cancelled) return;
-        stt.clearTranscription();
-        stt.start();
+        sttRef.current.clearTranscription();
+        sttRef.current.start();
       } catch (error) {
         if (!cancelled) {
           console.error('[usePhraseDisplay] Error loading phrase audio:', error);
@@ -66,11 +91,11 @@ export function usePhraseDisplay(
       }
     };
 
-    init();
+    void init();
 
     return () => {
       cancelled = true;
-      tts.stop();
+      ttsRef.current.stop();
     };
   }, [currentIndex]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -81,50 +106,66 @@ export function usePhraseDisplay(
     }
   }, [stt.isRecording]);
 
-  const handleShowAnswer = async () => {
-    stt.stop();
-    setStatus('answer');
-    try {
-      setIsAudioPlaying(true);
-      await tts.play(spanishText, 'es', undefined, currentIndex);
-    } catch (error) {
-      console.error('[usePhraseDisplay] Error playing Spanish:', error);
-    } finally {
-      setIsAudioPlaying(false);
-    }
-  };
-
-  // Stop as soon as the transcript matches — even on an interim result.
+  // Correct: chime, then pause, then Spanish answer.
   useEffect(() => {
-    if (isCorrect && (status === 'recording' || status === 'tryAgain')) {
-      stt.stop();
-      setTimeout(() => handleShowAnswer(), 2000);
+    if (!isCorrect || (status !== 'recording' && status !== 'tryAgain')) {
+      return;
     }
-  }, [isCorrect]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // When Deepgram marks a final transcript and it's wrong, advance to feedback.
+    const ac = new AbortController();
+    let postSoundTimer: ReturnType<typeof setTimeout> | null = null;
+
+    void (async () => {
+      await Promise.resolve(sttRef.current.stop());
+      if (ac.signal.aborted) return;
+      try {
+        await playSuccessChimeRef.current(ac.signal);
+      } catch {
+        if (ac.signal.aborted) return;
+      }
+      if (ac.signal.aborted) return;
+
+      postSoundTimer = setTimeout(() => {
+        postSoundTimer = null;
+        if (!ac.signal.aborted) void handleShowAnswer();
+      }, POST_SUCCESS_EXTRA_PAUSE_MS);
+    })();
+
+    return () => {
+      ac.abort();
+      if (postSoundTimer !== null) clearTimeout(postSoundTimer);
+    };
+  }, [isCorrect, status, currentIndex, handleShowAnswer]);
+
+  // Final wrong transcript: pause, then Spanish answer.
   useEffect(() => {
-    if (stt.isFinal && !isCorrect && (status === 'recording' || status === 'tryAgain')) {
-      setTimeout(() => handleShowAnswer(), 2000);
+    if (!stt.isFinal || isCorrect || (status !== 'recording' && status !== 'tryAgain')) {
+      return;
     }
-  }, [stt.isFinal]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const t = setTimeout(() => {
+      void handleShowAnswer();
+    }, WRONG_ANSWER_PAUSE_MS);
+
+    return () => clearTimeout(t);
+  }, [stt.isFinal, isCorrect, status, currentIndex, handleShowAnswer]);
 
   const handleTryAgain = () => {
-    tts.stop();
-    stt.clearTranscription();
+    ttsRef.current.stop();
+    sttRef.current.clearTranscription();
     setStatus('tryAgain');
-    stt.start();
+    sttRef.current.start();
   };
 
   const handleNext = () => {
-    stt.clearTranscription();
+    sttRef.current.clearTranscription();
     setCurrentIndex((i) => (i + 1) % phrases.length);
   };
 
   const handleReplay = async () => {
     try {
       setIsAudioPlaying(true);
-      await tts.play(spanishText, 'es', PLAYBACK_RATES[speed], currentIndex);
+      await ttsRef.current.play(spanishText, 'es', PLAYBACK_RATES[speed], currentIndex);
     } catch (error) {
       console.error('[usePhraseDisplay] Error replaying Spanish:', error);
     } finally {
