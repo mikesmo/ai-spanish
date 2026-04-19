@@ -2,6 +2,9 @@
 
 import type { UserRecordingProps } from "../PhraseDisplay.types";
 
+const showAnswerPillClassName =
+  "relative w-full overflow-hidden rounded-full bg-white border border-gray-200 h-[54px] flex items-center justify-center shadow-sm";
+
 export const UserRecording = ({
   englishText,
   transcription,
@@ -44,16 +47,13 @@ export const UserRecording = ({
       </div>
     </div>
 
-    <div className="flex flex-col items-center gap-6">
+    <div className="flex flex-col items-center gap-6 w-full">
       <div className="flex items-center gap-2">
         <div className="w-[10px] h-[10px] rounded-full bg-[#1D9E75] animate-recording-blink" />
         <p className="text-[12px] text-gray-400">Recording</p>
       </div>
-      <button
-        onClick={onShowAnswer}
-        className="text-[13px] text-gray-400 hover:text-gray-600 transition-colors"
-      >
-        show answer
+      <button type="button" onClick={onShowAnswer} className={showAnswerPillClassName}>
+        <span className="relative z-10 text-[16px] font-medium text-gray-900">show answer</span>
       </button>
     </div>
   </div>
