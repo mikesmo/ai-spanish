@@ -6,7 +6,7 @@
     },
     "Spanish": {
       "grammar": "",
-      "question": "¿Dónde se pueden comprar manzanas?"
+      "answer": "¿Dónde se pueden comprar manzanas?"
     }
   },
   {
@@ -16,7 +16,7 @@
     },
     "Spanish": {
       "grammar": "",
-      "question": "Puedes comprarlas en la tienda de comestibles"
+      "answer": "Puedes comprarlas en la tienda de comestibles"
     }
   },
   {
@@ -26,7 +26,7 @@
     },
     "Spanish": {
       "grammar": "",
-      "question": "No está lejos"
+      "answer": "No está lejos"
     }
   },
   {
@@ -36,7 +36,7 @@
     },
     "Spanish": {
       "grammar": "",
-      "question": "Tengo que ir al banco"
+      "answer": "Tengo que ir al banco"
     }
   },
   {
@@ -46,7 +46,7 @@
     },
     "Spanish": {
       "grammar": "",
-      "question": "Necesito enviar una carta"
+      "answer": "Necesito enviar una carta"
     }
   },
   {
@@ -56,7 +56,7 @@
     },
     "Spanish": {
       "grammar": "",
-      "question": "Ahora mismo"
+      "answer": "Ahora mismo"
     }
   },
   {
@@ -66,7 +66,7 @@
     },
     "Spanish": {
       "grammar": "",
-      "question": "¿Quieres algo?"
+      "answer": "¿Quieres algo?"
     }
   },
   {
@@ -76,7 +76,7 @@
     },
     "Spanish": {
       "grammar": "",
-      "question": "No, pero te recomiendo que te lleves la chaqueta"
+      "answer": "No, pero te recomiendo que te lleves la chaqueta"
     }
   },
   {
@@ -86,7 +86,7 @@
     },
     "Spanish": {
       "grammar": "",
-      "question": "Está nevando mucho"
+      "answer": "Está nevando mucho"
     }
   },
   {
@@ -96,7 +96,7 @@
     },
     "Spanish": {
       "grammar": "",
-      "question": "Me viene bien porque…"
+      "answer": "Me viene bien porque…"
     }
   },
   {
@@ -106,7 +106,7 @@
     },
     "Spanish": {
       "grammar": "",
-      "question": "Quiero enviar una carta a Francia"
+      "answer": "Quiero enviar una carta a Francia"
     }
   },
   {
@@ -116,7 +116,7 @@
     },
     "Spanish": {
       "grammar": "",
-      "question": "Puedo venir contigo"
+      "answer": "Puedo venir contigo"
     }
   },
   {
@@ -126,7 +126,7 @@
     },
     "Spanish": {
       "grammar": "",
-      "question": "Voy a la librería a comprar una novela"
+      "answer": "Voy a la librería a comprar una novela"
     }
   },
   {
@@ -136,7 +136,7 @@
     },
     "Spanish": {
       "grammar": "",
-      "question": "Tengo que comprar bebidas"
+      "answer": "Tengo que comprar bebidas"
     }
   },
   {
@@ -146,7 +146,7 @@
     },
     "Spanish": {
       "grammar": "",
-      "question": "Necesito zanahorias"
+      "answer": "Necesito zanahorias"
     }
   },
   {
@@ -156,7 +156,7 @@
     },
     "Spanish": {
       "grammar": "",
-      "question": "Y plátanos"
+      "answer": "Y plátanos"
     }
   },
   {
@@ -166,7 +166,7 @@
     },
     "Spanish": {
       "grammar": "",
-      "question": "Manzanas rojas"
+      "answer": "Manzanas rojas"
     }
   },
   {
@@ -176,7 +176,7 @@
     },
     "Spanish": {
       "grammar": "",
-      "question": "¿Cuáles prefieres, manzanas rojas o manzanas verdes?"
+      "answer": "¿Cuáles prefieres, manzanas rojas o manzanas verdes?"
     }
   },
   {
@@ -186,7 +186,7 @@
     },
     "Spanish": {
       "grammar": "",
-      "question": "Me gustan ambas"
+      "answer": "Me gustan ambas"
     }
   },
   {
@@ -196,7 +196,7 @@
     },
     "Spanish": {
       "grammar": "",
-      "question": "Voy a comprar manzanas rojas y verdes para ti"
+      "answer": "Voy a comprar manzanas rojas y verdes para ti"
     }
   },
   {
@@ -206,7 +206,7 @@
     },
     "Spanish": {
       "grammar": "",
-      "question": "Al lado del banco hay una panadería"
+      "answer": "Al lado del banco hay una panadería"
     }
   },
   {
@@ -216,7 +216,7 @@
     },
     "Spanish": {
       "grammar": "",
-      "question": "Quizá no deberías venir conmigo"
+      "answer": "Quizá no deberías venir conmigo"
     }
   },
   {
@@ -226,7 +226,7 @@
     },
     "Spanish": {
       "grammar": "",
-      "question": "No necesito bebidas"
+      "answer": "No necesito bebidas"
     }
   },
   {
@@ -236,7 +236,7 @@
     },
     "Spanish": {
       "grammar": "",
-      "question": "¿Puedes comprarme pañuelos?"
+      "answer": "¿Puedes comprarme pañuelos?"
     }
   },
   {
@@ -246,7 +246,7 @@
     },
     "Spanish": {
       "grammar": "",
-      "question": "¿Qué te pasa?"
+      "answer": "¿Qué te pasa?"
     }
   },
   {
@@ -256,7 +256,7 @@
     },
     "Spanish": {
       "grammar": "",
-      "question": "No lo sé, creo que solo tengo sueño"
+      "answer": "No lo sé, creo que solo tengo sueño"
     }
   },
   {
@@ -266,7 +266,7 @@
     },
     "Spanish": {
       "grammar": "",
-      "question": "Mi estómago"
+      "answer": "Mi estómago"
     }
   },
   {
@@ -276,7 +276,7 @@
     },
     "Spanish": {
       "grammar": "",
-      "question": "Me duele el estómago"
+      "answer": "Me duele el estómago"
     }
   },
   {
@@ -286,7 +286,7 @@
     },
     "Spanish": {
       "grammar": "",
-      "question": "Quizás tengas indigestión"
+      "answer": "Quizás tengas indigestión"
     }
   },
   {
@@ -296,7 +296,7 @@
     },
     "Spanish": {
       "grammar": "",
-      "question": "Sí, probablemente"
+      "answer": "Sí, probablemente"
     }
   },
   {
@@ -306,7 +306,7 @@
     },
     "Spanish": {
       "grammar": "",
-      "question": "Probablemente tengo indigestión"
+      "answer": "Probablemente tengo indigestión"
     }
   },
   {
@@ -316,7 +316,7 @@
     },
     "Spanish": {
       "grammar": "",
-      "question": "Estoy cansado y me duele el estómago"
+      "answer": "Estoy cansado y me duele el estómago"
     }
   },
   {
@@ -326,7 +326,7 @@
     },
     "Spanish": {
       "grammar": "",
-      "question": "Puedo comprarte pañuelos"
+      "answer": "Puedo comprarte pañuelos"
     }
   },
   {
@@ -336,7 +336,7 @@
     },
     "Spanish": {
       "grammar": "",
-      "question": "¿Qué ha pasado?"
+      "answer": "¿Qué ha pasado?"
     }
   },
   {
@@ -346,7 +346,7 @@
     },
     "Spanish": {
       "grammar": "",
-      "question": "Necesito el abrigo"
+      "answer": "Necesito el abrigo"
     }
   },
   {
@@ -356,7 +356,7 @@
     },
     "Spanish": {
       "grammar": "",
-      "question": "Está nevando"
+      "answer": "Está nevando"
     }
   },
   {
@@ -366,7 +366,7 @@
     },
     "Spanish": {
       "grammar": "",
-      "question": "¿Es el rojo?"
+      "answer": "¿Es el rojo?"
     }
   },
   {
@@ -376,7 +376,7 @@
     },
     "Spanish": {
       "grammar": "",
-      "question": "No, mi abrigo es marrón"
+      "answer": "No, mi abrigo es marrón"
     }
   },
   {
@@ -386,7 +386,7 @@
     },
     "Spanish": {
       "grammar": "",
-      "question": "Está nevando otra vez"
+      "answer": "Está nevando otra vez"
     }
   },
   {
@@ -396,7 +396,7 @@
     },
     "Spanish": {
       "grammar": "",
-      "question": "Tus pañuelos"
+      "answer": "Tus pañuelos"
     }
   },
   {
@@ -406,7 +406,7 @@
     },
     "Spanish": {
       "grammar": "",
-      "question": "Todavía me duele el estómago"
+      "answer": "Todavía me duele el estómago"
     }
   },
   {
@@ -416,7 +416,7 @@
     },
     "Spanish": {
       "grammar": "",
-      "question": "He comprado manzanas rojas y verdes"
+      "answer": "He comprado manzanas rojas y verdes"
     }
   }
 ]
