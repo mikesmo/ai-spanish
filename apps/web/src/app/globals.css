@@ -3,11 +3,19 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --pill-secondary-bg: #ffffff;
+  --pill-secondary-fg: #111827;
+  --pill-border: #e5e7eb;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-primary: #1d9e75;
+  --color-primary-foreground: #ffffff;
+  --color-pill-secondary: var(--pill-secondary-bg);
+  --color-pill-secondary-foreground: var(--pill-secondary-fg);
+  --color-pill-border: var(--pill-border);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -16,6 +24,9 @@
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+    --pill-secondary-bg: #171717;
+    --pill-secondary-fg: #ededed;
+    --pill-border: #374151;
   }
 }
 

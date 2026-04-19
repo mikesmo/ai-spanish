@@ -16,18 +16,36 @@ interface AutoNextButtonProps {
 const AUTO_ADVANCE_MS = 2000;
 const NEXT_PHRASE_LABEL = "Next phrase";
 
-const autoNextPillClassName =
-  "relative w-full overflow-hidden rounded-full bg-white border border-gray-200 h-[54px] flex items-center justify-center shadow-sm";
+const pillShellClassName =
+  "relative w-full overflow-hidden rounded-full h-[54px] flex items-center justify-center shadow-sm";
+
+const pillSecondaryClassName = `${pillShellClassName} bg-pill-secondary border border-pill-border`;
+const pillPrimaryClassName = `${pillShellClassName} bg-primary border border-primary`;
 
 interface PillNavButtonProps {
   label: string;
   onClick: () => void;
+  variant?: "primary" | "secondary";
 }
 
 /** Same shell as Continue / Next; no progress layer or timer. */
-const PillNavButton = ({ label, onClick }: PillNavButtonProps): JSX.Element => (
-  <button type="button" onClick={onClick} className={autoNextPillClassName}>
-    <span className="relative z-10 text-[16px] font-medium text-gray-900">{label}</span>
+const PillNavButton = ({
+  label,
+  onClick,
+  variant = "secondary",
+}: PillNavButtonProps): JSX.Element => (
+  <button
+    type="button"
+    onClick={onClick}
+    className={variant === "primary" ? pillPrimaryClassName : pillSecondaryClassName}
+  >
+    <span
+      className={`relative z-10 text-[16px] font-medium ${
+        variant === "primary" ? "text-primary-foreground" : "text-pill-secondary-foreground"
+      }`}
+    >
+      {label}
+    </span>
   </button>
 );
 
@@ -51,9 +69,11 @@ const AutoNextButton = ({ label, onPress, onTimeout }: AutoNextButtonProps): JSX
   };
 
   return (
-    <button type="button" onClick={handleClick} className={autoNextPillClassName}>
+    <button type="button" onClick={handleClick} className={pillSecondaryClassName}>
       <span className="absolute inset-y-0 left-0 bg-[#A8DDD0] animate-progress-fill" />
-      <span className="relative z-10 text-[16px] font-medium text-gray-900">{label}</span>
+      <span className="relative z-10 text-[16px] font-medium text-pill-secondary-foreground">
+        {label}
+      </span>
     </button>
   );
 };
@@ -272,15 +292,11 @@ export const UserFeedback = ({
           <NextPhraseAfterAudioButton isAudioPlaying={isAudioPlaying} onNext={onNext} />
         ) : (
           <div className="flex flex-col items-center gap-4">
-            <button
-              type="button"
-              onClick={onTryAgain}
-              className="text-[13px] text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              try again
-            </button>
-            <PillNavButton label={NEXT_PHRASE_LABEL} onClick={onNext} />
+            <PillNavButton label={NEXT_PHRASE_LABEL} onClick={onNext} variant="secondary" />
+            <PillNavButton label="Try again" onClick={onTryAgain} variant="primary" />
+       
           </div>
+     
         )}
       </div>
     </div>
