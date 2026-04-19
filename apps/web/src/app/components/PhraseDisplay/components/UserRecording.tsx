@@ -11,7 +11,12 @@ export const UserRecording = ({
   isCorrect,
   onShowAnswer,
 }: UserRecordingProps): JSX.Element => (
-  <div className="flex-1 flex flex-col items-center justify-between w-full animate-screen-fade-in">
+  <div className="relative flex-1 flex flex-col items-center justify-between w-full animate-screen-fade-in">
+    <div className="absolute top-0 right-0 z-10 flex items-center gap-2">
+      <div className="w-[10px] h-[10px] rounded-full bg-[#1D9E75] animate-recording-blink" />
+      <p className="text-[12px] text-gray-400">Recording</p>
+    </div>
+
     <div className="flex flex-col items-center flex-1 justify-center">
       <div
         className={`w-[120px] h-[120px] rounded-full flex items-center justify-center animate-breathe-fast ${
@@ -47,11 +52,7 @@ export const UserRecording = ({
       </div>
     </div>
 
-    <div className="flex flex-col items-center gap-6 w-full">
-      <div className="flex items-center gap-2">
-        <div className="w-[10px] h-[10px] rounded-full bg-[#1D9E75] animate-recording-blink" />
-        <p className="text-[12px] text-gray-400">Recording</p>
-      </div>
+    <div className="flex flex-col items-center w-full">
       <button type="button" onClick={onShowAnswer} className={showAnswerPillClassName}>
         <span className="relative z-10 text-[16px] font-medium text-gray-900">show answer</span>
       </button>

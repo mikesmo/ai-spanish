@@ -49,6 +49,11 @@ export const UserRecording = ({
 
         <Text style={styles.englishText}>{englishText}</Text>
 
+        <View style={styles.recordingRow}>
+          <Animated.View style={[styles.blinkerDot, { opacity: blinkOpacity }]} />
+          <Text style={styles.recordingLabel}>Recording</Text>
+        </View>
+
         <View style={styles.transcriptArea}>
           <Text style={[styles.transcriptText, isCorrect && styles.transcriptCorrect]}>
             {transcription}
@@ -57,10 +62,6 @@ export const UserRecording = ({
       </View>
 
       <View style={styles.bottomControls}>
-        <View style={styles.recordingRow}>
-          <Animated.View style={[styles.blinkerDot, { opacity: blinkOpacity }]} />
-          <Text style={styles.recordingLabel}>Recording</Text>
-        </View>
         <PillButton label="show answer" onPress={onShowAnswer} variant="secondary" />
       </View>
     </View>
@@ -101,7 +102,7 @@ const styles = StyleSheet.create({
     opacity: 0.55,
   },
   transcriptArea: {
-    marginTop: 24,
+    marginTop: 16,
     minHeight: 28,
     alignItems: "center",
     justifyContent: "center",
@@ -125,6 +126,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
+    marginTop: 12,
   },
   blinkerDot: {
     width: 10,
