@@ -43,13 +43,16 @@ const DEFAULT_OUT = path.resolve(process.cwd(), 'output');
 
 function parseArgs(argv: string[]): CliOptions {
   const args = argv.slice(2);
-  let inputPath = DEFAULT_INPUT;
+  let inputPath = process.env.TRANSCRIPT_INPUT
+    ? path.resolve(process.cwd(), process.env.TRANSCRIPT_INPUT)
+    : DEFAULT_INPUT;
   let outDir = DEFAULT_OUT;
   let bucket: string | undefined = process.env.S3_BUCKET_NAME;
   let force = false;
   let localOnly = false;
   let uploadOnly = false;
   let lesson: string | undefined;
+  let noAudioPos = false;
 
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
@@ -67,13 +70,15 @@ function parseArgs(argv: string[]): CliOptions {
       localOnly = true;
     } else if (a === '--upload-only') {
       uploadOnly = true;
+    } else if (a === '--no-audio-pos') {
+      noAudioPos = true;
     } else if (a === '--help' || a === '-h') {
       printHelp();
       process.exit(0);
     }
   }
 
-  return { inputPath, outDir, bucket, force, localOnly, uploadOnly, lesson };
+  return { inputPath, outDir, bucket, force, localOnly, uploadOnly, lesson, noAudioPos };
 }
 
 /** CLI --lesson overrides S3_LESSON env. */
@@ -91,14 +96,15 @@ Usage:
   npm run tts:batch -- [options]
 
 Options:
-  --input, -i   Path to transcript JSON (default: apps/web/public/transcript.json from cwd)
-  --out, -o     Output directory (default: ./output)
-  --bucket, -b  S3 bucket name (default: S3_BUCKET_NAME env)
-  --force       Regenerate all audio (ignore cache)
-  --local-only  Write audio + manifest to disk only; skip S3 (no AWS credentials needed)
-  --upload-only Upload existing manifest + audio from --out to S3; no Deepgram (no DEEPGRAM_API_KEY)
-  --lesson      Optional folder under AUDIO_CONTENT_PREFIX (overrides S3_LESSON), e.g. lesson1
-  --help, -h    Show this help
+  --input, -i     Path to transcript JSON (default: TRANSCRIPT_INPUT env or apps/web/public/transcript.json)
+  --out, -o       Output directory (default: ./output)
+  --bucket, -b    S3 bucket name (default: S3_BUCKET_NAME env)
+  --force         Regenerate all audio (ignore cache)
+  --local-only    Write audio + manifest to disk only; skip S3 (no AWS credentials needed)
+  --upload-only   Upload existing manifest + audio from --out to S3; no Deepgram (no DEEPGRAM_API_KEY)
+  --lesson        Optional folder under AUDIO_CONTENT_PREFIX (overrides S3_LESSON), e.g. lesson1
+  --no-audio-pos  Skip ffmpeg post-processing (50 ms fade-out + 5 ms tail trim); write raw Deepgram output (requires no ffmpeg)
+  --help, -h      Show this help
 
 Examples:
   npm run tts:batch -- --upload-only --bucket my-bucket
@@ -109,6 +115,7 @@ Environment:
   AWS_* / S3_BUCKET_NAME  Required unless --local-only; required for --upload-only
   AUDIO_CONTENT_PREFIX    S3 key prefix (default: audio-content); single segment, e.g. audio-content
   S3_LESSON               Optional lesson segment if --lesson not passed
+  TRANSCRIPT_INPUT        Path to transcript JSON; overrides the built-in default (overridden by --input)
 `);
 }
 
@@ -221,7 +228,7 @@ async function main(): Promise<void> {
 
   const tasks = jobs.map((job) =>
     limit(async (): Promise<{ job: TtsJob; entry: ManifestEntry; didGenerate: boolean }> => {
-      const hash = computeJobHash(job.text, job.voice);
+      const hash = computeJobHash(job.text, job.voice, opts.noAudioPos);
       const skip = await shouldSkipJob(job, hash, opts.force, cache, opts.outDir);
       if (skip) {
         const createdAt = new Date().toISOString();
@@ -242,7 +249,7 @@ async function main(): Promise<void> {
       const buffer = await withRetry(() =>
         synthesizeToBuffer(job.text, job.language, apiKey)
       );
-      const rel = await writeAudioFile(opts.outDir, job, buffer);
+      const rel = await writeAudioFile(opts.outDir, job, buffer, opts.noAudioPos);
       const createdAt = new Date().toISOString();
       console.log(`  OK ${job.id}`);
       return {

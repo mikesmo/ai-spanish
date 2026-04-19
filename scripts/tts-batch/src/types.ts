@@ -38,4 +38,6 @@ export interface CliOptions {
   uploadOnly: boolean;
   /** Optional lesson segment under AUDIO_CONTENT_PREFIX; overrides S3_LESSON env. */
   lesson: string | undefined;
+  /** Skip ffmpeg post-processing (fade-out + tail trim); write raw Deepgram output as-is. */
+  noAudioPos: boolean;
 }

@@ -4,6 +4,17 @@ Batch-generates MP3 clips from the bilingual transcript using [Deepgram](https:/
 
 Run commands from the **monorepo root** so default paths resolve (`apps/web/public/transcript.json`, `./output`).
 
+## System requirements
+
+- **Node.js** (see repo root for version)
+- **ffmpeg** (with ffprobe) — required for audio post-processing (enabled by default). Install on macOS:
+
+  ```bash
+  brew install ffmpeg
+  ```
+
+  If you pass `--no-audio-pos`, ffmpeg/ffprobe are not needed.
+
 ## Setup
 
 1. Install dependencies at the repo root: `npm install`
@@ -30,6 +41,7 @@ Run commands from the **monorepo root** so default paths resolve (`apps/web/publ
 | `S3_BUCKET_NAME` | Bucket **name only** (e.g. `my-bucket`). Do not use `s3://...` or paths |
 | `AUDIO_CONTENT_PREFIX` | Single path segment for S3 keys; default in code: `audio-content` |
 | `S3_LESSON` | Optional lesson folder under the prefix (overridden by `--lesson`) |
+| `TRANSCRIPT_INPUT` | Path to transcript JSON (relative to cwd or absolute); default: `apps/web/public/transcript.json`. Overridden by `--input` |
 
 Secrets belong in `.env` (gitignored). Never commit real keys.
 
@@ -37,20 +49,32 @@ Secrets belong in `.env` (gitignored). Never commit real keys.
 
 | Flag | Description |
 |------|-------------|
-| `--input`, `-i` | Transcript JSON (default: `apps/web/public/transcript.json` from cwd) |
+| `--input`, `-i` | Transcript JSON (default: `TRANSCRIPT_INPUT` env, then `apps/web/public/transcript.json`) |
 | `--out`, `-o` | Output directory (default: `./output`) |
 | `--bucket`, `-b` | S3 bucket name (default: `S3_BUCKET_NAME`) |
 | `--lesson` | Optional segment under `AUDIO_CONTENT_PREFIX` (overrides `S3_LESSON`) |
 | `--force` | Regenerate all clips; ignore hash cache |
 | `--local-only` | Write `output/` only; no S3, no AWS keys required |
 | `--upload-only` | Upload existing `output/` to S3; no Deepgram calls |
+| `--no-audio-pos` | Skip ffmpeg post-processing; write raw Deepgram output (no ffmpeg required) |
 | `--help`, `-h` | Show help |
 
 ## Modes
 
-- **Default:** synthesize missing/changed clips (with cache), write `manifest.json`, then upload to S3 if credentials and bucket are set.
+- **Default:** synthesize missing/changed clips (with cache), apply audio post-processing, write `manifest.json`, then upload to S3 if credentials and bucket are set.
 - **`--local-only`:** synthesize only; manifest omits `s3Key` until a later upload with the same layout config.
 - **`--upload-only`:** read `output/manifest.json`, recompute S3 keys from current `AUDIO_CONTENT_PREFIX` / `--lesson` / `S3_LESSON`, upload MP3s and manifest. Incompatible with `--local-only` and `--force`.
+
+## Audio post-processing
+
+Each generated MP3 is post-processed by ffmpeg after Deepgram synthesis:
+
+1. **50 ms fade-out** applied at the end of the clip (`afade=t=out`).
+2. **5 ms tail trim** to remove any residual click after the fade.
+
+This eliminates the audible click/pop that Deepgram occasionally appends. The post-process pipeline version is included in the cache hash, so upgrading the pipeline automatically regenerates clips on the next run.
+
+Pass `--no-audio-pos` to write Deepgram output as-is (useful for debugging raw TTS audio). Raw and processed clips have separate cache entries, so switching the flag is always safe.
 
 ## Local output
 

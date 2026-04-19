@@ -10,6 +10,7 @@ import {
   normalizeLessonSegment,
 } from '@ai-spanish/logic';
 
+import { postProcessMp3 } from './ffmpeg-post.js';
 import type { ManifestEntry, S3PathConfig, TtsJob } from './types.js';
 
 export { DEFAULT_AUDIO_CONTENT_PREFIX, normalizeAudioContentPrefix, normalizeLessonSegment };
@@ -34,13 +35,23 @@ export function s3ManifestObjectKey(config: S3PathConfig): string {
 }
 
 /**
- * Deterministic hash for cache invalidation: same text + voice → same hash.
+ * Identifies the current post-processing pipeline so that toggling
+ * --no-audio-pos or changing the fade/trim parameters busts the cache.
  */
-export function computeJobHash(text: string, voice: string): string {
+const AUDIO_PP_VERSION = 'audio-pp-v1:fade50ms+trim5ms';
+
+/**
+ * Deterministic hash for cache invalidation: same text + voice → same hash.
+ * Pass `noAudioPos: true` when post-processing is skipped so raw and processed
+ * outputs never share a cache entry.
+ */
+export function computeJobHash(text: string, voice: string, noAudioPos = false): string {
   const h = createHash('sha256');
   h.update(text, 'utf8');
   h.update('|', 'utf8');
   h.update(voice, 'utf8');
+  h.update('|', 'utf8');
+  h.update(noAudioPos ? 'raw' : AUDIO_PP_VERSION, 'utf8');
   return `sha256:${h.digest('hex')}`;
 }
 
@@ -87,12 +98,16 @@ export async function writeHashCache(
 export async function writeAudioFile(
   outDir: string,
   job: TtsJob,
-  buffer: ArrayBuffer
+  buffer: ArrayBuffer,
+  noAudioPos = false
 ): Promise<string> {
   const rel = audioRelativePath(job.id);
   const abs = path.join(outDir, rel);
   await ensureDir(path.dirname(abs));
   await fs.writeFile(abs, Buffer.from(buffer));
+  if (!noAudioPos) {
+    await postProcessMp3(abs);
+  }
   return rel;
 }
 
