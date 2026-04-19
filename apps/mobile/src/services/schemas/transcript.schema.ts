@@ -7,7 +7,7 @@ export const phraseSchema = z.object({
   }),
   Spanish: z.object({
     grammar: z.string(),
-    question: z.string(),
+    answer: z.string(),
   }),
 });
 

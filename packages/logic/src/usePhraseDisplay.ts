@@ -43,7 +43,7 @@ export function usePhraseDisplay(
   const englishText = currentPhrase.English.intro
     ? `${currentPhrase.English.intro}: ${currentPhrase.English.question}`
     : currentPhrase.English.question;
-  const spanishText = currentPhrase.Spanish.question;
+  const spanishText = currentPhrase.Spanish.answer;
   const caption = stt.caption;
 
   const isCorrect =

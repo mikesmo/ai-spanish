@@ -37,7 +37,7 @@ dotenv.config();
 
 const DEFAULT_INPUT = path.resolve(
   process.cwd(),
-  'apps/web/public/transcript.json'
+  'apps/web/public/lesson1.json'
 );
 const DEFAULT_OUT = path.resolve(process.cwd(), 'output');
 
@@ -90,13 +90,13 @@ function resolveS3PathConfig(opts: CliOptions): S3PathConfig {
 
 function printHelp(): void {
   console.log(`
-TTS batch — Deepgram TTS from transcript.json
+TTS batch — Deepgram TTS from lesson1.json
 
 Usage:
   npm run tts:batch -- [options]
 
 Options:
-  --input, -i     Path to transcript JSON (default: TRANSCRIPT_INPUT env or apps/web/public/transcript.json)
+  --input, -i     Path to transcript JSON (default: TRANSCRIPT_INPUT env or apps/web/public/lesson1.json)
   --out, -o       Output directory (default: ./output)
   --bucket, -b    S3 bucket name (default: S3_BUCKET_NAME env)
   --force         Regenerate all audio (ignore cache)

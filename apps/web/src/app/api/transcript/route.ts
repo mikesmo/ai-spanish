@@ -5,7 +5,7 @@ import path from 'path';
 export async function GET() {
   try {
     // Read the JSON file from the public directory
-    const jsonPath = path.join(process.cwd(), 'public', 'transcript.json');
+    const jsonPath = path.join(process.cwd(), 'public', 'lesson1.json');
     const fileContent = fs.readFileSync(jsonPath, 'utf8');
     
     // Parse the JSON content

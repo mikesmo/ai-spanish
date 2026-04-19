@@ -29,11 +29,11 @@ export function buildTtsJobs(phrases: Phrase[]): TtsJob[] {
         voice: VOICE_BY_LANGUAGE.en,
       });
     }
-    if (isNonEmpty(phrase.Spanish.question)) {
+    if (isNonEmpty(phrase.Spanish.answer)) {
       jobs.push({
         id: `${i}-es-question`,
         language: 'es',
-        text: phrase.Spanish.question,
+        text: phrase.Spanish.answer,
         voice: VOICE_BY_LANGUAGE.es,
       });
     }

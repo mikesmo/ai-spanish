@@ -48,12 +48,12 @@ bun dev
 
 ## Project Structure
 
-- `public/transcript.json` - JSON file containing Spanish phrases and their English translations
+- `public/lesson1.json` - JSON file containing Spanish phrases and their English translations
 - `src/app/page.tsx` - Main homepage component that reads and displays the phrases
 
 ## Modifying the Content
 
-To change the displayed phrases, edit the `public/transcript.json` file. The app will automatically display the updated content. The JSON structure should be an array of objects with "English" and "Spanish" properties.
+To change the displayed phrases, edit the `public/lesson1.json` file. The app will automatically display the updated content. The JSON structure should be an array of objects with "English" and "Spanish" properties.
 
 Example format:
 ```json

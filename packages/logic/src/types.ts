@@ -2,7 +2,7 @@ export type Language = 'en' | 'es';
 
 export type Phrase = {
   English: { intro: string; question: string };
-  Spanish: { grammar: string; question: string };
+  Spanish: { grammar: string; answer: string };
 };
 
 export type UIStatus = 'loading' | 'idle' | 'recording' | 'answer' | 'tryAgain';
