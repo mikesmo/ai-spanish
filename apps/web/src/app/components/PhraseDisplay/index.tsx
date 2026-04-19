@@ -13,11 +13,12 @@ export const PhraseDisplay = ({ phrases }: PhraseDisplayProps): JSX.Element => {
   const display = usePhraseDisplay(phrases, stt, tts);
 
   return (
-    <div className="w-full max-w-[390px] mx-auto bg-white flex flex-col items-center py-16 px-8 min-h-[500px]">
-      <p className="text-[13px] text-gray-400 self-end mb-8">
+    <div className="w-full max-w-[390px] mx-auto bg-white flex flex-col min-h-[100dvh] py-16 px-8">
+      <p className="text-[13px] text-gray-400 self-end mb-8 shrink-0">
         {display.currentIndex + 1} / {display.totalPhrases}
       </p>
 
+      <div className="flex-1 flex flex-col min-h-0 w-full">
       {(display.status === "loading" || display.status === "idle") && (
         <AISpeaking
           isLoading={display.status === "loading"}
@@ -47,6 +48,7 @@ export const PhraseDisplay = ({ phrases }: PhraseDisplayProps): JSX.Element => {
           onNext={display.handleNext}
         />
       )}
+      </div>
     </div>
   );
 };

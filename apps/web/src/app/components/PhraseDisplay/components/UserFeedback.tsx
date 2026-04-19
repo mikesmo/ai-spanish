@@ -1,10 +1,78 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import type {
   DiffWordResult,
   UserFeedbackProps,
 } from "../PhraseDisplay.types";
 import { diffWords } from "../utils/diff-words";
+
+interface AutoNextButtonProps {
+  label: string;
+  onPress: () => void;
+  onTimeout: () => void;
+}
+
+const AUTO_ADVANCE_MS = 2000;
+
+const autoNextPillClassName =
+  "relative w-full overflow-hidden rounded-full bg-white border border-gray-200 h-[54px] flex items-center justify-center shadow-sm";
+
+interface PillNavButtonProps {
+  label: string;
+  onClick: () => void;
+}
+
+/** Same shell as Continue / Next; no progress layer or timer. */
+const PillNavButton = ({ label, onClick }: PillNavButtonProps): JSX.Element => (
+  <button type="button" onClick={onClick} className={autoNextPillClassName}>
+    <span className="relative z-10 text-[16px] font-medium text-gray-900">{label}</span>
+  </button>
+);
+
+const AutoNextButton = ({ label, onPress, onTimeout }: AutoNextButtonProps): JSX.Element => {
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onPressRef = useRef(onPress);
+  const onTimeoutRef = useRef(onTimeout);
+  onPressRef.current = onPress;
+  onTimeoutRef.current = onTimeout;
+
+  useEffect(() => {
+    timerRef.current = setTimeout(() => onTimeoutRef.current(), AUTO_ADVANCE_MS);
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
+
+  const handleClick = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    onPressRef.current();
+  };
+
+  return (
+    <button type="button" onClick={handleClick} className={autoNextPillClassName}>
+      <span className="absolute inset-y-0 left-0 bg-[#A8DDD0] animate-progress-fill" />
+      <span className="relative z-10 text-[16px] font-medium text-gray-900">{label}</span>
+    </button>
+  );
+};
+
+interface ContinueAfterAudioButtonProps {
+  isAudioPlaying: boolean;
+  onNext: () => void;
+}
+
+/** 3s auto-advance + progress bar only after Spanish TTS has finished; replay restarts this gate. */
+const ContinueAfterAudioButton = ({
+  isAudioPlaying,
+  onNext,
+}: ContinueAfterAudioButtonProps): JSX.Element => {
+  if (isAudioPlaying) {
+    return <PillNavButton label="Continue" onClick={onNext} />;
+  }
+
+  return <AutoNextButton label="Continue" onPress={onNext} onTimeout={onNext} />;
+};
 
 interface AudioControlsProps {
   isAudioPlaying: boolean;
@@ -133,7 +201,7 @@ export const UserFeedback = ({
   const diff = transcription.trim() ? diffWords(transcription, spanishPhrase) : null;
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-between w-full animate-screen-fade-in">
+    <div className="flex-1 flex flex-col items-center min-h-0 w-full animate-screen-fade-in">
       {isCorrect ? (
         <div className="flex flex-col items-center flex-1 justify-center">
           <p className="text-[18px] text-[#1D9E75] text-center leading-relaxed">{spanishPhrase}</p>
@@ -197,6 +265,7 @@ export const UserFeedback = ({
           />
 
           <button
+            type="button"
             onClick={onTryAgain}
             className="text-[13px] text-gray-400 hover:text-gray-600 transition-colors"
           >
@@ -205,9 +274,13 @@ export const UserFeedback = ({
         </div>
       )}
 
-      <button onClick={onNext} className="text-[13px] text-gray-400 hover:text-gray-600 transition-colors">
-        next →
-      </button>
+      <div className="mt-auto w-full pt-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        {isCorrect ? (
+          <ContinueAfterAudioButton isAudioPlaying={isAudioPlaying} onNext={onNext} />
+        ) : (
+          <PillNavButton label="Next →" onClick={onNext} />
+        )}
+      </div>
     </div>
   );
 };
