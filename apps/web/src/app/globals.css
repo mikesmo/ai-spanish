@@ -88,6 +88,6 @@ body {
     animation: screen-fade-in 0.3s ease-in-out;
   }
   .animate-progress-fill {
-    animation: progress-fill 3s linear forwards;
+    animation: progress-fill 2s linear forwards;
   }
 }
