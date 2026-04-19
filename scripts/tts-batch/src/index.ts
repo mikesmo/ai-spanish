@@ -16,7 +16,9 @@ import {
   buildManifestEntry,
   computeJobHash,
   ensureDir,
+  ensureS3Keys,
   readHashCache,
+  readManifest,
   writeAudioFile,
   writeHashCache,
   writeManifest,
@@ -43,6 +45,7 @@ function parseArgs(argv: string[]): CliOptions {
   let bucket: string | undefined = process.env.S3_BUCKET_NAME;
   let force = false;
   let localOnly = false;
+  let uploadOnly = false;
 
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
@@ -56,13 +59,15 @@ function parseArgs(argv: string[]): CliOptions {
       force = true;
     } else if (a === '--local-only') {
       localOnly = true;
+    } else if (a === '--upload-only') {
+      uploadOnly = true;
     } else if (a === '--help' || a === '-h') {
       printHelp();
       process.exit(0);
     }
   }
 
-  return { inputPath, outDir, bucket, force, localOnly };
+  return { inputPath, outDir, bucket, force, localOnly, uploadOnly };
 }
 
 function printHelp(): void {
@@ -78,11 +83,16 @@ Options:
   --bucket, -b  S3 bucket name (default: S3_BUCKET_NAME env)
   --force       Regenerate all audio (ignore cache)
   --local-only  Write audio + manifest to disk only; skip S3 (no AWS credentials needed)
+  --upload-only Upload existing manifest + audio from --out to S3; no Deepgram (no DEEPGRAM_API_KEY)
   --help, -h    Show this help
 
+Examples:
+  npm run tts:batch -- --upload-only --bucket my-bucket
+  npm run tts:batch -- --upload-only --out ./output --bucket my-bucket
+
 Environment:
-  DEEPGRAM_API_KEY     Required
-  AWS_* / S3_BUCKET_NAME  Required unless --local-only
+  DEEPGRAM_API_KEY     Required unless --upload-only
+  AWS_* / S3_BUCKET_NAME  Required unless --local-only; required for --upload-only
 `);
 }
 
@@ -103,6 +113,49 @@ async function loadTranscript(inputPath: string): Promise<Phrase[]> {
   return data as Phrase[];
 }
 
+async function runUploadOnly(opts: CliOptions): Promise<void> {
+  if (opts.localOnly) {
+    throw new Error('--upload-only cannot be used with --local-only');
+  }
+  if (opts.force) {
+    throw new Error('--upload-only cannot be used with --force');
+  }
+
+  requireEnv('AWS_ACCESS_KEY_ID');
+  requireEnv('AWS_SECRET_ACCESS_KEY');
+  if (!opts.bucket?.trim()) {
+    throw new Error('S3 bucket required: set S3_BUCKET_NAME or pass --bucket');
+  }
+
+  const region = process.env.AWS_REGION?.trim() || 'us-east-1';
+  const { entries } = await readManifest(opts.outDir);
+  const withKeys = ensureS3Keys(entries);
+
+  const missing: string[] = [];
+  for (const e of withKeys) {
+    const abs = path.join(opts.outDir, e.localFile);
+    try {
+      await fs.access(abs);
+    } catch {
+      missing.push(abs);
+    }
+  }
+  if (missing.length > 0) {
+    throw new Error(`Missing audio file(s):\n${missing.join('\n')}`);
+  }
+
+  console.log(
+    `Uploading ${withKeys.length} audio file(s) + manifest from ${opts.outDir} to s3://${opts.bucket.trim()}/ ...`
+  );
+  await uploadToS3({
+    bucket: opts.bucket.trim(),
+    region,
+    outDir: opts.outDir,
+    entries: withKeys,
+  });
+  console.log('Upload complete.');
+}
+
 async function shouldSkipJob(
   job: TtsJob,
   hash: string,
@@ -117,6 +170,11 @@ async function shouldSkipJob(
 
 async function main(): Promise<void> {
   const opts = parseArgs(process.argv);
+
+  if (opts.uploadOnly) {
+    await runUploadOnly(opts);
+    return;
+  }
 
   requireEnv('DEEPGRAM_API_KEY');
   if (!opts.localOnly) {

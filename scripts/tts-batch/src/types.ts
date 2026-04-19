@@ -32,4 +32,6 @@ export interface CliOptions {
   bucket: string | undefined;
   force: boolean;
   localOnly: boolean;
+  /** Skip TTS; upload existing manifest + audio from --out to S3. */
+  uploadOnly: boolean;
 }

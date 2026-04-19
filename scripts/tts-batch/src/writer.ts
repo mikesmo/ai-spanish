@@ -2,9 +2,20 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
+import type { Language } from '@ai-spanish/logic';
+
 import type { ManifestEntry, TtsJob } from './types.js';
 
 const MANIFEST_FILE = 'manifest.json';
+
+function isLanguage(value: unknown): value is Language {
+  return value === 'en' || value === 'es';
+}
+
+/** S3 object key for an audio clip (matches buildManifestEntry when s3Key is set). */
+export function s3KeyForJob(id: string, language: Language): string {
+  return path.posix.join('tts', language, `${id}.mp3`);
+}
 
 /**
  * Deterministic hash for cache invalidation: same text + voice → same hash.
@@ -96,9 +107,110 @@ export function buildManifestEntry(
     createdAt,
   };
   if (includeS3Key) {
-    entry.s3Key = path.posix.join('tts', job.language, `${job.id}.mp3`);
+    entry.s3Key = s3KeyForJob(job.id, job.language);
   }
   return entry;
+}
+
+/**
+ * Ensures every manifest row has an s3Key (e.g. after a --local-only run).
+ */
+export function ensureS3Keys(entries: ManifestEntry[]): ManifestEntry[] {
+  return entries.map((e) =>
+    e.s3Key ? e : { ...e, s3Key: s3KeyForJob(e.id, e.language) }
+  );
+}
+
+function requireString(o: Record<string, unknown>, key: string, label: string): string {
+  const v = o[key];
+  if (typeof v !== 'string' || v.trim() === '') {
+    throw new Error(`${label}: missing or invalid string "${key}"`);
+  }
+  return v;
+}
+
+/**
+ * Reads and validates output/manifest.json written by writeManifest.
+ */
+export async function readManifest(outDir: string): Promise<{
+  generatedAt?: string;
+  entries: ManifestEntry[];
+}> {
+  const manifestPath = path.join(outDir, MANIFEST_FILE);
+  let raw: string;
+  try {
+    raw = await fs.readFile(manifestPath, 'utf8');
+  } catch {
+    throw new Error(
+      `Cannot read ${manifestPath}. Run a batch first (e.g. npm run tts:batch -- --local-only).`
+    );
+  }
+
+  let data: unknown;
+  try {
+    data = JSON.parse(raw) as unknown;
+  } catch {
+    throw new Error(`Invalid JSON in ${manifestPath}`);
+  }
+
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    throw new Error('manifest.json must be a JSON object');
+  }
+
+  const root = data as Record<string, unknown>;
+  const entriesRaw = root.entries;
+
+  if (!Array.isArray(entriesRaw)) {
+    throw new Error('manifest.json must include a non-empty "entries" array');
+  }
+
+  if (entriesRaw.length === 0) {
+    throw new Error(
+      'manifest.json "entries" is empty. Run a batch generation first (without --upload-only).'
+    );
+  }
+
+  const entries: ManifestEntry[] = [];
+  for (let i = 0; i < entriesRaw.length; i++) {
+    const row = entriesRaw[i];
+    const label = `manifest entries[${i}]`;
+    if (!row || typeof row !== 'object' || Array.isArray(row)) {
+      throw new Error(`${label}: must be an object`);
+    }
+    const o = row as Record<string, unknown>;
+    const id = requireString(o, 'id', label);
+    const language = o.language;
+    if (!isLanguage(language)) {
+      throw new Error(`${label}: "language" must be "en" or "es"`);
+    }
+    const text = requireString(o, 'text', label);
+    const voice = requireString(o, 'voice', label);
+    const localFile = requireString(o, 'localFile', label);
+    const hash = requireString(o, 'hash', label);
+    const createdAt = requireString(o, 'createdAt', label);
+    const s3Key = o.s3Key;
+    const entry: ManifestEntry = {
+      id,
+      language,
+      text,
+      voice,
+      localFile,
+      hash,
+      createdAt,
+    };
+    if (s3Key !== undefined) {
+      if (typeof s3Key !== 'string' || s3Key.trim() === '') {
+        throw new Error(`${label}: invalid optional "s3Key"`);
+      }
+      entry.s3Key = s3Key;
+    }
+    entries.push(entry);
+  }
+
+  return {
+    generatedAt: typeof root.generatedAt === 'string' ? root.generatedAt : undefined,
+    entries,
+  };
 }
 
 export async function writeManifest(outDir: string, entries: ManifestEntry[]): Promise<void> {
