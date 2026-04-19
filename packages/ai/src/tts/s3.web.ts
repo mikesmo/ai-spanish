@@ -1,36 +1,9 @@
 import { useCallback, useRef } from 'react';
 import type { Language, TTSAdapter } from '@ai-spanish/logic';
+import { fetchPresignedUrl as _fetchPresignedUrl, segmentsForLanguage } from './s3-shared';
 
-interface AudioUrlResponse {
-  url: string;
-}
-
-/**
- * Fetches a presigned S3 URL for a single audio segment.
- * Returns null when the segment does not exist (e.g. empty intro text that
- * was skipped at batch time) or when the API is unconfigured (503).
- */
-async function fetchPresignedUrl(phraseIndex: number, segment: string): Promise<string | null> {
-  const params = new URLSearchParams({
-    phrase: String(phraseIndex),
-    segment,
-  });
-  try {
-    const response = await fetch(`/api/audio?${params.toString()}`);
-    // #region agent log
-    // Hypothesis A/B/C: log what audio index+segment is being requested and whether it resolved
-    fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'b089b2'},body:JSON.stringify({sessionId:'b089b2',hypothesisId:'A-B-C',location:'s3.web.ts:fetchPresignedUrl',message:'S3 audio request',data:{phraseIndex,segment,status:response.status,ok:response.ok},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-    if (!response.ok) return null;
-    const data = (await response.json()) as AudioUrlResponse;
-    return data.url ?? null;
-  } catch {
-    return null;
-  }
-}
-
-function segmentsForLanguage(lang: Language): string[] {
-  return lang === 'en' ? ['en-intro', 'en-question'] : ['es-question'];
+function fetchPresignedUrl(phraseIndex: number, segment: string): Promise<string | null> {
+  return _fetchPresignedUrl('', phraseIndex, segment);
 }
 
 /**

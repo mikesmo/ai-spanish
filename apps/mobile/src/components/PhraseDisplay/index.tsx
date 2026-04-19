@@ -1,13 +1,13 @@
 import { StyleSheet, Text, View } from "react-native";
 import { usePhraseDisplay } from "@ai-spanish/logic";
-import { useSTT, useTTS } from "@ai-spanish/ai";
+import { useSTT, useS3TTS } from "@ai-spanish/ai";
 import type { PhraseDisplayProps } from "./PhraseDisplay.types";
 import { AISpeaking } from "./components/AISpeaking";
 import { UserFeedback } from "./components/UserFeedback";
 import { UserRecording } from "./components/UserRecording";
 
 export const PhraseDisplay = ({ phrases }: PhraseDisplayProps): JSX.Element => {
-  const tts = useTTS();
+  const tts = useS3TTS();
   const stt = useSTT();
   const display = usePhraseDisplay(phrases, stt, tts);
 
