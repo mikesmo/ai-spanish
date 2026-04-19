@@ -11,6 +11,7 @@ import {
   type TextStyle,
 } from "react-native";
 import type { UserFeedbackProps } from "../PhraseDisplay.types";
+import { PillButton, pillStyles } from "./PillButton";
 
 const AUTO_ADVANCE_MS = 2000;
 const NEXT_PHRASE_LABEL = "Next phrase";
@@ -61,25 +62,6 @@ const AudioControls = ({
   </View>
 );
 
-interface PillButtonProps {
-  label: string;
-  onPress: () => void;
-  variant?: "primary" | "secondary";
-}
-
-const PillButton = ({ label, onPress, variant = "secondary" }: PillButtonProps): JSX.Element => (
-  <Pressable
-    onPress={onPress}
-    style={[styles.pill, variant === "primary" ? styles.pillPrimary : styles.pillSecondary]}
-  >
-    <Text
-      style={[styles.pillLabel, variant === "primary" ? styles.pillLabelPrimary : styles.pillLabelSecondary]}
-    >
-      {label}
-    </Text>
-  </Pressable>
-);
-
 interface AutoNextButtonProps {
   label: string;
   onPress: () => void;
@@ -121,10 +103,10 @@ const AutoNextButton = ({ label, onPress, onTimeout }: AutoNextButtonProps): JSX
         const w = e.nativeEvent.layout.width;
         if (w > 0 && pillWidth === 0) setPillWidth(w);
       }}
-      style={[styles.pill, styles.pillSecondary, styles.pillWithProgress]}
+      style={[pillStyles.pill, pillStyles.pillSecondary, styles.pillWithProgress]}
     >
       <Animated.View style={[styles.pillProgressFill, { width: fillWidth }]} />
-      <Text style={[styles.pillLabel, styles.pillLabelSecondary, styles.pillLabelOnProgress]}>
+      <Text style={[pillStyles.pillLabel, pillStyles.pillLabelSecondary, styles.pillLabelOnProgress]}>
         {label}
       </Text>
     </Pressable>
@@ -279,24 +261,6 @@ const styles = StyleSheet.create({
     gap: 16,
     alignItems: "stretch",
   },
-  pill: {
-    width: "100%",
-    height: 54,
-    borderRadius: 9999,
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-  },
-  pillSecondary: {
-    backgroundColor: "#ffffff",
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-  },
-  pillPrimary: {
-    backgroundColor: "#1d9e75",
-    borderWidth: 1,
-    borderColor: "#1d9e75",
-  },
   pillWithProgress: {
     position: "relative",
   },
@@ -306,16 +270,6 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     backgroundColor: "#A8DDD0",
-  },
-  pillLabel: {
-    fontSize: 16,
-    fontWeight: "500",
-  },
-  pillLabelSecondary: {
-    color: "#111827",
-  },
-  pillLabelPrimary: {
-    color: "#ffffff",
   },
   pillLabelOnProgress: {
     zIndex: 1,

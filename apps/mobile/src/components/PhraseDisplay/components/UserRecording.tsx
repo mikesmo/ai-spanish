@@ -1,13 +1,8 @@
 import { useEffect, useRef } from "react";
-import {
-  Animated,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Animated, StyleSheet, Text, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import type { UserRecordingProps } from "../PhraseDisplay.types";
+import { PillButton } from "./PillButton";
 
 export const UserRecording = ({
   englishText,
@@ -66,9 +61,7 @@ export const UserRecording = ({
           <Animated.View style={[styles.blinkerDot, { opacity: blinkOpacity }]} />
           <Text style={styles.recordingLabel}>Recording</Text>
         </View>
-        <Pressable onPress={onShowAnswer}>
-          <Text style={styles.showAnswerLink}>show answer</Text>
-        </Pressable>
+        <PillButton label="show answer" onPress={onShowAnswer} variant="secondary" />
       </View>
     </View>
   );
@@ -123,6 +116,7 @@ const styles = StyleSheet.create({
     color: "#1D9E75",
   },
   bottomControls: {
+    width: "100%",
     alignItems: "center",
     gap: 24,
     paddingBottom: 16,
@@ -140,10 +134,6 @@ const styles = StyleSheet.create({
   },
   recordingLabel: {
     fontSize: 12,
-    color: "#9ca3af",
-  },
-  showAnswerLink: {
-    fontSize: 13,
     color: "#9ca3af",
   },
 });
