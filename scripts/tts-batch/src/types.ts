@@ -26,6 +26,13 @@ export interface ManifestEntry {
 /** On-disk cache: job id → content hash */
 export type HashCache = Record<string, string>;
 
+/** S3 key layout: {prefix}/[{lesson}/]audio/... and {prefix}/[{lesson}/]manifest.json */
+export interface S3PathConfig {
+  prefix: string;
+  /** Single path segment (e.g. lesson1); omitted when unset. */
+  lesson?: string;
+}
+
 export interface CliOptions {
   inputPath: string;
   outDir: string;
@@ -34,4 +41,6 @@ export interface CliOptions {
   localOnly: boolean;
   /** Skip TTS; upload existing manifest + audio from --out to S3. */
   uploadOnly: boolean;
+  /** Optional lesson segment under AUDIO_CONTENT_PREFIX; overrides S3_LESSON env. */
+  lesson: string | undefined;
 }

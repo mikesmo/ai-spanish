@@ -4,17 +4,80 @@ import path from 'node:path';
 
 import type { Language } from '@ai-spanish/logic';
 
-import type { ManifestEntry, TtsJob } from './types.js';
+import type { ManifestEntry, S3PathConfig, TtsJob } from './types.js';
 
 const MANIFEST_FILE = 'manifest.json';
+
+/** Default when AUDIO_CONTENT_PREFIX is unset or empty. */
+export const DEFAULT_AUDIO_CONTENT_PREFIX = 'audio-content';
 
 function isLanguage(value: unknown): value is Language {
   return value === 'en' || value === 'es';
 }
 
-/** S3 object key for an audio clip (matches buildManifestEntry when s3Key is set). */
-export function s3KeyForJob(id: string, language: Language): string {
-  return path.posix.join('tts', language, `${id}.mp3`);
+function assertSafePathSegment(label: string, value: string): void {
+  if (value.includes('..')) {
+    throw new Error(`${label} must not contain ".."`);
+  }
+}
+
+/**
+ * Normalizes env AUDIO_CONTENT_PREFIX (e.g. /audio-content/ → audio-content).
+ * Defaults to DEFAULT_AUDIO_CONTENT_PREFIX when unset or blank.
+ */
+export function normalizeAudioContentPrefix(raw: string | undefined): string {
+  if (raw === undefined || raw.trim() === '') {
+    return DEFAULT_AUDIO_CONTENT_PREFIX;
+  }
+  const trimmed = raw.trim().replace(/^\/+|\/+$/g, '');
+  if (trimmed === '') {
+    return DEFAULT_AUDIO_CONTENT_PREFIX;
+  }
+  assertSafePathSegment('AUDIO_CONTENT_PREFIX', trimmed);
+  const segments = trimmed.split('/').filter(Boolean);
+  if (segments.length !== 1) {
+    throw new Error(
+      'AUDIO_CONTENT_PREFIX must be a single path segment (e.g. audio-content), not a nested path'
+    );
+  }
+  return segments[0]!;
+}
+
+/**
+ * Optional lesson segment: one folder under the prefix. Empty → undefined.
+ */
+export function normalizeLessonSegment(raw: string | undefined): string | undefined {
+  if (raw === undefined || raw.trim() === '') {
+    return undefined;
+  }
+  const trimmed = raw.trim().replace(/^\/+|\/+$/g, '');
+  if (trimmed === '') {
+    return undefined;
+  }
+  assertSafePathSegment('lesson', trimmed);
+  if (trimmed.includes('/')) {
+    throw new Error('lesson must be a single path segment (no slashes), e.g. lesson1');
+  }
+  return trimmed;
+}
+
+export function buildS3BasePath(prefix: string, lesson?: string): string {
+  if (!lesson) {
+    return prefix;
+  }
+  return path.posix.join(prefix, lesson);
+}
+
+/** S3 object key for one mp3 under {base}/audio/{jobId}.mp3 */
+export function s3AudioObjectKey(jobId: string, config: S3PathConfig): string {
+  const base = buildS3BasePath(config.prefix, config.lesson);
+  return path.posix.join(base, 'audio', `${jobId}.mp3`);
+}
+
+/** S3 object key for manifest.json under the lesson (or prefix) folder. */
+export function s3ManifestObjectKey(config: S3PathConfig): string {
+  const base = buildS3BasePath(config.prefix, config.lesson);
+  return path.posix.join(base, MANIFEST_FILE);
 }
 
 /**
@@ -95,7 +158,8 @@ export function buildManifestEntry(
   relPath: string,
   hash: string,
   createdAt: string,
-  includeS3Key: boolean
+  includeS3Key: boolean,
+  s3Path?: S3PathConfig
 ): ManifestEntry {
   const entry: ManifestEntry = {
     id: job.id,
@@ -107,18 +171,22 @@ export function buildManifestEntry(
     createdAt,
   };
   if (includeS3Key) {
-    entry.s3Key = s3KeyForJob(job.id, job.language);
+    if (!s3Path) {
+      throw new Error('s3Path is required when includeS3Key is true');
+    }
+    entry.s3Key = s3AudioObjectKey(job.id, s3Path);
   }
   return entry;
 }
 
 /**
- * Ensures every manifest row has an s3Key (e.g. after a --local-only run).
+ * Sets s3Key on every entry from the current layout (overwrites stale keys from older runs).
  */
-export function ensureS3Keys(entries: ManifestEntry[]): ManifestEntry[] {
-  return entries.map((e) =>
-    e.s3Key ? e : { ...e, s3Key: s3KeyForJob(e.id, e.language) }
-  );
+export function ensureS3Keys(entries: ManifestEntry[], s3Path: S3PathConfig): ManifestEntry[] {
+  return entries.map((e) => ({
+    ...e,
+    s3Key: s3AudioObjectKey(e.id, s3Path),
+  }));
 }
 
 function requireString(o: Record<string, unknown>, key: string, label: string): string {

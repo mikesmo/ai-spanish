@@ -12,6 +12,8 @@ export interface UploadOptions {
   region: string;
   outDir: string;
   entries: ManifestEntry[];
+  /** Full S3 object key for manifest (e.g. audio-content/lesson1/manifest.json). */
+  manifestS3Key: string;
 }
 
 function getS3Client(region: string): S3Client {
@@ -19,10 +21,10 @@ function getS3Client(region: string): S3Client {
 }
 
 /**
- * Uploads all audio files in parallel, then manifest.json (root key).
+ * Uploads all audio files in parallel, then manifest.json at manifestS3Key.
  */
 export async function uploadToS3(options: UploadOptions): Promise<void> {
-  const { bucket, region, outDir, entries } = options;
+  const { bucket, region, outDir, entries, manifestS3Key } = options;
   const client = getS3Client(region);
 
   const audioUploads = entries.map(async (e) => {
@@ -46,7 +48,7 @@ export async function uploadToS3(options: UploadOptions): Promise<void> {
   await client.send(
     new PutObjectCommand({
       Bucket: bucket,
-      Key: MANIFEST_FILE,
+      Key: manifestS3Key,
       Body: manifestBody,
       ContentType: 'application/json',
     })

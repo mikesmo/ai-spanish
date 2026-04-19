@@ -8,7 +8,7 @@ import dotenv from 'dotenv';
 import { buildTtsJobs } from './parser.js';
 import { createJobQueue, withRetry } from './queue.js';
 import { synthesizeToBuffer } from './tts-client.js';
-import type { CliOptions, ManifestEntry, TtsJob } from './types.js';
+import type { CliOptions, ManifestEntry, S3PathConfig, TtsJob } from './types.js';
 import { uploadToS3 } from './uploader.js';
 import {
   audioFileExists,
@@ -17,8 +17,11 @@ import {
   computeJobHash,
   ensureDir,
   ensureS3Keys,
+  normalizeAudioContentPrefix,
+  normalizeLessonSegment,
   readHashCache,
   readManifest,
+  s3ManifestObjectKey,
   writeAudioFile,
   writeHashCache,
   writeManifest,
@@ -46,6 +49,7 @@ function parseArgs(argv: string[]): CliOptions {
   let force = false;
   let localOnly = false;
   let uploadOnly = false;
+  let lesson: string | undefined;
 
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
@@ -55,6 +59,8 @@ function parseArgs(argv: string[]): CliOptions {
       outDir = path.resolve(process.cwd(), args[++i] ?? '');
     } else if (a === '--bucket' || a === '-b') {
       bucket = args[++i];
+    } else if (a === '--lesson') {
+      lesson = args[++i];
     } else if (a === '--force') {
       force = true;
     } else if (a === '--local-only') {
@@ -67,7 +73,14 @@ function parseArgs(argv: string[]): CliOptions {
     }
   }
 
-  return { inputPath, outDir, bucket, force, localOnly, uploadOnly };
+  return { inputPath, outDir, bucket, force, localOnly, uploadOnly, lesson };
+}
+
+/** CLI --lesson overrides S3_LESSON env. */
+function resolveS3PathConfig(opts: CliOptions): S3PathConfig {
+  const prefix = normalizeAudioContentPrefix(process.env.AUDIO_CONTENT_PREFIX);
+  const lesson = normalizeLessonSegment(opts.lesson ?? process.env.S3_LESSON);
+  return { prefix, lesson };
 }
 
 function printHelp(): void {
@@ -84,15 +97,18 @@ Options:
   --force       Regenerate all audio (ignore cache)
   --local-only  Write audio + manifest to disk only; skip S3 (no AWS credentials needed)
   --upload-only Upload existing manifest + audio from --out to S3; no Deepgram (no DEEPGRAM_API_KEY)
+  --lesson      Optional folder under AUDIO_CONTENT_PREFIX (overrides S3_LESSON), e.g. lesson1
   --help, -h    Show this help
 
 Examples:
   npm run tts:batch -- --upload-only --bucket my-bucket
-  npm run tts:batch -- --upload-only --out ./output --bucket my-bucket
+  npm run tts:batch -- --upload-only --out ./output --bucket my-bucket --lesson lesson1
 
 Environment:
-  DEEPGRAM_API_KEY     Required unless --upload-only
+  DEEPGRAM_API_KEY        Required unless --upload-only
   AWS_* / S3_BUCKET_NAME  Required unless --local-only; required for --upload-only
+  AUDIO_CONTENT_PREFIX    S3 key prefix (default: audio-content); single segment, e.g. audio-content
+  S3_LESSON               Optional lesson segment if --lesson not passed
 `);
 }
 
@@ -128,8 +144,10 @@ async function runUploadOnly(opts: CliOptions): Promise<void> {
   }
 
   const region = process.env.AWS_REGION?.trim() || 'us-east-1';
+  const s3Path = resolveS3PathConfig(opts);
   const { entries } = await readManifest(opts.outDir);
-  const withKeys = ensureS3Keys(entries);
+  const withKeys = ensureS3Keys(entries, s3Path);
+  const manifestKey = s3ManifestObjectKey(s3Path);
 
   const missing: string[] = [];
   for (const e of withKeys) {
@@ -144,14 +162,16 @@ async function runUploadOnly(opts: CliOptions): Promise<void> {
     throw new Error(`Missing audio file(s):\n${missing.join('\n')}`);
   }
 
+  const bucketName = opts.bucket.trim();
   console.log(
-    `Uploading ${withKeys.length} audio file(s) + manifest from ${opts.outDir} to s3://${opts.bucket.trim()}/ ...`
+    `Uploading ${withKeys.length} audio file(s) + ${manifestKey} from ${opts.outDir} to s3://${bucketName}/ ...`
   );
   await uploadToS3({
-    bucket: opts.bucket.trim(),
+    bucket: bucketName,
     region,
     outDir: opts.outDir,
     entries: withKeys,
+    manifestS3Key: manifestKey,
   });
   console.log('Upload complete.');
 }
@@ -187,6 +207,7 @@ async function main(): Promise<void> {
 
   const apiKey = process.env.DEEPGRAM_API_KEY!.trim();
   const region = process.env.AWS_REGION?.trim() || 'us-east-1';
+  const s3Path = resolveS3PathConfig(opts);
 
   console.log(`Reading ${opts.inputPath}`);
   const phrases = await loadTranscript(opts.inputPath);
@@ -211,7 +232,8 @@ async function main(): Promise<void> {
             audioRelativePath(job.id),
             hash,
             createdAt,
-            !opts.localOnly
+            !opts.localOnly,
+            opts.localOnly ? undefined : s3Path
           ),
           didGenerate: false,
         };
@@ -225,7 +247,14 @@ async function main(): Promise<void> {
       console.log(`  OK ${job.id}`);
       return {
         job,
-        entry: buildManifestEntry(job, rel, hash, createdAt, !opts.localOnly),
+        entry: buildManifestEntry(
+          job,
+          rel,
+          hash,
+          createdAt,
+          !opts.localOnly,
+          opts.localOnly ? undefined : s3Path
+        ),
         didGenerate: true,
       };
     })
@@ -250,12 +279,15 @@ async function main(): Promise<void> {
   console.log(`Manifest: ${path.join(opts.outDir, 'manifest.json')}`);
 
   if (!opts.localOnly && opts.bucket) {
-    console.log(`Uploading to s3://${opts.bucket}/ ...`);
+    const bucketName = opts.bucket.trim();
+    const manifestKey = s3ManifestObjectKey(s3Path);
+    console.log(`Uploading to s3://${bucketName}/${manifestKey} (and audio keys under same prefix) ...`);
     await uploadToS3({
-      bucket: opts.bucket.trim(),
+      bucket: bucketName,
       region,
       outDir: opts.outDir,
       entries: manifestEntries,
+      manifestS3Key: manifestKey,
     });
     console.log('Upload complete.');
   }
