@@ -15,12 +15,18 @@ export function useMicrophone(onVoiceData: (ev: BlobEvent) => void) {
   const microphone = useRef<MediaRecorder | null>(null);
   const [microphoneState, setMicrophoneState] = useState<MicrophoneState>(MicrophoneState.NotSetup);
 
-  const onReceiveData = useCallback((ev: BlobEvent) => { onVoiceData(ev); }, [onVoiceData]);
+  const onReceiveData = useCallback((ev: BlobEvent) => {
+    onVoiceData(ev);
+  }, [onVoiceData]);
 
   const setupMicrophone = async () => {
     setMicrophoneState(MicrophoneState.SettingUp);
     const stream = await navigator.mediaDevices.getUserMedia({
-      audio: { noiseSuppression: true, echoCancellation: true },
+      // noiseSuppression disabled — Chrome's aggressive noise suppression was
+      // trimming quiet Spanish vowels (e.g. "algo" after a pause), causing
+      // Deepgram to miss the audio entirely. echoCancellation kept to reduce
+      // TTS→mic bleed on laptop speakers.
+      audio: { noiseSuppression: false, echoCancellation: true },
     });
     microphone.current = new MediaRecorder(stream);
     setMicrophoneState(MicrophoneState.Ready);

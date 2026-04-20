@@ -7,15 +7,6 @@ import {
   normalizeLessonSegment,
 } from '@ai-spanish/logic';
 
-// #region agent log
-// Hypothesis A: confirm route.ts (server) is importing the @ai-spanish/logic barrel
-fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'b089b2' },
-  body: JSON.stringify({ sessionId: 'b089b2', hypothesisId: 'A', location: 'audio/route.ts:module-scope', message: 'route.ts module evaluated (server-side barrel import)', data: { windowDefined: typeof window !== 'undefined' }, timestamp: Date.now() }),
-}).catch(() => {});
-// #endregion
-
 /**
  * Allowed segment values — must stay in sync with tts-batch parser job id formula:
  *   {phraseIndex}-en-intro, {phraseIndex}-en-question, {phraseIndex}-es-question

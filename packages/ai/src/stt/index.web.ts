@@ -14,8 +14,18 @@ const DEEPGRAM_OPTIONS = {
   interim_results: true,
   smart_format: true,
   filler_words: true,
-  utterance_end_ms: 3000,
-  endpointing: 1000,
+  // utterance_end_ms: how long of total silence before declaring the whole
+  // utterance over (client gets a synthetic empty-final). Raised so learners
+  // who pause mid-phrase still get a chance to emit the second word.
+  // Deepgram's documented max is 5000 ms; values above cause the WebSocket
+  // upgrade to be refused (NS_ERROR_WEBSOCKET_CONNECTION_REFUSED).
+  // See: https://developers.deepgram.com/docs/utterance-end
+  utterance_end_ms: 5000,
+  // endpointing: how long of silence before committing the current words as
+  // is_final=true. Lowered so each word-group is finalized eagerly, leaving
+  // Deepgram free to start a fresh segment for the next word (e.g. "algo"
+  // after "quieres ... <pause>").
+  endpointing: 500,
   language: 'es',
 } as const;
 
