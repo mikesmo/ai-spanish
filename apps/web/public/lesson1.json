@@ -6,7 +6,14 @@
     },
     "Spanish": {
       "grammar": "",
-      "answer": "¿Dónde se pueden comprar manzanas?"
+      "answer": "¿Dónde se pueden comprar manzanas?",
+      "words": [
+        { "word": "dónde", "type": "adverb" },
+        { "word": "se", "type": "pronoun" },
+        { "word": "pueden", "type": "verb" },
+        { "word": "comprar", "type": "verb" },
+        { "word": "manzanas", "type": "noun" }
+      ]
     }
   },
   {
@@ -16,17 +23,31 @@
     },
     "Spanish": {
       "grammar": "",
-      "answer": "Puedes comprarlas en la tienda de comestibles"
+      "answer": "Puedes comprarlas en la tienda de comestibles",
+      "words": [
+        { "word": "puedes", "type": "verb" },
+        { "word": "comprarlas", "type": "verb" },
+        { "word": "en", "type": "preposition" },
+        { "word": "la", "type": "article" },
+        { "word": "tienda", "type": "noun" },
+        { "word": "de", "type": "preposition" },
+        { "word": "comestibles", "type": "noun" }
+      ]
     }
   },
   {
     "English": {
-      "intro": "Then, how woudld they say",
+      "intro": "Then, how would they say",
       "question": "It's not far"
     },
     "Spanish": {
       "grammar": "",
-      "answer": "No está lejos"
+      "answer": "No está lejos",
+      "words": [
+        { "word": "no", "type": "adverb" },
+        { "word": "está", "type": "verb" },
+        { "word": "lejos", "type": "adverb" }
+      ]
     }
   },
   {
@@ -36,7 +57,14 @@
     },
     "Spanish": {
       "grammar": "",
-      "answer": "Tengo que ir al banco"
+      "answer": "Tengo que ir al banco",
+      "words": [
+        { "word": "tengo", "type": "verb" },
+        { "word": "que", "type": "conjunction" },
+        { "word": "ir", "type": "verb" },
+        { "word": "al", "type": "article" },
+        { "word": "banco", "type": "noun" }
+      ]
     }
   },
   {
@@ -46,7 +74,13 @@
     },
     "Spanish": {
       "grammar": "",
-      "answer": "Necesito enviar una carta"
+      "answer": "Necesito enviar una carta",
+      "words": [
+        { "word": "necesito", "type": "verb" },
+        { "word": "enviar", "type": "verb" },
+        { "word": "una", "type": "article" },
+        { "word": "carta", "type": "noun" }
+      ]
     }
   },
   {
@@ -56,7 +90,11 @@
     },
     "Spanish": {
       "grammar": "",
-      "answer": "Ahora mismo"
+      "answer": "Ahora mismo",
+      "words": [
+        { "word": "ahora", "type": "adverb" },
+        { "word": "mismo", "type": "adjective" }
+      ]
     }
   },
   {
@@ -66,7 +104,11 @@
     },
     "Spanish": {
       "grammar": "",
-      "answer": "¿Quieres algo?"
+      "answer": "¿Quieres algo?",
+      "words": [
+        { "word": "quieres", "type": "verb" },
+        { "word": "algo", "type": "pronoun" }
+      ]
     }
   },
   {
@@ -76,17 +118,33 @@
     },
     "Spanish": {
       "grammar": "",
-      "answer": "No, pero te recomiendo que te lleves la chaqueta"
+      "answer": "No, pero te recomiendo que te lleves la chaqueta",
+      "words": [
+        { "word": "no", "type": "adverb" },
+        { "word": "pero", "type": "conjunction" },
+        { "word": "te", "type": "pronoun" },
+        { "word": "recomiendo", "type": "verb" },
+        { "word": "que", "type": "conjunction" },
+        { "word": "te", "type": "pronoun" },
+        { "word": "lleves", "type": "verb" },
+        { "word": "la", "type": "article" },
+        { "word": "chaqueta", "type": "noun" }
+      ]
     }
   },
   {
     "English": {
-      "intro": "Them, how do they say",
+      "intro": "Then, how do they say",
       "question": "It's snowing a lot"
     },
     "Spanish": {
       "grammar": "",
-      "answer": "Está nevando mucho"
+      "answer": "Está nevando mucho",
+      "words": [
+        { "word": "está", "type": "verb" },
+        { "word": "nevando", "type": "verb" },
+        { "word": "mucho", "type": "adverb" }
+      ]
     }
   },
   {
@@ -96,7 +154,13 @@
     },
     "Spanish": {
       "grammar": "",
-      "answer": "Me viene bien porque…"
+      "answer": "Me viene bien porque…",
+      "words": [
+        { "word": "me", "type": "pronoun" },
+        { "word": "viene", "type": "verb" },
+        { "word": "bien", "type": "adverb" },
+        { "word": "porque", "type": "conjunction" }
+      ]
     }
   },
   {
@@ -106,7 +170,15 @@
     },
     "Spanish": {
       "grammar": "",
-      "answer": "Quiero enviar una carta a Francia"
+      "answer": "Quiero enviar una carta a Francia",
+      "words": [
+        { "word": "quiero", "type": "verb" },
+        { "word": "enviar", "type": "verb" },
+        { "word": "una", "type": "article" },
+        { "word": "carta", "type": "noun" },
+        { "word": "a", "type": "preposition" },
+        { "word": "francia", "type": "noun" }
+      ]
     }
   },
   {
@@ -116,7 +188,12 @@
     },
     "Spanish": {
       "grammar": "",
-      "answer": "Puedo venir contigo"
+      "answer": "Puedo venir contigo",
+      "words": [
+        { "word": "puedo", "type": "verb" },
+        { "word": "venir", "type": "verb" },
+        { "word": "contigo", "type": "pronoun" }
+      ]
     }
   },
   {
@@ -126,7 +203,17 @@
     },
     "Spanish": {
       "grammar": "",
-      "answer": "Voy a la librería a comprar una novela"
+      "answer": "Voy a la librería a comprar una novela",
+      "words": [
+        { "word": "voy", "type": "verb" },
+        { "word": "a", "type": "preposition" },
+        { "word": "la", "type": "article" },
+        { "word": "librería", "type": "noun" },
+        { "word": "a", "type": "preposition" },
+        { "word": "comprar", "type": "verb" },
+        { "word": "una", "type": "article" },
+        { "word": "novela", "type": "noun" }
+      ]
     }
   },
   {
@@ -136,287 +223,13 @@
     },
     "Spanish": {
       "grammar": "",
-      "answer": "Tengo que comprar bebidas"
-    }
-  },
-  {
-    "English": {
-      "intro": "Now Say",
-      "question": "I need carrots"
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "Necesito zanahorias"
-    }
-  },
-  {
-    "English": {
-      "intro": "Say",
-      "question": "And bananas"
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "Y plátanos"
-    }
-  },
-  {
-    "English": {
-      "intro": "",
-      "question": "Try to say red apples"
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "Manzanas rojas"
-    }
-  },
-  {
-    "English": {
-      "intro": "",
-      "question": "Which do you prefer, red or green apples?"
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "¿Cuáles prefieres, manzanas rojas o manzanas verdes?"
-    }
-  },
-  {
-    "English": {
-      "intro": "",
-      "question": "I like both"
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "Me gustan ambas"
-    }
-  },
-  {
-    "English": {
-      "intro": "",
-      "question": "I'm going to buy red and green apples for you"
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "Voy a comprar manzanas rojas y verdes para ti"
-    }
-  },
-  {
-    "English": {
-      "intro": "",
-      "question": "Next to the bank there's a bakery"
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "Al lado del banco hay una panadería"
-    }
-  },
-  {
-    "English": {
-      "intro": "",
-      "question": "Maybe you shouldn't come with me"
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "Quizá no deberías venir conmigo"
-    }
-  },
-  {
-    "English": {
-      "intro": "",
-      "question": "I don't need drinks"
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "No necesito bebidas"
-    }
-  },
-  {
-    "English": {
-      "intro": "",
-      "question": "Can you buy me tissues?"
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "¿Puedes comprarme pañuelos?"
-    }
-  },
-  {
-    "English": {
-      "intro": "",
-      "question": "What's the matter with you?"
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "¿Qué te pasa?"
-    }
-  },
-  {
-    "English": {
-      "intro": "",
-      "question": "I don't know, maybe I'm just sleepy"
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "No lo sé, creo que solo tengo sueño"
-    }
-  },
-  {
-    "English": {
-      "intro": "",
-      "question": "My stomach"
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "Mi estómago"
-    }
-  },
-  {
-    "English": {
-      "intro": "",
-      "question": "My stomach hurts"
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "Me duele el estómago"
-    }
-  },
-  {
-    "English": {
-      "intro": "",
-      "question": "Maybe you have indigestion"
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "Quizás tengas indigestión"
-    }
-  },
-  {
-    "English": {
-      "intro": "",
-      "question": "Yes, probably"
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "Sí, probablemente"
-    }
-  },
-  {
-    "English": {
-      "intro": "",
-      "question": "I probably have indigestion"
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "Probablemente tengo indigestión"
-    }
-  },
-  {
-    "English": {
-      "intro": "",
-      "question": "I'm tired and my stomach hurts"
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "Estoy cansado y me duele el estómago"
-    }
-  },
-  {
-    "English": {
-      "intro": "",
-      "question": "I can buy you tissues"
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "Puedo comprarte pañuelos"
-    }
-  },
-  {
-    "English": {
-      "intro": "",
-      "question": "What happened?"
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "¿Qué ha pasado?"
-    }
-  },
-  {
-    "English": {
-      "intro": "",
-      "question": "I need the coat"
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "Necesito el abrigo"
-    }
-  },
-  {
-    "English": {
-      "intro": "",
-      "question": "It's snowing"
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "Está nevando"
-    }
-  },
-  {
-    "English": {
-      "intro": "",
-      "question": "Is it the red one?"
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "¿Es el rojo?"
-    }
-  },
-  {
-    "English": {
-      "intro": "",
-      "question": "No, my coat is brown"
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "No, mi abrigo es marrón"
-    }
-  },
-  {
-    "English": {
-      "intro": "",
-      "question": "It's snowing again"
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "Está nevando otra vez"
-    }
-  },
-  {
-    "English": {
-      "intro": "",
-      "question": "Your tissues"
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "Tus pañuelos"
-    }
-  },
-  {
-    "English": {
-      "intro": "",
-      "question": "My stomach still hurts"
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "Todavía me duele el estómago"
-    }
-  },
-  {
-    "English": {
-      "intro": "",
-      "question": "I've bought red apples and green apples"
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "He comprado manzanas rojas y verdes"
+      "answer": "Tengo que comprar bebidas",
+      "words": [
+        { "word": "tengo", "type": "verb" },
+        { "word": "que", "type": "conjunction" },
+        { "word": "comprar", "type": "verb" },
+        { "word": "bebidas", "type": "noun" }
+      ]
     }
   }
 ]
