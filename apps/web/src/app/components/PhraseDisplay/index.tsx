@@ -1,17 +1,31 @@
 "use client";
 
+import { useState } from "react";
 import { usePhraseDisplay } from "@ai-spanish/logic";
 import { useS3TTS, useSTT } from "@ai-spanish/ai";
 import { playSuccessChime } from "@/lib/playSuccessChime";
+import { useSessionHistory } from "@/app/hooks/useSessionHistory";
 import { AISpeaking } from "./components/AISpeaking";
 import { UserFeedback } from "./components/UserFeedback";
 import { UserRecording } from "./components/UserRecording";
+import { HistorySidebar, HistoryToggle } from "../HistorySidebar";
 import type { PhraseDisplayProps } from "./PhraseDisplay.types";
 
 export const PhraseDisplay = ({ phrases }: PhraseDisplayProps): JSX.Element => {
   const tts = useS3TTS();
   const stt = useSTT();
-  const display = usePhraseDisplay(phrases, stt, tts, { playSuccessChime });
+  const { history, onPhraseEvent, bindCurrentPhrase, clearHistory } =
+    useSessionHistory();
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+
+  const display = usePhraseDisplay(phrases, stt, tts, {
+    playSuccessChime,
+    onPhraseEvent,
+  });
+
+  // Keep the session-history phrase pointer in sync with whichever phrase is
+  // currently on screen. Ref writes during render are safe — no state updates.
+  bindCurrentPhrase(display.currentPhrase);
 
   return (
     <div className="w-full max-w-[390px] mx-auto bg-white flex flex-col min-h-[100dvh] py-16 px-8">
@@ -51,6 +65,17 @@ export const PhraseDisplay = ({ phrases }: PhraseDisplayProps): JSX.Element => {
         />
       )}
       </div>
+
+      <HistoryToggle
+        count={history.length}
+        onClick={() => setIsHistoryOpen(true)}
+      />
+      <HistorySidebar
+        history={history}
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+        onClear={clearHistory}
+      />
     </div>
   );
 };
