@@ -2,9 +2,10 @@ import type { AlignmentResult } from './alignment';
 import type { AccuracyBreakdown } from './accuracy';
 import { ACCURACY_SUCCESS_THRESHOLD } from './accuracy';
 import type { FluencyBreakdown } from './fluency';
-import type { SpokenWord } from './types';
+import type { SpokenWord, WordMeta } from './types';
 
 const PREFIX = '[ai-spanish/learn]';
+const STT_PREFIX = '[ai-spanish/stt]';
 
 /**
  * Whether to log the learning pipeline by default. On in development builds;
@@ -29,6 +30,7 @@ export function getDefaultLearningPipelineDebug(): boolean {
 export function logLearningAttempt(ctx: {
   phraseId: string;
   spanishTarget: string;
+  targetWords: WordMeta[];
   transcript: string;
   spokenWords: SpokenWord[];
   alignment: AlignmentResult;
@@ -37,13 +39,27 @@ export function logLearningAttempt(ctx: {
   uiExactMatch: boolean;
   accuracySuccess: boolean;
   masteryPreview: number;
+  /** Whether the STT stream reported is_final=true at the moment of capture. */
+  isFinalAtCapture: boolean;
+  /** ms between the first is_final=true and this emission firing; null if unknown. */
+  msSinceFirstFinal: number | null;
+  /** Where the emission fired from (which effect / callback). */
+  trigger: 'wrong-path-timer' | 'success-path-timer' | 'reveal' | 'practice' | 'manual';
 }): void {
+  const totalTargetWeight = ctx.targetWords.reduce((s, w) => s + w.weight, 0);
   console.groupCollapsed(
-    `${PREFIX} Attempt · ${ctx.phraseId} · accuracy ${ctx.accuracy.accuracy.toFixed(3)}`,
+    `${PREFIX} Attempt · ${ctx.phraseId} · accuracy ${ctx.accuracy.accuracy.toFixed(3)} · ${ctx.trigger}`,
   );
   console.log('Spanish target:', ctx.spanishTarget);
   console.log('Final caption:', ctx.transcript || '(empty)');
   console.log('STT word count:', ctx.spokenWords.length, ctx.spokenWords);
+  console.log('Target words:', ctx.targetWords.length, 'totalWeight:', totalTargetWeight);
+  console.log(
+    'Capture:',
+    'isFinalAtCapture=' + ctx.isFinalAtCapture,
+    'msSinceFirstFinal=' + (ctx.msSinceFirstFinal ?? '(unknown)'),
+    'trigger=' + ctx.trigger,
+  );
 
   console.log('--- Alignment (LCS on normalized tokens) ---');
   if (ctx.alignment.matched.length > 0) {
@@ -167,5 +183,108 @@ export function logRevealSkipped(phraseId: string): void {
   console.log(
     `${PREFIX} Show Answer · ${phraseId}`,
     '— no RevealEvent (attempt or practice already recorded for this card)',
+  );
+}
+
+export function logPhraseBoundary(ctx: {
+  fromIndex: number | null;
+  toIndex: number;
+  phraseId: string;
+  reason: 'init' | 'next';
+}): void {
+  const bar = '═'.repeat(60);
+  const arrow = ctx.fromIndex === null ? `init → #${ctx.toIndex}` : `#${ctx.fromIndex} → #${ctx.toIndex}`;
+  console.log(
+    `\n${bar}\n${PREFIX} PHRASE ${arrow}  id=${ctx.phraseId}  reason=${ctx.reason}\n${bar}`,
+  );
+}
+
+export function logWrongPathScheduled(ctx: {
+  phraseId: string;
+  isFinal: boolean;
+  captionNow: string;
+  wordCountNow: number;
+  pauseMs: number;
+}): void {
+  console.log(
+    `${PREFIX} wrong-path · scheduled (${ctx.pauseMs}ms)`,
+    'phrase=' + ctx.phraseId,
+    'isFinal=' + ctx.isFinal,
+    'words=' + ctx.wordCountNow,
+    'captionLen=' + ctx.captionNow.length,
+  );
+}
+
+export function logWrongPathRescheduled(ctx: {
+  phraseId: string;
+  isFinal: boolean;
+  captionNow: string;
+  wordCountNow: number;
+}): void {
+  console.log(
+    `${PREFIX} wrong-path · rescheduled (cleanup → re-schedule)`,
+    'phrase=' + ctx.phraseId,
+    'isFinal=' + ctx.isFinal,
+    'words=' + ctx.wordCountNow,
+    'captionLen=' + ctx.captionNow.length,
+  );
+}
+
+export function logAttemptFireSource(ctx: {
+  phraseId: string;
+  trigger: 'wrong-path-timer' | 'success-path-timer' | 'practice';
+  captionAtFire: string;
+  wordCountAtFire: number;
+  isFinalAtFire: boolean;
+  msSinceFirstFinal: number | null;
+}): void {
+  console.log(
+    `${PREFIX} fire · ${ctx.trigger}`,
+    'phrase=' + ctx.phraseId,
+    'isFinal=' + ctx.isFinalAtFire,
+    'words=' + ctx.wordCountAtFire,
+    'captionLen=' + ctx.captionAtFire.length,
+    'msSinceFirstFinal=' + (ctx.msSinceFirstFinal ?? '(unknown)'),
+  );
+}
+
+export function logSttSegment(ctx: {
+  isFinal: boolean;
+  segmentWords: number;
+  totalFinalized: number;
+  totalWords: number;
+  transcript: string;
+  captionLen: number;
+}): void {
+  console.log(
+    `${STT_PREFIX} seg`,
+    'isFinal=' + ctx.isFinal,
+    'segWords=' + ctx.segmentWords,
+    'totalFinalized=' + ctx.totalFinalized,
+    'words=' + ctx.totalWords,
+    'transcript=' + JSON.stringify(ctx.transcript),
+    'captionLen=' + ctx.captionLen,
+  );
+}
+
+export function logSttUtteranceEnd(ctx: {
+  totalFinalized: number;
+  caption: string;
+}): void {
+  console.log(
+    `${STT_PREFIX} utterance-end (empty-final)`,
+    'totalFinalized=' + ctx.totalFinalized,
+    'caption=' + JSON.stringify(ctx.caption),
+  );
+}
+
+export function logSttClear(ctx: {
+  prevFinalized: number;
+  prevCaptionLen: number;
+}): void {
+  console.log(
+    `${STT_PREFIX} clearTranscription · prev:`,
+    'finalized=' + ctx.prevFinalized,
+    'captionLen=' + ctx.prevCaptionLen,
   );
 }

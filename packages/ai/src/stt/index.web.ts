@@ -2,6 +2,12 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { useDeepgramConnection, LiveConnectionState } from './web/useDeepgram';
 import { useMicrophone, MicrophoneState } from './web/useMicrophone';
 import type { SpeechToTextHandle, SpokenWord } from '@ai-spanish/logic';
+import {
+  getDefaultLearningPipelineDebug,
+  logSttClear,
+  logSttSegment,
+  logSttUtteranceEnd,
+} from '@ai-spanish/logic';
 
 const DEEPGRAM_OPTIONS = {
   model: 'nova-2',
@@ -66,7 +72,16 @@ export function useSTT(): SpeechToTextHandle {
     await disconnectFromDeepgram();
   };
 
+  const debugRef = useRef(getDefaultLearningPipelineDebug());
+  debugRef.current = getDefaultLearningPipelineDebug();
+
   const clearTranscription = () => {
+    if (debugRef.current) {
+      logSttClear({
+        prevFinalized: finalizedWordsRef.current.length,
+        prevCaptionLen: lastCaptionRef.current.length,
+      });
+    }
     setCaption('');
     setIsFinal(false);
     setWords([]);
@@ -153,6 +168,12 @@ export function useSTT(): SpeechToTextHandle {
       if (dataIsFinal) {
         paragraphRef.current = lastCaptionRef.current;
         setIsFinal(true);
+        if (debugRef.current) {
+          logSttUtteranceEnd({
+            totalFinalized: finalizedWordsRef.current.length,
+            caption: lastCaptionRef.current,
+          });
+        }
       }
       return;
     }
@@ -163,14 +184,29 @@ export function useSTT(): SpeechToTextHandle {
 
     // Words arrive per segment; on final we append to finalized, on interim we
     // show finalized + current interim segment so `words` mirrors `caption`.
+    let totalWords: number;
     if (dataIsFinal) {
       finalizedWordsRef.current = [...finalizedWordsRef.current, ...segmentWords];
       setWords(finalizedWordsRef.current);
       paragraphRef.current = newCaption;
       setIsFinal(true);
+      totalWords = finalizedWordsRef.current.length;
     } else {
-      setWords([...finalizedWordsRef.current, ...segmentWords]);
+      const merged = [...finalizedWordsRef.current, ...segmentWords];
+      setWords(merged);
       setIsFinal(false);
+      totalWords = merged.length;
+    }
+
+    if (debugRef.current) {
+      logSttSegment({
+        isFinal: dataIsFinal,
+        segmentWords: segmentWords.length,
+        totalFinalized: finalizedWordsRef.current.length,
+        totalWords,
+        transcript,
+        captionLen: newCaption.length,
+      });
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

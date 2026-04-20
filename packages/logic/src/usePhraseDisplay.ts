@@ -11,10 +11,14 @@ import { normalizeStr } from './comparison';
 import { computeFluency } from './fluency';
 import {
   getDefaultLearningPipelineDebug,
+  logAttemptFireSource,
   logLearningAttempt,
   logLearningPractice,
+  logPhraseBoundary,
   logRevealEmitted,
   logRevealSkipped,
+  logWrongPathRescheduled,
+  logWrongPathScheduled,
 } from './learningPipelineDebug';
 import { computeMastery } from './mastery';
 import { POST_SUCCESS_EXTRA_PAUSE_MS, WRONG_ANSWER_PAUSE_MS } from './phraseDisplayTiming';
@@ -99,6 +103,12 @@ export function usePhraseDisplay(
   const statusRef = useRef<UIStatus>(status);
   statusRef.current = status;
 
+  /** Timestamp (ms since epoch) of the first is_final=true for the current
+   * phrase presentation. Used to measure the debounce delay between the first
+   * finalized STT segment and the moment we actually emit the Attempt. */
+  const firstIsFinalAtRef = useRef<number | null>(null);
+  const prevIndexRef = useRef<number | null>(null);
+
   const currentPhrase = phrases[currentIndex]!;
   const englishText = currentPhrase.English.intro
     ? `${currentPhrase.English.intro}: ${currentPhrase.English.question}`
@@ -111,7 +121,16 @@ export function usePhraseDisplay(
     !!caption?.trim() && normalizeStr(caption) === normalizeStr(spanishText);
 
   const emitAttempt = useCallback(
-    (finalCaption: string, words: SpokenWord[], now: number) => {
+    (
+      finalCaption: string,
+      words: SpokenWord[],
+      now: number,
+      meta: {
+        trigger: 'wrong-path-timer' | 'success-path-timer' | 'manual';
+        isFinalAtCapture: boolean;
+        msSinceFirstFinal: number | null;
+      },
+    ) => {
       const target = currentPhrase.Spanish.words;
       const alignment = alignWords(target, words);
       const accuracy = computeAccuracy(target, alignment);
@@ -155,6 +174,7 @@ export function usePhraseDisplay(
         logLearningAttempt({
           phraseId: currentPhrase.id,
           spanishTarget: spanishText,
+          targetWords: target,
           transcript: finalCaption,
           spokenWords: words,
           alignment,
@@ -163,6 +183,9 @@ export function usePhraseDisplay(
           uiExactMatch: uiSuccess,
           accuracySuccess: accuracySucceeded,
           masteryPreview: mastery,
+          isFinalAtCapture: meta.isFinalAtCapture,
+          msSinceFirstFinal: meta.msSinceFirstFinal,
+          trigger: meta.trigger,
         });
       }
       onPhraseEventRef.current?.(attempt);
@@ -210,6 +233,9 @@ export function usePhraseDisplay(
       penaltyApplied: true,
       timestamp: now,
     };
+    // Mark an event as emitted so the wrong-path deferred timer (if still
+    // pending) short-circuits instead of double-emitting an Attempt.
+    attemptEmittedRef.current = true;
     onPhraseEventRef.current?.(reveal);
   }, [currentPhrase]);
 
@@ -245,6 +271,16 @@ export function usePhraseDisplay(
     setIsAudioPlaying(false);
     setLastScoreBreakdown(null);
     attemptEmittedRef.current = false;
+    firstIsFinalAtRef.current = null;
+    if (debugLearningPipelineRef.current) {
+      logPhraseBoundary({
+        fromIndex: prevIndexRef.current,
+        toIndex: currentIndex,
+        phraseId: currentPhrase.id,
+        reason: prevIndexRef.current === null ? 'init' : 'next',
+      });
+    }
+    prevIndexRef.current = currentIndex;
     let cancelled = false;
 
     const init = async () => {
@@ -285,6 +321,14 @@ export function usePhraseDisplay(
     }
   }, [stt.isRecording]);
 
+  // Record the timestamp of the first is_final=true for this phrase
+  // presentation so we can measure the debounce age when we finally emit.
+  useEffect(() => {
+    if (stt.isFinal && firstIsFinalAtRef.current === null) {
+      firstIsFinalAtRef.current = Date.now();
+    }
+  }, [stt.isFinal]);
+
   // Correct: chime, then pause, then Spanish answer. Attempt/PracticeAttempt
   // event is emitted before the answer plays.
   useEffect(() => {
@@ -299,18 +343,6 @@ export function usePhraseDisplay(
       await Promise.resolve(sttRef.current.stop());
       if (ac.signal.aborted) return;
 
-      // Emit the learning event as soon as the utterance lands.
-      const captureNow = Date.now();
-      const captureCaption = sttRef.current.caption;
-      const captureWords = sttRef.current.words;
-      if (!attemptEmittedRef.current) {
-        if (statusRef.current === 'tryAgain') {
-          emitPracticeAttempt(captureCaption, captureWords, captureNow);
-        } else {
-          emitAttempt(captureCaption, captureWords, captureNow);
-        }
-      }
-
       try {
         await playSuccessChimeRef.current(ac.signal);
       } catch {
@@ -320,7 +352,38 @@ export function usePhraseDisplay(
 
       postSoundTimer = setTimeout(() => {
         postSoundTimer = null;
-        if (!ac.signal.aborted) void playAnswerAudio();
+        if (ac.signal.aborted) return;
+        // Emit at fire time so sttRef has the full utterance if additional
+        // segments landed during the chime + post-success pause.
+        if (!attemptEmittedRef.current) {
+          const fireNow = Date.now();
+          const captureCaption = sttRef.current.caption;
+          const captureWords = sttRef.current.words;
+          const msAge =
+            firstIsFinalAtRef.current !== null
+              ? fireNow - firstIsFinalAtRef.current
+              : null;
+          if (debugLearningPipelineRef.current) {
+            logAttemptFireSource({
+              phraseId: currentPhrase.id,
+              trigger: statusRef.current === 'tryAgain' ? 'practice' : 'success-path-timer',
+              captionAtFire: captureCaption,
+              wordCountAtFire: captureWords.length,
+              isFinalAtFire: sttRef.current.isFinal,
+              msSinceFirstFinal: msAge,
+            });
+          }
+          if (statusRef.current === 'tryAgain') {
+            emitPracticeAttempt(captureCaption, captureWords, fireNow);
+          } else {
+            emitAttempt(captureCaption, captureWords, fireNow, {
+              trigger: 'success-path-timer',
+              isFinalAtCapture: sttRef.current.isFinal,
+              msSinceFirstFinal: msAge,
+            });
+          }
+        }
+        void playAnswerAudio();
       }, POST_SUCCESS_EXTRA_PAUSE_MS);
     })();
 
@@ -328,38 +391,83 @@ export function usePhraseDisplay(
       ac.abort();
       if (postSoundTimer !== null) clearTimeout(postSoundTimer);
     };
-  }, [isCorrect, status, currentIndex, playAnswerAudio, emitAttempt, emitPracticeAttempt]);
+  }, [isCorrect, status, currentIndex, playAnswerAudio, emitAttempt, emitPracticeAttempt, currentPhrase.id]);
 
-  // Final wrong transcript: emit the attempt (or practice), pause, then play Spanish.
+  // Final wrong transcript: schedule a debounce pause so trailing Deepgram
+  // segments can land, THEN snapshot sttRef.current at fire time and emit the
+  // attempt (or practice). We intentionally do NOT list stt.caption / stt.words
+  // in the dep array — the pause itself provides the debounce window, and the
+  // timer reads the freshest state via sttRef.current at fire time.
   useEffect(() => {
     if (!stt.isFinal || isCorrect || (status !== 'recording' && status !== 'tryAgain')) {
       return;
     }
 
-    if (!attemptEmittedRef.current) {
-      const now = Date.now();
-      if (status === 'tryAgain') {
-        emitPracticeAttempt(stt.caption, stt.words, now);
-      } else {
-        emitAttempt(stt.caption, stt.words, now);
-      }
+    const phraseId = currentPhrase.id;
+    if (debugLearningPipelineRef.current) {
+      logWrongPathScheduled({
+        phraseId,
+        isFinal: stt.isFinal,
+        captionNow: sttRef.current.caption,
+        wordCountNow: sttRef.current.words.length,
+        pauseMs: WRONG_ANSWER_PAUSE_MS,
+      });
     }
 
     const t = setTimeout(() => {
+      if (attemptEmittedRef.current) {
+        void playAnswerAudio();
+        return;
+      }
+      const fireNow = Date.now();
+      const captureCaption = sttRef.current.caption;
+      const captureWords = sttRef.current.words;
+      const msAge =
+        firstIsFinalAtRef.current !== null
+          ? fireNow - firstIsFinalAtRef.current
+          : null;
+      if (debugLearningPipelineRef.current) {
+        logAttemptFireSource({
+          phraseId,
+          trigger: statusRef.current === 'tryAgain' ? 'practice' : 'wrong-path-timer',
+          captionAtFire: captureCaption,
+          wordCountAtFire: captureWords.length,
+          isFinalAtFire: sttRef.current.isFinal,
+          msSinceFirstFinal: msAge,
+        });
+      }
+      if (statusRef.current === 'tryAgain') {
+        emitPracticeAttempt(captureCaption, captureWords, fireNow);
+      } else {
+        emitAttempt(captureCaption, captureWords, fireNow, {
+          trigger: 'wrong-path-timer',
+          isFinalAtCapture: sttRef.current.isFinal,
+          msSinceFirstFinal: msAge,
+        });
+      }
       void playAnswerAudio();
     }, WRONG_ANSWER_PAUSE_MS);
 
-    return () => clearTimeout(t);
+    return () => {
+      if (debugLearningPipelineRef.current) {
+        logWrongPathRescheduled({
+          phraseId,
+          isFinal: sttRef.current.isFinal,
+          captionNow: sttRef.current.caption,
+          wordCountNow: sttRef.current.words.length,
+        });
+      }
+      clearTimeout(t);
+    };
   }, [
     stt.isFinal,
-    stt.caption,
-    stt.words,
     isCorrect,
     status,
     currentIndex,
     playAnswerAudio,
     emitAttempt,
     emitPracticeAttempt,
+    currentPhrase.id,
   ]);
 
   const handleTryAgain = () => {

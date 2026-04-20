@@ -27,7 +27,12 @@ export {
 export type { S3PathConfig } from './s3-keys';
 export { usePhraseDisplay } from './usePhraseDisplay';
 export type { UsePhraseDisplayOptions } from './usePhraseDisplay';
-export { getDefaultLearningPipelineDebug } from './learningPipelineDebug';
+export {
+  getDefaultLearningPipelineDebug,
+  logSttClear,
+  logSttSegment,
+  logSttUtteranceEnd,
+} from './learningPipelineDebug';
 export {
   WRONG_ANSWER_PAUSE_MS,
   POST_SUCCESS_EXTRA_PAUSE_MS,
