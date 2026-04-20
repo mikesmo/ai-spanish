@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useDeepgramSpeechToText } from 'react-native-deepgram';
-import type { SpeechToTextHandle } from '@ai-spanish/logic';
+import type { SpeechToTextHandle, SpokenWord } from '@ai-spanish/logic';
 
 type TranscriptEvent = { isFinal?: boolean };
 
@@ -41,11 +41,18 @@ export function useSTT(): SpeechToTextHandle {
     lastCaptionRef.current = '';
   };
 
+  // The `react-native-deepgram` SDK surface only yields an opaque transcript
+  // string via `onTranscript(text, event)`, so we can't produce per-word
+  // timestamps here today. Expose an empty `words[]` so consumers gracefully
+  // fall back to the no-fluency mastery formula (see packages/logic/mastery).
+  const words: SpokenWord[] = [];
+
   return {
     start: () => startListening(),
     stop: () => stopListening(),
     isRecording: state?.status === 'listening',
     caption,
+    words,
     isFinal,
     clearTranscription,
   };

@@ -15,7 +15,8 @@
     "build:mobile:ios": "cd apps/mobile && eas build --profile development --platform ios",
     "build": "turbo build",
     "typecheck": "turbo typecheck",
-    "tts:batch": "tsx scripts/tts-batch/src/index.ts"
+    "tts:batch": "tsx scripts/tts-batch/src/index.ts",
+    "migrate:lesson1": "tsx scripts/migrate-lesson-weights/src/index.ts"
   },
   "devDependencies": {
     "@types/react": "^18.3.12",

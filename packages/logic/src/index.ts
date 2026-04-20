@@ -1,5 +1,23 @@
 export * from './types';
+export * from './weights';
 export * from './comparison';
+export * from './alignment';
+export * from './accuracy';
+export * from './fluency';
+export * from './events';
+export * from './mastery';
+export * from './progressStore';
+export * from './sessionEngine';
+export {
+  SRS_LEARNING_INTERVAL_MS,
+  SRS_STABILIZING_INTERVAL_MS,
+  SRS_MASTERED_MIN_INTERVAL_MS,
+  SRS_MASTERED_MAX_INTERVAL_MS,
+  scheduleNextReview as scheduleNextReviewAdaptive,
+  isDueForReview,
+} from './srs';
+export * from './lessonBuilder';
+export * from './schemas';
 export {
   DEFAULT_AUDIO_CONTENT_PREFIX,
   normalizeAudioContentPrefix,
@@ -9,6 +27,7 @@ export {
 export type { S3PathConfig } from './s3-keys';
 export { usePhraseDisplay } from './usePhraseDisplay';
 export type { UsePhraseDisplayOptions } from './usePhraseDisplay';
+export { getDefaultLearningPipelineDebug } from './learningPipelineDebug';
 export {
   WRONG_ANSWER_PAUSE_MS,
   POST_SUCCESS_EXTRA_PAUSE_MS,

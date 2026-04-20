@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useDeepgramConnection, LiveConnectionState } from './web/useDeepgram';
 import { useMicrophone, MicrophoneState } from './web/useMicrophone';
-import type { SpeechToTextHandle } from '@ai-spanish/logic';
+import type { SpeechToTextHandle, SpokenWord } from '@ai-spanish/logic';
 
 const DEEPGRAM_OPTIONS = {
   model: 'nova-2',
@@ -36,8 +36,10 @@ export function useSTT(): SpeechToTextHandle {
 
   const [caption, setCaption] = useState('');
   const [isFinal, setIsFinal] = useState(false);
+  const [words, setWords] = useState<SpokenWord[]>([]);
   const paragraphRef = useRef('');
   const lastCaptionRef = useRef('');
+  const finalizedWordsRef = useRef<SpokenWord[]>([]);
 
   const start = () => {
     isIntentionalStop.current = false;
@@ -67,8 +69,10 @@ export function useSTT(): SpeechToTextHandle {
   const clearTranscription = () => {
     setCaption('');
     setIsFinal(false);
+    setWords([]);
     paragraphRef.current = '';
     lastCaptionRef.current = '';
+    finalizedWordsRef.current = [];
   };
 
   // Warm up on mount
@@ -111,19 +115,63 @@ export function useSTT(): SpeechToTextHandle {
 
   // Wire up transcript callback
   onTranscriptRef.current = useCallback((data: unknown) => {
-    const d = data as { is_final?: boolean; channel?: { alternatives?: { transcript?: string }[] } };
-    const transcript = d?.channel?.alternatives?.[0]?.transcript ?? '';
+    const d = data as {
+      is_final?: boolean;
+      channel?: {
+        alternatives?: {
+          transcript?: string;
+          words?: Array<{
+            word?: string;
+            punctuated_word?: string;
+            start?: number;
+            end?: number;
+            confidence?: number;
+          }>;
+        }[];
+      };
+    };
+    const alt = d?.channel?.alternatives?.[0];
+    const transcript = alt?.transcript ?? '';
     const dataIsFinal = d?.is_final ?? false;
+    const rawWords = alt?.words ?? [];
+
+    const segmentWords: SpokenWord[] = rawWords
+      .map((w) => ({
+        word: (w.punctuated_word ?? w.word ?? '').trim(),
+        start: typeof w.start === 'number' ? w.start : NaN,
+        end: typeof w.end === 'number' ? w.end : NaN,
+        confidence: typeof w.confidence === 'number' ? w.confidence : undefined,
+      }))
+      .filter(
+        (w) =>
+          w.word.length > 0 &&
+          Number.isFinite(w.start) &&
+          Number.isFinite(w.end),
+      );
 
     if (transcript === '') {
-      if (dataIsFinal) { paragraphRef.current = lastCaptionRef.current; setIsFinal(true); }
+      if (dataIsFinal) {
+        paragraphRef.current = lastCaptionRef.current;
+        setIsFinal(true);
+      }
       return;
     }
+
     const newCaption = (paragraphRef.current + ' ' + transcript).trim();
     lastCaptionRef.current = newCaption;
     setCaption(newCaption);
-    if (dataIsFinal) { paragraphRef.current = newCaption; setIsFinal(true); }
-    else setIsFinal(false);
+
+    // Words arrive per segment; on final we append to finalized, on interim we
+    // show finalized + current interim segment so `words` mirrors `caption`.
+    if (dataIsFinal) {
+      finalizedWordsRef.current = [...finalizedWordsRef.current, ...segmentWords];
+      setWords(finalizedWordsRef.current);
+      paragraphRef.current = newCaption;
+      setIsFinal(true);
+    } else {
+      setWords([...finalizedWordsRef.current, ...segmentWords]);
+      setIsFinal(false);
+    }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
@@ -131,6 +179,7 @@ export function useSTT(): SpeechToTextHandle {
     stop,
     isRecording: microphoneState === MicrophoneState.Open,
     caption,
+    words,
     isFinal,
     clearTranscription,
   };
