@@ -1,14 +1,56 @@
-import { MASTERY_LEARNING_CEIL, MASTERY_STABILIZING_CEIL, reduceProgress } from './mastery';
+import { MASTERY_STABILIZING_CEIL, reduceProgress } from './mastery';
 import type { PhraseEvent } from './events';
 import type { Phrase } from './types';
 import type { ProgressStore } from './progressStore';
 
 /** Cap on how many times a single phrase can be requeued within a session. */
 export const MAX_REINSERTS_PER_PHRASE_PER_SESSION = 2;
-/** Positional offset (from the head of the remaining queue) for mastery < 0.6 and reveal. */
-export const REPEAT_SOON_SLOTS = 2;
-/** Positional offset for 0.6 <= mastery < 0.8. */
-export const REPEAT_LATER_SLOTS = 5;
+
+/**
+ * Continuous in-session requeue tunables.
+ *
+ * Slot depth (positions ahead of the current queue head) is a linear function
+ * of a weighted blend of `masteryScore` and `stabilityScore`:
+ *
+ *   combined = REPEAT_MASTERY_WEIGHT * mastery + REPEAT_STABILITY_WEIGHT * stability
+ *   t        = clamp01(combined / MASTERY_STABILIZING_CEIL)
+ *   slots    = round(MIN_REPEAT_SLOTS + (MAX_REPEAT_SLOTS - MIN_REPEAT_SLOTS) * t)
+ *
+ * Weaker phrases (low mastery AND low stability) are reinserted closer to the
+ * head — they come back sooner. Strong-but-not-mastered phrases get pushed
+ * deeper. Once `masteryScore` crosses `MASTERY_STABILIZING_CEIL` the phrase
+ * is dropped from the session entirely (mirrors `classifyState`).
+ *
+ * Weights must sum to 1 so the blend stays in `[0, 1]`.
+ */
+export const REPEAT_MASTERY_WEIGHT = 0.7;
+export const REPEAT_STABILITY_WEIGHT = 0.3;
+export const MIN_REPEAT_SLOTS = 2;
+export const MAX_REPEAT_SLOTS = 8;
+
+const clamp01 = (n: number): number => (n < 0 ? 0 : n > 1 ? 1 : n);
+
+/**
+ * Returns the positional offset at which a just-presented phrase should be
+ * reinserted into the remaining queue, or `null` when the phrase is mastered
+ * (≥ `MASTERY_STABILIZING_CEIL`) and should drop out of the session.
+ *
+ * Pure — no engine state, no randomness — so it's safe to call from tests
+ * or preview UIs.
+ */
+export function computeReinsertSlots(
+  masteryScore: number,
+  stabilityScore: number,
+): number | null {
+  if (masteryScore >= MASTERY_STABILIZING_CEIL) return null;
+  const combined =
+    REPEAT_MASTERY_WEIGHT * clamp01(masteryScore) +
+    REPEAT_STABILITY_WEIGHT * clamp01(stabilityScore);
+  const t = clamp01(combined / MASTERY_STABILIZING_CEIL);
+  const slots =
+    MIN_REPEAT_SLOTS + (MAX_REPEAT_SLOTS - MIN_REPEAT_SLOTS) * t;
+  return Math.round(slots);
+}
 
 export interface SessionEngine {
   /** Returns the next phrase to present, or null when the session is complete. */
@@ -74,21 +116,16 @@ export function createSessionEngine(
       const phrase = deckById.get(event.phraseId);
       if (!phrase) return;
 
-      switch (event.eventType) {
-        case 'attempt': {
-          if (next.masteryScore < MASTERY_LEARNING_CEIL) {
-            reinsert(phrase, REPEAT_SOON_SLOTS);
-          } else if (next.masteryScore < MASTERY_STABILIZING_CEIL) {
-            reinsert(phrase, REPEAT_LATER_SLOTS);
-          }
-          // mastery >= 0.8 → drop (do nothing).
-          break;
-        }
-        case 'reveal': {
-          reinsert(phrase, REPEAT_SOON_SLOTS);
-          break;
-        }
-      }
+      // Both 'attempt' and 'reveal' paths drive requeue through the same
+      // continuous formula. Reveal-specific decays already live in
+      // `reduceProgress` (mastery × 0.6, stability × 0.7), so by the time we
+      // reach here `next` already carries the penalty and the formula
+      // naturally maps a just-revealed phrase to a near-head slot.
+      const slots = computeReinsertSlots(
+        next.masteryScore,
+        next.stabilityScore,
+      );
+      if (slots !== null) reinsert(phrase, slots);
     },
 
     remaining() {

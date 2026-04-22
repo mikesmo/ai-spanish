@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
   MAX_REINSERTS_PER_PHRASE_PER_SESSION,
-  REPEAT_LATER_SLOTS,
-  REPEAT_SOON_SLOTS,
+  MAX_REPEAT_SLOTS,
+  MIN_REPEAT_SLOTS,
+  REPEAT_MASTERY_WEIGHT,
+  REPEAT_STABILITY_WEIGHT,
+  computeReinsertSlots,
   createSessionEngine,
 } from '../sessionEngine';
+import { MASTERY_STABILIZING_CEIL, reduceProgress } from '../mastery';
 import { createInMemoryProgressStore } from '../progressStore';
 import { POS_WEIGHTS } from '../weights';
 import type { Attempt, PracticeAttempt, RevealEvent } from '../events';
@@ -62,55 +66,75 @@ describe('createSessionEngine', () => {
     expect(engine.pickNext()).toBeNull();
   });
 
-  it('reinserts weak phrases (< 0.6) REPEAT_SOON_SLOTS ahead', () => {
-    const deck = [phrase('weak'), phrase('b'), phrase('c'), phrase('d')];
+  it('reinserts weak phrases at the formula-derived slot', () => {
+    const deck = [
+      phrase('weak'),
+      phrase('b'),
+      phrase('c'),
+      phrase('d'),
+      phrase('e'),
+    ];
     const engine = createSessionEngine(deck, createInMemoryProgressStore());
     engine.pickNext(); // weak
-    engine.onEvent(
-      attempt('weak', {
+    const weakAttempt: Attempt = attempt('weak', {
+      accuracyScore: 0.2,
+      fluencyScore: 0.2,
+      isAccuracySuccess: false,
+    });
+    engine.onEvent(weakAttempt);
+    // Derive the expected slot from the public formula rather than hard-coding
+    // it — keeps the test sensitive to *behavior* (weak → low slot) while
+    // tracking tuning changes in a single place.
+    const nextProgress = reduceProgress(null, weakAttempt);
+    const expectedSlot = computeReinsertSlots(
+      nextProgress.masteryScore,
+      nextProgress.stabilityScore,
+    );
+    expect(expectedSlot).not.toBeNull();
+    expect(engine.getQueuePosition('weak')).toBe(expectedSlot);
+  });
+
+  it('reinserts stabilizing phrases deeper than weak ones', () => {
+    const deck = Array.from({ length: 10 }, (_, i) => phrase(`p${i}`));
+    const engine = createSessionEngine(deck, createInMemoryProgressStore());
+    engine.pickNext(); // p0
+    // Craft an attempt whose mastery lands in the stabilizing band:
+    // accuracy 0.7, fluency 0.7, success → stability EMA → 0.3, mastery ≈ 0.62.
+    const stabilizingAttempt: Attempt = attempt('p0', {
+      accuracyScore: 0.7,
+      fluencyScore: 0.7,
+    });
+    engine.onEvent(stabilizingAttempt);
+    const nextProgress = reduceProgress(null, stabilizingAttempt);
+    const expectedSlot = computeReinsertSlots(
+      nextProgress.masteryScore,
+      nextProgress.stabilityScore,
+    );
+    expect(expectedSlot).not.toBeNull();
+    // Sanity: a stabilizing phrase must land deeper than a fresh weak miss.
+    const weakProgress = reduceProgress(
+      null,
+      attempt('x', {
         accuracyScore: 0.2,
         fluencyScore: 0.2,
         isAccuracySuccess: false,
       }),
     );
-    // Queue was [b, c, d]. Tick=1 after picking weak. Reinsert at tick+2 = 3.
-    // So sequence should be b (tick 2), c (tick 3), weak (tick 4), d (tick 5).
-    expect(engine.pickNext()?.id).toBe('b');
-    expect(engine.pickNext()?.id).toBe('c');
-    expect(engine.pickNext()?.id).toBe('weak');
-    expect(engine.pickNext()?.id).toBe('d');
-  });
-
-  it('reinserts stabilizing phrases (0.6-0.8) REPEAT_LATER_SLOTS ahead', () => {
-    const deck = Array.from({ length: 7 }, (_, i) => phrase(`p${i}`));
-    const store = createInMemoryProgressStore();
-    const engine = createSessionEngine(deck, store);
-    engine.pickNext(); // p0
-    // Craft an attempt whose mastery lands in [0.6, 0.8): accuracy 0.7,
-    // fluency 0.7, stability 0.3 → 0.5*0.7 + 0.3*0.7 + 0.2*0.3 = 0.62.
-    engine.onEvent(
-      attempt('p0', {
-        accuracyScore: 0.7,
-        fluencyScore: 0.7,
-      }),
+    const weakSlot = computeReinsertSlots(
+      weakProgress.masteryScore,
+      weakProgress.stabilityScore,
     );
-    const sequence: string[] = [];
-    let next = engine.pickNext();
-    while (next) {
-      sequence.push(next.id);
-      next = engine.pickNext();
-    }
-    // p0 should be ~5 slots later, not sooner.
-    const p0Index = sequence.indexOf('p0');
-    expect(p0Index).toBe(REPEAT_LATER_SLOTS);
+    expect(expectedSlot).toBeGreaterThan(weakSlot!);
+    expect(engine.getQueuePosition('p0')).toBe(expectedSlot);
   });
 
-  it('reveals requeue at REPEAT_SOON_SLOTS and consume a reinsert slot', () => {
+  it('reveals requeue near the front because their progress is decayed', () => {
     const deck = [phrase('a'), phrase('b'), phrase('c'), phrase('d')];
     const engine = createSessionEngine(deck, createInMemoryProgressStore());
     engine.pickNext(); // a
     engine.onEvent(reveal('a'));
-    // Expect: b, c, a, d
+    // A fresh phrase revealed (prev mastery/stability = 0) stays at 0 post
+    // decay, so the formula yields MIN_REPEAT_SLOTS = 2 — expect b, c, a, d.
     expect(engine.pickNext()?.id).toBe('b');
     expect(engine.pickNext()?.id).toBe('c');
     expect(engine.pickNext()?.id).toBe('a');
@@ -194,12 +218,62 @@ describe('createSessionEngine', () => {
 });
 
 describe('sessionEngine tunables', () => {
-  it('REPEAT_SOON_SLOTS < REPEAT_LATER_SLOTS', () => {
-    expect(REPEAT_SOON_SLOTS).toBeLessThan(REPEAT_LATER_SLOTS);
+  it('MIN_REPEAT_SLOTS < MAX_REPEAT_SLOTS', () => {
+    expect(MIN_REPEAT_SLOTS).toBeLessThan(MAX_REPEAT_SLOTS);
+  });
+  it('requeue blend weights sum to 1', () => {
+    expect(REPEAT_MASTERY_WEIGHT + REPEAT_STABILITY_WEIGHT).toBeCloseTo(1, 10);
   });
   it('cap is a positive integer', () => {
     expect(MAX_REINSERTS_PER_PHRASE_PER_SESSION).toBeGreaterThan(0);
     expect(Number.isInteger(MAX_REINSERTS_PER_PHRASE_PER_SESSION)).toBe(true);
+  });
+});
+
+describe('computeReinsertSlots', () => {
+  it('returns null (drop) when mastery reaches the stabilizing ceiling', () => {
+    expect(computeReinsertSlots(MASTERY_STABILIZING_CEIL, 0)).toBeNull();
+    expect(computeReinsertSlots(MASTERY_STABILIZING_CEIL, 1)).toBeNull();
+    expect(computeReinsertSlots(1, 1)).toBeNull();
+  });
+
+  it('returns MIN_REPEAT_SLOTS for a full-bomb (mastery 0, stability 0)', () => {
+    expect(computeReinsertSlots(0, 0)).toBe(MIN_REPEAT_SLOTS);
+  });
+
+  it('returns ≈ MAX_REPEAT_SLOTS just below the drop threshold', () => {
+    // combined = 0.7 * 0.79 + 0.3 * 1 = 0.853, clamped t = 1 → slots = MAX.
+    expect(computeReinsertSlots(0.79, 1)).toBe(MAX_REPEAT_SLOTS);
+  });
+
+  it('is monotonic non-decreasing in mastery (holding stability fixed)', () => {
+    const slotsAt = (m: number): number =>
+      computeReinsertSlots(m, 0.2) ?? MAX_REPEAT_SLOTS + 1;
+    let prev = -Infinity;
+    for (let m = 0; m < MASTERY_STABILIZING_CEIL; m += 0.02) {
+      const s = slotsAt(m);
+      expect(s).toBeGreaterThanOrEqual(prev);
+      prev = s;
+    }
+  });
+
+  it('stability shifts the slot deeper when mastery is tied', () => {
+    const lowStab = computeReinsertSlots(0.5, 0.0);
+    const highStab = computeReinsertSlots(0.5, 0.8);
+    expect(lowStab).not.toBeNull();
+    expect(highStab).not.toBeNull();
+    expect(highStab!).toBeGreaterThan(lowStab!);
+  });
+
+  it('stays within [MIN_REPEAT_SLOTS, MAX_REPEAT_SLOTS] for all valid inputs', () => {
+    for (let m = 0; m < MASTERY_STABILIZING_CEIL; m += 0.1) {
+      for (let s = 0; s <= 1; s += 0.1) {
+        const slots = computeReinsertSlots(m, s);
+        expect(slots).not.toBeNull();
+        expect(slots!).toBeGreaterThanOrEqual(MIN_REPEAT_SLOTS);
+        expect(slots!).toBeLessThanOrEqual(MAX_REPEAT_SLOTS);
+      }
+    }
   });
 });
 
@@ -220,18 +294,29 @@ describe('getQueuePosition', () => {
     expect(engine.getQueuePosition('b')).toBe(0);
   });
 
-  it('returns REPEAT_SOON_SLOTS after a weak attempt reinserts the phrase', () => {
-    const deck = [phrase('weak'), phrase('b'), phrase('c'), phrase('d')];
+  it('returns the formula-derived slot after a weak attempt reinserts the phrase', () => {
+    const deck = [
+      phrase('weak'),
+      phrase('b'),
+      phrase('c'),
+      phrase('d'),
+      phrase('e'),
+    ];
     const engine = createSessionEngine(deck, createInMemoryProgressStore());
     engine.pickNext();
-    engine.onEvent(
-      attempt('weak', {
-        accuracyScore: 0.2,
-        fluencyScore: 0.2,
-        isAccuracySuccess: false,
-      }),
+    const weakAttempt: Attempt = attempt('weak', {
+      accuracyScore: 0.2,
+      fluencyScore: 0.2,
+      isAccuracySuccess: false,
+    });
+    engine.onEvent(weakAttempt);
+    const nextProgress = reduceProgress(null, weakAttempt);
+    const expectedSlot = computeReinsertSlots(
+      nextProgress.masteryScore,
+      nextProgress.stabilityScore,
     );
-    expect(engine.getQueuePosition('weak')).toBe(REPEAT_SOON_SLOTS);
+    expect(expectedSlot).not.toBeNull();
+    expect(engine.getQueuePosition('weak')).toBe(expectedSlot);
   });
 
   it('returns null after a mastered attempt (phrase dropped)', () => {
