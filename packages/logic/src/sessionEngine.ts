@@ -17,6 +17,14 @@ export interface SessionEngine {
   onEvent(event: PhraseEvent): void;
   /** Phrases left in the session (including any reinsertions). */
   remaining(): number;
+  /**
+   * 0-based index of `phraseId` in the **remaining** queue (the one `pickNext`
+   * will shift from next). Returns `null` if the phrase is not in the queue
+   * — e.g. it was dropped after a mastered attempt, hasn't been enqueued, or
+   * is the currently-presented card (already shifted off the queue). Useful
+   * for UI surfaces that want to show "this phrase will reappear in N cards".
+   */
+  getQueuePosition(phraseId: string): number | null;
 }
 
 function insertAt<T>(arr: T[], index: number, item: T): T[] {
@@ -85,6 +93,11 @@ export function createSessionEngine(
 
     remaining() {
       return queue.length;
+    },
+
+    getQueuePosition(phraseId) {
+      const idx = queue.findIndex((p) => p.id === phraseId);
+      return idx === -1 ? null : idx;
     },
   };
 }

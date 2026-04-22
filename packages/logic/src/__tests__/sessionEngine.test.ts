@@ -202,3 +202,49 @@ describe('sessionEngine tunables', () => {
     expect(Number.isInteger(MAX_REINSERTS_PER_PHRASE_PER_SESSION)).toBe(true);
   });
 });
+
+describe('getQueuePosition', () => {
+  it('returns the index of a phrase still in the remaining queue', () => {
+    const deck = [phrase('a'), phrase('b'), phrase('c')];
+    const engine = createSessionEngine(deck, createInMemoryProgressStore());
+    expect(engine.getQueuePosition('a')).toBe(0);
+    expect(engine.getQueuePosition('b')).toBe(1);
+    expect(engine.getQueuePosition('c')).toBe(2);
+  });
+
+  it('returns null once a phrase has been picked (shifted off the queue)', () => {
+    const deck = [phrase('a'), phrase('b')];
+    const engine = createSessionEngine(deck, createInMemoryProgressStore());
+    engine.pickNext();
+    expect(engine.getQueuePosition('a')).toBeNull();
+    expect(engine.getQueuePosition('b')).toBe(0);
+  });
+
+  it('returns REPEAT_SOON_SLOTS after a weak attempt reinserts the phrase', () => {
+    const deck = [phrase('weak'), phrase('b'), phrase('c'), phrase('d')];
+    const engine = createSessionEngine(deck, createInMemoryProgressStore());
+    engine.pickNext();
+    engine.onEvent(
+      attempt('weak', {
+        accuracyScore: 0.2,
+        fluencyScore: 0.2,
+        isAccuracySuccess: false,
+      }),
+    );
+    expect(engine.getQueuePosition('weak')).toBe(REPEAT_SOON_SLOTS);
+  });
+
+  it('returns null after a mastered attempt (phrase dropped)', () => {
+    const deck = [phrase('a'), phrase('b')];
+    const engine = createSessionEngine(deck, createInMemoryProgressStore());
+    engine.pickNext();
+    engine.onEvent(attempt('a'));
+    expect(engine.getQueuePosition('a')).toBeNull();
+  });
+
+  it('returns null for an unknown phrase id', () => {
+    const deck = [phrase('a')];
+    const engine = createSessionEngine(deck, createInMemoryProgressStore());
+    expect(engine.getQueuePosition('nope')).toBeNull();
+  });
+});
