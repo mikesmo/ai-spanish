@@ -5,7 +5,9 @@ import {
   alignWords,
   computeAccuracy,
   computeMastery,
+  getDefaultLearningPipelineDebug,
   isAccuracySuccess,
+  logSessionHistoryAppend,
   type Phrase,
   type PhraseEvent,
   type SpokenWord,
@@ -70,31 +72,17 @@ export const useSessionHistory = (): UseSessionHistoryResult => {
     const phrase = phraseRef.current;
     if (!phrase) return;
 
-    // #region agent log
-    const transcriptStr =
-      event.eventType === "reveal"
-        ? ""
-        : (event as { transcript: string[] }).transcript.join(" ");
-    fetch("http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Debug-Session-Id": "f8262d",
-      },
-      body: JSON.stringify({
-        sessionId: "f8262d",
-        hypothesisId: "H1",
-        location: "useSessionHistory.ts:onPhraseEvent",
-        message: "session history append",
-        data: {
-          eventType: event.eventType,
-          phraseId: phrase.id,
-          transcriptPreview: transcriptStr.slice(0, 200),
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
+    if (getDefaultLearningPipelineDebug()) {
+      const transcriptStr =
+        event.eventType === "reveal"
+          ? ""
+          : (event as { transcript: string[] }).transcript.join(" ");
+      logSessionHistoryAppend({
+        eventType: event.eventType,
+        phraseId: phrase.id,
+        transcriptPreview: transcriptStr,
+      });
+    }
 
     let scoreSummary: ScoreSummary | null = null;
     if (event.eventType === "attempt") {

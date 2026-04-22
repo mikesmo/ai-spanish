@@ -29,7 +29,18 @@ export { usePhraseDisplay } from './usePhraseDisplay';
 export type { UsePhraseDisplayOptions } from './usePhraseDisplay';
 export {
   getDefaultLearningPipelineDebug,
+  logSessionHistoryAppend,
+  logSttAdapterStart,
+  logSttAdapterStop,
   logSttClear,
+  logSttDeepgramClose,
+  logSttDeepgramFirstBlobDropped,
+  logSttDeepgramFirstBlobSent,
+  logSttDeepgramOpen,
+  logSttMicSetupDone,
+  logSttMicSetupStart,
+  logSttMicStart,
+  logSttMicStop,
   logSttSegment,
   logSttUtteranceEnd,
 } from './learningPipelineDebug';

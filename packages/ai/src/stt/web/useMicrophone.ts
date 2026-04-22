@@ -1,4 +1,11 @@
 import { useState, useRef, useCallback } from 'react';
+import {
+  getDefaultLearningPipelineDebug,
+  logSttMicSetupDone,
+  logSttMicSetupStart,
+  logSttMicStart,
+  logSttMicStop,
+} from '@ai-spanish/logic';
 
 export enum MicrophoneState {
   NotSetup = -1,
@@ -20,10 +27,10 @@ export function useMicrophone(onVoiceData: (ev: BlobEvent) => void) {
   }, [onVoiceData]);
 
   const setupMicrophone = async () => {
-    // #region agent log
     const setupStartedAt = Date.now();
-    fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'86d2f5'},body:JSON.stringify({sessionId:'86d2f5',hypothesisId:'H1b',location:'useMicrophone.ts:setupMicrophone',message:'setupMicrophone started (getUserMedia)',data:{},timestamp:setupStartedAt})}).catch(()=>{});
-    // #endregion
+    if (getDefaultLearningPipelineDebug()) {
+      logSttMicSetupStart();
+    }
     setMicrophoneState(MicrophoneState.SettingUp);
     const stream = await navigator.mediaDevices.getUserMedia({
       // noiseSuppression disabled — Chrome's aggressive noise suppression was
@@ -34,18 +41,20 @@ export function useMicrophone(onVoiceData: (ev: BlobEvent) => void) {
     });
     microphone.current = new MediaRecorder(stream);
     setMicrophoneState(MicrophoneState.Ready);
-    // #region agent log
-    fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'86d2f5'},body:JSON.stringify({sessionId:'86d2f5',hypothesisId:'H1b',location:'useMicrophone.ts:setupMicrophone',message:'setupMicrophone completed (Ready)',data:{elapsedMs:Date.now()-setupStartedAt},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
+    if (getDefaultLearningPipelineDebug()) {
+      logSttMicSetupDone({ elapsedMs: Date.now() - setupStartedAt });
+    }
   };
 
   const startMicrophone = () => {
     const mic = microphone.current;
     if (mic?.state === 'recording') return;
-    // #region agent log
-    const startedAt = Date.now();
-    fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'86d2f5'},body:JSON.stringify({sessionId:'86d2f5',hypothesisId:'H1b',location:'useMicrophone.ts:startMicrophone',message:'startMicrophone called',data:{micRecorderState:mic?.state??'null',path:mic?.state==='paused'?'resume':'start-fresh'},timestamp:startedAt})}).catch(()=>{});
-    // #endregion
+    if (getDefaultLearningPipelineDebug()) {
+      logSttMicStart({
+        recorderState: mic?.state ?? null,
+        path: mic?.state === 'paused' ? 'resume' : 'start-fresh',
+      });
+    }
     setMicrophoneState(MicrophoneState.Opening);
     if (mic?.state === 'paused') {
       mic.resume();
@@ -57,9 +66,11 @@ export function useMicrophone(onVoiceData: (ev: BlobEvent) => void) {
   };
 
   const stopMicrophone = () => {
-    // #region agent log
-    fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'86d2f5'},body:JSON.stringify({sessionId:'86d2f5',hypothesisId:'H1b',location:'useMicrophone.ts:stopMicrophone',message:'stopMicrophone called',data:{micRecorderState:microphone.current?.state??'null'},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
+    if (getDefaultLearningPipelineDebug()) {
+      logSttMicStop({
+        recorderState: microphone.current?.state ?? null,
+      });
+    }
     setMicrophoneState(MicrophoneState.Stopping);
     const mic = microphone.current;
     if (mic?.state === 'recording') mic.stop();

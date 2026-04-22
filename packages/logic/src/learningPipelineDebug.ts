@@ -295,3 +295,109 @@ export function logSttClear(ctx: {
     'captionLen=' + ctx.prevCaptionLen,
   );
 }
+
+export function logSttAdapterStart(ctx: {
+  connState: string;
+  micState: string;
+  path: 'startMic-direct' | 'setupMic-async';
+}): void {
+  console.log(
+    `${STT_PREFIX} adapter · start`,
+    'conn=' + ctx.connState,
+    'mic=' + ctx.micState,
+    'path=' + ctx.path,
+  );
+}
+
+export function logSttAdapterStop(ctx: {
+  connState: string;
+  micState: string;
+}): void {
+  console.log(
+    `${STT_PREFIX} adapter · stop (disconnect WS)`,
+    'conn=' + ctx.connState,
+    'mic=' + ctx.micState,
+  );
+}
+
+export function logSttMicSetupStart(): void {
+  console.log(`${STT_PREFIX} microphone · setup started (getUserMedia)`);
+}
+
+export function logSttMicSetupDone(ctx: { elapsedMs: number }): void {
+  console.log(
+    `${STT_PREFIX} microphone · setup complete`,
+    'elapsedMs=' + ctx.elapsedMs,
+  );
+}
+
+export function logSttMicStart(ctx: {
+  recorderState: string | null;
+  path: 'resume' | 'start-fresh';
+}): void {
+  console.log(
+    `${STT_PREFIX} microphone · start`,
+    'recorder=' + ctx.recorderState,
+    'path=' + ctx.path,
+  );
+}
+
+export function logSttMicStop(ctx: { recorderState: string | null }): void {
+  console.log(
+    `${STT_PREFIX} microphone · stop`,
+    'recorder=' + ctx.recorderState,
+  );
+}
+
+export function logSttDeepgramOpen(): void {
+  console.log(`${STT_PREFIX} Deepgram · WebSocket OPEN`);
+}
+
+export function logSttDeepgramClose(ctx: {
+  sent: number;
+  droppedClosed: number;
+  droppedEmpty: number;
+}): void {
+  console.log(`${STT_PREFIX} Deepgram · WebSocket CLOSED`, {
+    sent: ctx.sent,
+    droppedClosed: ctx.droppedClosed,
+    droppedEmpty: ctx.droppedEmpty,
+  });
+}
+
+export function logSttDeepgramFirstBlobSent(ctx: {
+  droppedBeforeFirstSent: number;
+  firstDroppedAt: number | null;
+  blobSize: number;
+}): void {
+  console.log(`${STT_PREFIX} Deepgram · first blob sent`, {
+    droppedBeforeFirstSent: ctx.droppedBeforeFirstSent,
+    firstDroppedAt: ctx.firstDroppedAt,
+    blobSize: ctx.blobSize,
+  });
+}
+
+export function logSttDeepgramFirstBlobDropped(ctx: {
+  connState: string;
+  hasConnRef: boolean;
+  blobSize: number;
+}): void {
+  console.log(`${STT_PREFIX} Deepgram · first blob dropped (conn not OPEN)`, {
+    connState: ctx.connState,
+    hasConnRef: ctx.hasConnRef,
+    blobSize: ctx.blobSize,
+  });
+}
+
+export function logSessionHistoryAppend(ctx: {
+  eventType: string;
+  phraseId: string;
+  transcriptPreview: string;
+}): void {
+  console.log(
+    `${PREFIX} session history · append`,
+    'event=' + ctx.eventType,
+    'phrase=' + ctx.phraseId,
+    'transcriptPreview=' + JSON.stringify(ctx.transcriptPreview.slice(0, 200)),
+  );
+}

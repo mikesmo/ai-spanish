@@ -7,6 +7,13 @@ import {
   LiveTranscriptionEvents,
   type LiveSchema,
 } from "@deepgram/sdk";
+import {
+  getDefaultLearningPipelineDebug,
+  logSttDeepgramClose,
+  logSttDeepgramFirstBlobDropped,
+  logSttDeepgramFirstBlobSent,
+  logSttDeepgramOpen,
+} from "@ai-spanish/logic";
 
 export { LiveConnectionState };
 
@@ -134,23 +141,30 @@ export function useDeepgramConnection() {
     }
   }, []);
 
-  // #region agent log
-  const blobStatsRef = useRef({ sent: 0, droppedClosed: 0, droppedEmpty: 0, firstSentAt: 0 as number | 0, firstDroppedAt: 0 as number | 0 });
-  // #endregion
+  const blobStatsRef = useRef({
+    sent: 0,
+    droppedClosed: 0,
+    droppedEmpty: 0,
+    firstSentAt: 0 as number | 0,
+    firstDroppedAt: 0 as number | 0,
+  });
 
   const sendVoiceData = useCallback((e: BlobEvent) => {
     if (connectionRef.current && connectionStateRef.current === LiveConnectionState.OPEN && e.data.size > 0) {
       try { connectionRef.current.send(e.data); } catch {}
-      // #region agent log
       const s = blobStatsRef.current;
       s.sent++;
       if (s.firstSentAt === 0) {
         s.firstSentAt = Date.now();
-        fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'86d2f5'},body:JSON.stringify({sessionId:'86d2f5',hypothesisId:'H1b',location:'useDeepgram.ts:sendVoiceData',message:'FIRST blob sent to Deepgram',data:{droppedBeforeFirstSent:s.droppedClosed,firstDroppedAt:s.firstDroppedAt||null,blobSize:e.data.size},timestamp:s.firstSentAt})}).catch(()=>{});
+        if (getDefaultLearningPipelineDebug()) {
+          logSttDeepgramFirstBlobSent({
+            droppedBeforeFirstSent: s.droppedClosed,
+            firstDroppedAt: s.firstDroppedAt || null,
+            blobSize: e.data.size,
+          });
+        }
       }
-      // #endregion
     } else {
-      // #region agent log
       const s = blobStatsRef.current;
       if (e.data.size === 0) {
         s.droppedEmpty++;
@@ -158,24 +172,41 @@ export function useDeepgramConnection() {
         s.droppedClosed++;
         if (s.firstDroppedAt === 0) {
           s.firstDroppedAt = Date.now();
-          fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'86d2f5'},body:JSON.stringify({sessionId:'86d2f5',hypothesisId:'H1b',location:'useDeepgram.ts:sendVoiceData',message:'FIRST blob dropped (conn not OPEN)',data:{connState:connectionStateRef.current,hasConnRef:!!connectionRef.current,blobSize:e.data.size},timestamp:s.firstDroppedAt})}).catch(()=>{});
+          if (getDefaultLearningPipelineDebug()) {
+            logSttDeepgramFirstBlobDropped({
+              connState: String(connectionStateRef.current),
+              hasConnRef: !!connectionRef.current,
+              blobSize: e.data.size,
+            });
+          }
         }
       }
-      // #endregion
     }
   }, []);
 
-  // #region agent log
   useEffect(() => {
     if (connectionState === LiveConnectionState.OPEN) {
-      blobStatsRef.current = { sent: 0, droppedClosed: 0, droppedEmpty: 0, firstSentAt: 0, firstDroppedAt: 0 };
-      fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'86d2f5'},body:JSON.stringify({sessionId:'86d2f5',hypothesisId:'H1b',location:'useDeepgram.ts:connectionOpen',message:'Deepgram WebSocket OPEN',data:{},timestamp:Date.now()})}).catch(()=>{});
+      blobStatsRef.current = {
+        sent: 0,
+        droppedClosed: 0,
+        droppedEmpty: 0,
+        firstSentAt: 0,
+        firstDroppedAt: 0,
+      };
+      if (getDefaultLearningPipelineDebug()) {
+        logSttDeepgramOpen();
+      }
     } else if (connectionState === LiveConnectionState.CLOSED) {
       const s = blobStatsRef.current;
-      fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'86d2f5'},body:JSON.stringify({sessionId:'86d2f5',hypothesisId:'H1b',location:'useDeepgram.ts:connectionClose',message:'Deepgram WebSocket CLOSED',data:{sent:s.sent,droppedClosed:s.droppedClosed,droppedEmpty:s.droppedEmpty},timestamp:Date.now()})}).catch(()=>{});
+      if (getDefaultLearningPipelineDebug()) {
+        logSttDeepgramClose({
+          sent: s.sent,
+          droppedClosed: s.droppedClosed,
+          droppedEmpty: s.droppedEmpty,
+        });
+      }
     }
   }, [connectionState]);
-  // #endregion
 
   useEffect(() => {
     return () => {

@@ -131,10 +131,6 @@ export function usePhraseDisplay(
         msSinceFirstFinal: number | null;
       },
     ) => {
-      // #region agent log
-      const preAlreadyEmitted = attemptEmittedRef.current;
-      fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f8262d'},body:JSON.stringify({sessionId:'f8262d',hypothesisId:'H3',location:'usePhraseDisplay.ts:emitAttempt:entry',message:'emitAttempt called',data:{phraseId:currentPhrase.id,preAlreadyEmitted,finalCaptionPreview:finalCaption.slice(0,220),wordCount:words.length,trigger:meta.trigger},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       const target = currentPhrase.Spanish.words;
       const alignment = alignWords(target, words);
       const accuracy = computeAccuracy(target, alignment);
@@ -199,10 +195,6 @@ export function usePhraseDisplay(
 
   const emitPracticeAttempt = useCallback(
     (finalCaption: string, words: SpokenWord[], now: number) => {
-      // #region agent log
-      const preAlreadyEmitted = attemptEmittedRef.current;
-      fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f8262d'},body:JSON.stringify({sessionId:'f8262d',hypothesisId:'H3',location:'usePhraseDisplay.ts:emitPracticeAttempt:entry',message:'emitPracticeAttempt called',data:{phraseId:currentPhrase.id,preAlreadyEmitted,finalCaptionPreview:finalCaption.slice(0,220),wordCount:words.length},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       const fluency = computeFluency(words);
       if (debugLearningPipelineRef.current) {
         const target = currentPhrase.Spanish.words;
