@@ -70,103 +70,9 @@ export function useSTT(): SpeechToTextHandle {
   const debugRef = useRef(getDefaultLearningPipelineDebug());
   debugRef.current = getDefaultLearningPipelineDebug();
 
-  const start = () => {
-    isIntentionalStop.current = false;
-    isUserStarted.current = true;
-    if (debugRef.current) {
-      logSttAdapterStart({
-        connState: String(connectionStateRef.current),
-        micState: String(microphoneState),
-        path:
-          connectionStateRef.current === LiveConnectionState.OPEN
-            ? 'startMic-direct'
-            : 'setupMic-async',
-      });
-    }
-    if (connectionStateRef.current === LiveConnectionState.OPEN) {
-      startMicrophone();
-    } else if (
-      microphoneState === MicrophoneState.NotSetup ||
-      microphoneState === MicrophoneState.Stopped
-    ) {
-      setupMicrophone();
-    }
-  };
-
-  const stop = async () => {
-    isIntentionalStop.current = true;
-    isUserStarted.current = false;
-    if (debugRef.current) {
-      logSttAdapterStop({
-        connState: String(connectionStateRef.current),
-        micState: String(microphoneState),
-      });
-    }
-    if (reconnectTimer.current) {
-      clearTimeout(reconnectTimer.current);
-      reconnectTimer.current = null;
-    }
-    reconnectAttempts.current = 0;
-    stopMicrophone();
-    await disconnectFromDeepgram();
-  };
-
-  const clearTranscription = () => {
-    if (debugRef.current) {
-      logSttClear({
-        prevFinalized: finalizedWordsRef.current.length,
-        prevCaptionLen: lastCaptionRef.current.length,
-      });
-    }
-    setCaption('');
-    setIsFinal(false);
-    setWords([]);
-    paragraphRef.current = '';
-    lastCaptionRef.current = '';
-    finalizedWordsRef.current = [];
-    pendingInterimWordsRef.current = [];
-  };
-
-  // Warm up on mount
-  useEffect(() => { setupMicrophone(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Connect to Deepgram once microphone is ready
-  useEffect(() => {
-    if (microphoneState === MicrophoneState.Ready) connectToDeepgram(DEEPGRAM_OPTIONS);
-  }, [microphoneState]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Start microphone once connection opens (if user has called start())
-  useEffect(() => {
-    if (connectionState === LiveConnectionState.OPEN && isUserStarted.current) startMicrophone();
-  }, [connectionState]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Fast reconnect on unexpected disconnect
-  useEffect(() => {
-    if (
-      connectionState === LiveConnectionState.CLOSED &&
-      prevConnectionState.current === LiveConnectionState.OPEN &&
-      !isIntentionalStop.current
-    ) {
-      reconnectAttempts.current = 0;
-      connectToDeepgram(DEEPGRAM_OPTIONS);
-    }
-    if (connectionState === LiveConnectionState.OPEN) reconnectAttempts.current = 0;
-    prevConnectionState.current = connectionState;
-  }, [connectionState]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Exponential backoff retry on failed connection attempt
-  useEffect(() => {
-    if (connectionFailedSignal === 0 || isIntentionalStop.current) return;
-    reconnectAttempts.current++;
-    if (reconnectAttempts.current <= MAX_ATTEMPTS) {
-      const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current - 1), 16000);
-      if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
-      reconnectTimer.current = setTimeout(() => connectToDeepgram(DEEPGRAM_OPTIONS), delay);
-    }
-  }, [connectionFailedSignal]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Wire up transcript callback
-  onTranscriptRef.current = useCallback((data: unknown) => {
+  // Transcript handler must be registered with stable hook order: all
+  // useState/useRef/useCallback before any useEffect in this hook.
+  const handleTranscript = useCallback((data: unknown) => {
     const d = data as {
       is_final?: boolean;
       channel?: {
@@ -265,6 +171,116 @@ export function useSTT(): SpeechToTextHandle {
       });
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  onTranscriptRef.current = handleTranscript;
+
+  // #region agent log
+  fetch("http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "7565d4" },
+    body: JSON.stringify({
+      sessionId: "7565d4",
+      location: "stt/index.web.ts:afterHandleTranscript",
+      message: "useSTT transcript hook registered and ref set",
+      data: { hypothesisId: "H1" },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
+
+  const start = () => {
+    isIntentionalStop.current = false;
+    isUserStarted.current = true;
+    if (debugRef.current) {
+      logSttAdapterStart({
+        connState: String(connectionStateRef.current),
+        micState: String(microphoneState),
+        path:
+          connectionStateRef.current === LiveConnectionState.OPEN
+            ? 'startMic-direct'
+            : 'setupMic-async',
+      });
+    }
+    if (connectionStateRef.current === LiveConnectionState.OPEN) {
+      startMicrophone();
+    } else if (
+      microphoneState === MicrophoneState.NotSetup ||
+      microphoneState === MicrophoneState.Stopped
+    ) {
+      setupMicrophone();
+    }
+  };
+
+  const stop = async () => {
+    isIntentionalStop.current = true;
+    isUserStarted.current = false;
+    if (debugRef.current) {
+      logSttAdapterStop({
+        connState: String(connectionStateRef.current),
+        micState: String(microphoneState),
+      });
+    }
+    if (reconnectTimer.current) {
+      clearTimeout(reconnectTimer.current);
+      reconnectTimer.current = null;
+    }
+    reconnectAttempts.current = 0;
+    stopMicrophone();
+    await disconnectFromDeepgram();
+  };
+
+  const clearTranscription = () => {
+    if (debugRef.current) {
+      logSttClear({
+        prevFinalized: finalizedWordsRef.current.length,
+        prevCaptionLen: lastCaptionRef.current.length,
+      });
+    }
+    setCaption('');
+    setIsFinal(false);
+    setWords([]);
+    paragraphRef.current = '';
+    lastCaptionRef.current = '';
+    finalizedWordsRef.current = [];
+    pendingInterimWordsRef.current = [];
+  };
+
+  // Warm up on mount
+  useEffect(() => { setupMicrophone(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Connect to Deepgram once microphone is ready
+  useEffect(() => {
+    if (microphoneState === MicrophoneState.Ready) connectToDeepgram(DEEPGRAM_OPTIONS);
+  }, [microphoneState]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Start microphone once connection opens (if user has called start())
+  useEffect(() => {
+    if (connectionState === LiveConnectionState.OPEN && isUserStarted.current) startMicrophone();
+  }, [connectionState]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fast reconnect on unexpected disconnect
+  useEffect(() => {
+    if (
+      connectionState === LiveConnectionState.CLOSED &&
+      prevConnectionState.current === LiveConnectionState.OPEN &&
+      !isIntentionalStop.current
+    ) {
+      reconnectAttempts.current = 0;
+      connectToDeepgram(DEEPGRAM_OPTIONS);
+    }
+    if (connectionState === LiveConnectionState.OPEN) reconnectAttempts.current = 0;
+    prevConnectionState.current = connectionState;
+  }, [connectionState]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Exponential backoff retry on failed connection attempt
+  useEffect(() => {
+    if (connectionFailedSignal === 0 || isIntentionalStop.current) return;
+    reconnectAttempts.current++;
+    if (reconnectAttempts.current <= MAX_ATTEMPTS) {
+      const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current - 1), 16000);
+      if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
+      reconnectTimer.current = setTimeout(() => connectToDeepgram(DEEPGRAM_OPTIONS), delay);
+    }
+  }, [connectionFailedSignal]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
     start,
