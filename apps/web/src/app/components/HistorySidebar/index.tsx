@@ -5,7 +5,6 @@ import {
   normalizeStr,
   type Attempt,
   type PracticeAttempt,
-  type RevealEvent,
   type WordMeta,
 } from "@ai-spanish/logic";
 import type { HistoryEntry, ScoreSummary } from "../../hooks/useSessionHistory";
@@ -15,6 +14,19 @@ interface HistorySidebarProps {
   isOpen: boolean;
   onClose: () => void;
   onClear: () => void;
+  /**
+   * Live queue-position lookup from the session engine. Returns `null` when
+   * the phrase is not currently in the remaining queue. Re-read on each
+   * render (gated on `queueVersion`).
+   */
+  getLiveSlotsAhead: (phraseId: string) => number | null;
+  /**
+   * Bump this counter whenever the queue shifts (e.g. after `advance()`) so
+   * memoized row values depending on live slots invalidate.
+   */
+  queueVersion: number;
+  /** Cards still in the session queue (excludes the currently-shown card). */
+  remainingInSession: number;
 }
 
 interface SessionStats {
@@ -25,6 +37,8 @@ interface SessionStats {
   avgFluency: number | null;
   practiceCount: number;
   revealCount: number;
+  /** Attempt rows flagged as a second-or-later presentation of their phrase. */
+  revisitAttemptCount: number;
 }
 
 const computeStats = (history: HistoryEntry[]): SessionStats => {
@@ -53,6 +67,8 @@ const computeStats = (history: HistoryEntry[]): SessionStats => {
     practiceCount: history.filter((h) => h.event.eventType === "practice")
       .length,
     revealCount: history.filter((h) => h.event.eventType === "reveal").length,
+    revisitAttemptCount: attempts.filter((h) => h.isRepeatedPresentation)
+      .length,
   };
 };
 
@@ -65,6 +81,58 @@ const formatTime = (ts: number): string =>
     minute: "2-digit",
     second: "2-digit",
   });
+
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
+const isSameDay = (a: Date, b: Date): boolean =>
+  a.getFullYear() === b.getFullYear() &&
+  a.getMonth() === b.getMonth() &&
+  a.getDate() === b.getDate();
+
+/**
+ * Compact relative label for the SRS `nextReviewAt`. The reducer bands are
+ * coarse (≈1d / 2d / 7d), so a day-level rendering is enough signal. Fall back
+ * to a short locale date for anything further out.
+ */
+const formatNextReview = (ts: number, now: number): string => {
+  const diff = ts - now;
+  if (diff <= 0) return "now";
+  const future = new Date(ts);
+  const today = new Date(now);
+  if (isSameDay(future, today)) {
+    return `today ${future.toLocaleTimeString(undefined, {
+      hour: "2-digit",
+      minute: "2-digit",
+    })}`;
+  }
+  const days = Math.round(diff / ONE_DAY_MS);
+  if (days <= 1) return "tomorrow";
+  if (days <= 13) return `in ${days}d`;
+  return future.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+};
+
+const formatNextReviewTitle = (ts: number): string =>
+  new Date(ts).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+/**
+ * Render the in-session distance. `null` → em-dash (phrase isn't in the
+ * remaining queue: dropped, already drawn, or a practice event that never
+ * reorders). Position N → "in N+1 cards" so it reads as the human-visible
+ * count of cards until the reappearance.
+ */
+const formatSlotsAhead = (slots: number | null): string => {
+  if (slots == null) return "—";
+  const cards = slots + 1;
+  return cards === 1 ? "next card" : `in ${cards} cards`;
+};
 
 type ResultBadge = { label: string; className: string; title: string };
 
@@ -266,9 +334,10 @@ const AttemptDetail = ({ entry }: AttemptDetailProps): JSX.Element => {
 interface RowProps {
   index: number;
   entry: HistoryEntry;
+  liveSlotsAhead: number | null;
 }
 
-const HistoryRow = ({ index, entry }: RowProps): JSX.Element => {
+const HistoryRow = ({ index, entry, liveSlotsAhead }: RowProps): JSX.Element => {
   const [expanded, setExpanded] = useState(false);
   const { event, phrase, scoreSummary } = entry;
   const badge = getResultBadge(entry);
@@ -318,6 +387,32 @@ const HistoryRow = ({ index, entry }: RowProps): JSX.Element => {
                 {badge.label}
               </span>
             )}
+            {entry.isRepeatedPresentation && (
+              <span
+                title="Revisit — this phrase was presented again in the same session (e.g. Pimsleur requeue or deck wrap)"
+                className="inline-block w-fit text-[10px] px-1.5 py-0.5 rounded border bg-indigo-50 text-indigo-700 border-indigo-200"
+              >
+                revisit
+              </span>
+            )}
+            <span
+              title={`Next SRS review: ${formatNextReviewTitle(entry.nextReviewAt)}`}
+              className="text-[10px] text-gray-500 tabular-nums"
+            >
+              next: {formatNextReview(entry.nextReviewAt, event.timestamp)}
+            </span>
+            <span
+              title="In-session distance captured at the moment this event was logged. Mirrors the session engine's Pimsleur requeue: REPEAT_SOON for weak attempts/reveals, REPEAT_LATER for stabilizing attempts, '—' for mastered (dropped) or practice."
+              className="text-[10px] text-gray-500 tabular-nums"
+            >
+              session (log): {formatSlotsAhead(entry.slotsAheadAtEvent)}
+            </span>
+            <span
+              title="Current distance to this phrase in the remaining session queue. Ticks down as cards play and goes to '—' once the phrase is re-drawn or dropped."
+              className="text-[10px] text-gray-500 tabular-nums"
+            >
+              session (now): {formatSlotsAhead(liveSlotsAhead)}
+            </span>
           </div>
         </td>
         <td className={`py-2 px-1 align-top max-w-[140px] ${primaryTextClass}`}>
@@ -401,6 +496,26 @@ const EVENT_LEGEND: LegendItem[] = [
     term: "miss",
     description:
       "Weighted accuracy below the 85% learning-success threshold.",
+  },
+  {
+    term: "revisit",
+    description:
+      "This phrase was presented again in the current session — e.g. a Pimsleur requeue after a weak attempt, or a deck wrap. The badge applies to every event (attempt, retry, reveal) logged for that revisit card and is orthogonal to the scored-vs-practice distinction.",
+  },
+  {
+    term: "next",
+    description:
+      "When this phrase is due for its next SRS review after the event, per the mastery reducer: ~1 day while learning, ~2 days while stabilizing, ~7 days once mastered; a reveal resets to the next day. Retry (practice) rows carry the prior schedule forward unchanged.",
+  },
+  {
+    term: "session (log)",
+    description:
+      "Snapshot of the in-session distance captured at the moment this event was logged. Reflects the session engine's Pimsleur requeue: 3 cards ahead for weak attempts and reveals (REPEAT_SOON), 6 cards ahead for stabilizing attempts (REPEAT_LATER), or '—' for mastered attempts (dropped) and practice events (never reorder).",
+  },
+  {
+    term: "session (now)",
+    description:
+      "Live distance to this phrase's next appearance in the remaining session queue. Shrinks as cards play and goes to '—' once the phrase has been re-drawn or dropped from the session.",
   },
 ];
 
@@ -515,9 +630,27 @@ export const HistorySidebar = ({
   isOpen,
   onClose,
   onClear,
+  getLiveSlotsAhead,
+  queueVersion,
+  remainingInSession,
 }: HistorySidebarProps): JSX.Element => {
   const stats = useMemo(() => computeStats(history), [history]);
   const reversed = useMemo(() => [...history].reverse(), [history]);
+  /**
+   * Snapshot of live slots-ahead for every unique phrase in history, keyed on
+   * `queueVersion` so the read happens exactly once per queue change. Avoids
+   * N lookups per render when nothing has shifted.
+   */
+  const liveSlotsByPhraseId = useMemo(() => {
+    const map = new Map<string, number | null>();
+    for (const entry of history) {
+      if (!map.has(entry.phrase.id)) {
+        map.set(entry.phrase.id, getLiveSlotsAhead(entry.phrase.id));
+      }
+    }
+    return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [history, queueVersion, getLiveSlotsAhead]);
 
   const [width, setWidth] = useState<number>(DEFAULT_WIDTH);
   const [isResizing, setIsResizing] = useState(false);
@@ -633,6 +766,8 @@ export const HistorySidebar = ({
               </h2>
               <span className="text-[10px] text-gray-400">
                 {history.length} event{history.length === 1 ? "" : "s"}
+                {" · "}
+                {remainingInSession} left in session
               </span>
             </div>
             <div className="flex items-center gap-2">
@@ -670,9 +805,13 @@ export const HistorySidebar = ({
             <StatCard label="Avg acc" value={formatPct(stats.avgAccuracy)} />
             <StatCard label="Avg flu" value={formatPct(stats.avgFluency)} />
           </div>
-          {(stats.practiceCount > 0 || stats.revealCount > 0) && (
+          {(stats.practiceCount > 0 ||
+            stats.revealCount > 0 ||
+            stats.revisitAttemptCount > 0) && (
             <div className="mt-2 text-[10px] text-gray-400">
-              {stats.practiceCount} retry · {stats.revealCount} reveal
+              {stats.practiceCount} retry · {stats.revealCount} reveal ·{" "}
+              {stats.revisitAttemptCount} revisit attempt
+              {stats.revisitAttemptCount === 1 ? "" : "s"}
             </div>
           )}
         </header>
@@ -702,6 +841,9 @@ export const HistorySidebar = ({
                     key={entry.id}
                     index={history.length - i}
                     entry={entry}
+                    liveSlotsAhead={
+                      liveSlotsByPhraseId.get(entry.phrase.id) ?? null
+                    }
                   />
                 ))}
               </tbody>

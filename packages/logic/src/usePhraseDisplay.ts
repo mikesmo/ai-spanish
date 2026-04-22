@@ -51,6 +51,29 @@ export type UsePhraseDisplayOptions = {
    */
   onPhraseEvent?: (event: PhraseEvent) => void;
   /**
+   * Called once at the start of each new phrase presentation (not on Try
+   * Again). Host apps use this to track per-phrase visit counts, e.g. to
+   * flag repeated presentations in session history.
+   */
+  onPresentationStart?: (phrase: Phrase) => void;
+  /**
+   * Optional monotonic counter incremented by the host on every navigation
+   * (e.g. session engine `pickNext`) so the phrase-bootstrap effect re-runs
+   * even when the same phrase id is re-presented at the same index. In
+   * linear lessons where navigation is driven solely by `currentIndex`,
+   * leave this undefined and the effect will behave as before.
+   */
+  presentationVersion?: number;
+  /**
+   * Overrides the numeric index passed to the TTS adapter (`phraseIndex`
+   * argument of `play` / `prefetch`). Required when the `phrases` prop is a
+   * queue-driven 1-element array: the local `currentIndex` would always be
+   * `0` and the S3 adapter would keep replaying the first phrase's clips.
+   * Hosts should pass the current phrase's position in the original deck.
+   * When omitted, `currentIndex` is used (linear navigation).
+   */
+  ttsPhraseIndex?: number;
+  /**
    * Log alignment → accuracy → fluency (and reveal/practice) to the console.
    * Defaults to `true` in development (`NODE_ENV === 'development'` or `__DEV__`).
    */
@@ -78,12 +101,30 @@ export function usePhraseDisplay(
   const [lastScoreBreakdown, setLastScoreBreakdown] =
     useState<ScoreBreakdown | null>(null);
 
+  /**
+   * S3 phrase-index hint passed to the TTS adapter. Falls back to
+   * `currentIndex` when the host does not override — preserves
+   * linear-navigation behavior. Required for queue-driven hosts where the
+   * `phrases` prop is a 1-element array (see `UsePhraseDisplayOptions.ttsPhraseIndex`).
+   * Kept in a ref so async flows (playAnswerAudio, handleReplay, bootstrap
+   * init) always read the freshest value without forcing extra dep-array
+   * entries.
+   */
+  const ttsPhraseIndex = options?.ttsPhraseIndex ?? currentIndex;
+  const ttsPhraseIndexRef = useRef<number>(ttsPhraseIndex);
+  ttsPhraseIndexRef.current = ttsPhraseIndex;
+
   const playSuccessChime = options?.playSuccessChime ?? noopSuccessChime;
   const playSuccessChimeRef = useRef(playSuccessChime);
   playSuccessChimeRef.current = playSuccessChime;
 
   const onPhraseEventRef = useRef(options?.onPhraseEvent);
   onPhraseEventRef.current = options?.onPhraseEvent;
+
+  const onPresentationStartRef = useRef(options?.onPresentationStart);
+  onPresentationStartRef.current = options?.onPresentationStart;
+
+  const presentationVersion = options?.presentationVersion;
 
   const debugLearningPipelineRef = useRef(
     options?.debugLearningPipeline ?? getDefaultLearningPipelineDebug(),
@@ -108,6 +149,12 @@ export function usePhraseDisplay(
    * finalized STT segment and the moment we actually emit the Attempt. */
   const firstIsFinalAtRef = useRef<number | null>(null);
   const prevIndexRef = useRef<number | null>(null);
+  /**
+   * Suppress duplicate `onPresentationStart` when React Strict Mode (or any
+   * identical-deps re-run) invokes the phrase bootstrap effect twice for the
+   * same logical card. Key: index|phraseId|presentationVersion.
+   */
+  const lastPresentationNotifyKeyRef = useRef<string | null>(null);
 
   const currentPhrase = phrases[currentIndex]!;
   const englishText = currentPhrase.English.intro
@@ -246,13 +293,18 @@ export function usePhraseDisplay(
     setStatus('answer');
     try {
       setIsAudioPlaying(true);
-      await ttsRef.current.play(spanishText, 'es', undefined, currentIndex);
+      await ttsRef.current.play(
+        spanishText,
+        'es',
+        undefined,
+        ttsPhraseIndexRef.current,
+      );
     } catch (error) {
       console.error('[usePhraseDisplay] Error playing Spanish:', error);
     } finally {
       setIsAudioPlaying(false);
     }
-  }, [spanishText, currentIndex]);
+  }, [spanishText]);
 
   /** User explicitly clicked "Show Answer". Emits a Reveal event if no attempt
    * has already been emitted for this phrase presentation. */
@@ -281,18 +333,31 @@ export function usePhraseDisplay(
       });
     }
     prevIndexRef.current = currentIndex;
+    const notifyKey = `${currentIndex}|${currentPhrase.id}|${presentationVersion ?? ''}`;
+    const shouldNotifyPresentation =
+      lastPresentationNotifyKeyRef.current !== notifyKey;
+    if (shouldNotifyPresentation) {
+      lastPresentationNotifyKeyRef.current = notifyKey;
+      onPresentationStartRef.current?.(currentPhrase);
+    }
     let cancelled = false;
 
     const init = async () => {
       try {
+        const hintedIndex = ttsPhraseIndexRef.current;
         await Promise.all([
-          ttsRef.current.prefetch(englishText, 'en', currentIndex),
-          ttsRef.current.prefetch(spanishText, 'es', currentIndex),
+          ttsRef.current.prefetch(englishText, 'en', hintedIndex),
+          ttsRef.current.prefetch(spanishText, 'es', hintedIndex),
         ]);
         if (cancelled) return;
         setStatus('idle');
         setIsAudioPlaying(true);
-        await ttsRef.current.play(englishText, 'en', undefined, currentIndex);
+        await ttsRef.current.play(
+          englishText,
+          'en',
+          undefined,
+          ttsPhraseIndexRef.current,
+        );
         if (cancelled) return;
         sttRef.current.clearTranscription();
         sttRef.current.start();
@@ -312,7 +377,12 @@ export function usePhraseDisplay(
       cancelled = true;
       ttsRef.current.stop();
     };
-  }, [currentIndex]); // eslint-disable-line react-hooks/exhaustive-deps
+    // Re-run on currentIndex change (linear navigation) AND on
+    // presentationVersion bumps from a session engine so a requeued phrase
+    // at the same index (or a one-element `phrases` array) still triggers a
+    // fresh bootstrap. currentPhrase.id is included so queue-driven hosts
+    // that swap the in-array identity without changing index also re-run.
+  }, [currentIndex, currentPhrase.id, presentationVersion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Transition to recording once the mic opens. Preserve the 'tryAgain'
   // status so Try Again passes continue to emit PracticeAttempt events (and
@@ -494,7 +564,12 @@ export function usePhraseDisplay(
   const handleReplay = async () => {
     try {
       setIsAudioPlaying(true);
-      await ttsRef.current.play(spanishText, 'es', PLAYBACK_RATES[speed], currentIndex);
+      await ttsRef.current.play(
+        spanishText,
+        'es',
+        PLAYBACK_RATES[speed],
+        ttsPhraseIndexRef.current,
+      );
     } catch (error) {
       console.error('[usePhraseDisplay] Error replaying Spanish:', error);
     } finally {

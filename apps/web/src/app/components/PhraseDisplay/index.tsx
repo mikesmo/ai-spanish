@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { usePhraseDisplay } from "@ai-spanish/logic";
 import { useS3TTS, useSTT } from "@ai-spanish/ai";
 import { playSuccessChime } from "@/lib/playSuccessChime";
-import { useSessionHistory } from "@/app/hooks/useSessionHistory";
+import { useLessonSession } from "@/app/hooks/useLessonSession";
 import { AISpeaking } from "./components/AISpeaking";
 import { UserFeedback } from "./components/UserFeedback";
 import { UserRecording } from "./components/UserRecording";
@@ -14,23 +14,42 @@ import type { PhraseDisplayProps } from "./PhraseDisplay.types";
 export const PhraseDisplay = ({ phrases }: PhraseDisplayProps): JSX.Element => {
   const tts = useS3TTS();
   const stt = useSTT();
-  const { history, onPhraseEvent, bindCurrentPhrase, clearHistory } =
-    useSessionHistory();
+  const session = useLessonSession(phrases);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
-  const display = usePhraseDisplay(phrases, stt, tts, {
+  /**
+   * Map each phrase id to its original deck index so we can tell
+   * `usePhraseDisplay` (and therefore the S3 TTS adapter) which audio clips
+   * to request. Without this, the queue-driven 1-element `session.phrases`
+   * array always resolves to `currentIndex === 0` and every prompt would
+   * replay the first phrase's audio. See `ttsPhraseIndex` in
+   * `UsePhraseDisplayOptions`.
+   */
+  const deckIndexById = useMemo(() => {
+    const m = new Map<string, number>();
+    phrases.forEach((p, i) => m.set(p.id, i));
+    return m;
+  }, [phrases]);
+  const ttsPhraseIndex = deckIndexById.get(session.currentPhrase.id) ?? 0;
+
+  const display = usePhraseDisplay(session.phrases, stt, tts, {
     playSuccessChime,
-    onPhraseEvent,
+    onPhraseEvent: session.onPhraseEvent,
+    onPresentationStart: session.onPresentationStart,
+    presentationVersion: session.presentationVersion,
+    ttsPhraseIndex,
   });
 
   // Keep the session-history phrase pointer in sync with whichever phrase is
   // currently on screen. Ref writes during render are safe — no state updates.
-  bindCurrentPhrase(display.currentPhrase);
+  session.bindCurrentPhrase(display.currentPhrase);
 
   return (
     <div className="w-full max-w-[390px] mx-auto bg-white flex flex-col min-h-[100dvh] py-16 px-8">
       <p className="text-[13px] text-gray-400 self-end mb-8 shrink-0">
-        {display.currentIndex + 1} / {display.totalPhrases}
+        {session.isComplete
+          ? "session complete"
+          : `${session.remaining} left`}
       </p>
 
       <div className="flex-1 flex flex-col min-h-0 w-full">
@@ -61,20 +80,23 @@ export const PhraseDisplay = ({ phrases }: PhraseDisplayProps): JSX.Element => {
           onSpeedChange={display.setSpeed}
           onReplay={display.handleReplay}
           onTryAgain={display.handleTryAgain}
-          onNext={display.handleNext}
+          onNext={session.advance}
         />
       )}
       </div>
 
       <HistoryToggle
-        count={history.length}
+        count={session.history.length}
         onClick={() => setIsHistoryOpen(true)}
       />
       <HistorySidebar
-        history={history}
+        history={session.history}
         isOpen={isHistoryOpen}
         onClose={() => setIsHistoryOpen(false)}
-        onClear={clearHistory}
+        onClear={session.clearHistory}
+        getLiveSlotsAhead={session.getLiveSlotsAhead}
+        queueVersion={session.presentationVersion}
+        remainingInSession={session.remaining}
       />
     </div>
   );

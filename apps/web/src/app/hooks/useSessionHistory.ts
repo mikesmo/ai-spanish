@@ -8,8 +8,10 @@ import {
   getDefaultLearningPipelineDebug,
   isAccuracySuccess,
   logSessionHistoryAppend,
+  reduceProgress,
   type Phrase,
   type PhraseEvent,
+  type PhraseProgress,
   type SpokenWord,
 } from "@ai-spanish/logic";
 
@@ -25,6 +27,29 @@ export interface HistoryEntry {
   event: PhraseEvent;
   phrase: Phrase;
   scoreSummary: ScoreSummary | null;
+  /**
+   * True when this event was logged during a second-or-later presentation of
+   * the same `phrase.id` in the current session (e.g. Pimsleur requeue or
+   * linear deck wrap). Orthogonal to PracticeAttempt — a row can be both a
+   * revisit AND a Try Again practice event on that revisit's card.
+   */
+  isRepeatedPresentation: boolean;
+  /**
+   * Epoch ms when this phrase is next due for SRS review after applying this
+   * event — i.e. `reduceProgress(prev, event).nextReviewAt`. For `practice`
+   * events (which never touch progress) this is the prior schedule carried
+   * forward, matching `reduceProgress` semantics.
+   */
+  nextReviewAt: number;
+  /**
+   * Snapshot of the in-session queue position (0-based index into the
+   * remaining queue) for this phrase **immediately after** the session engine
+   * processed this event. `null` when the phrase is not in the queue — e.g.
+   * a mastered attempt that dropped the card, a practice event (which never
+   * reorders), or when no session engine is wired. Static after creation;
+   * pair with a live `getQueuePosition` lookup to show "now N cards away".
+   */
+  slotsAheadAtEvent: number | null;
 }
 
 export interface UseSessionHistoryResult {
@@ -37,6 +62,22 @@ export interface UseSessionHistoryResult {
    * during render is safe in React — no state updates occur here.
    */
   bindCurrentPhrase: (phrase: Phrase | undefined) => void;
+  /**
+   * Stable callback — pass to usePhraseDisplay options. Invoked once per
+   * new phrase card (not once per Try Again). Increments the per-phrase
+   * visit counter so subsequent events during that card are flagged as
+   * repeated presentations.
+   */
+  onPresentationStart: (phrase: Phrase) => void;
+  /**
+   * Bind a snapshot function that returns the current in-session queue
+   * position for a phrase (post-event, since the host runs
+   * `engine.onEvent(event)` before forwarding to us). Pass `null` to clear.
+   * When unbound, `HistoryEntry.slotsAheadAtEvent` is `null`.
+   */
+  bindSlotsAheadSnapshot: (
+    fn: ((phraseId: string) => number | null) | null,
+  ) => void;
   clearHistory: () => void;
 }
 
@@ -67,6 +108,28 @@ const generateId = (): string => {
 export const useSessionHistory = (): UseSessionHistoryResult => {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const phraseRef = useRef<Phrase | undefined>(undefined);
+  /**
+   * Per-phrase presentation counter. Incremented in `onPresentationStart`
+   * for each new card shown (not per Try Again). Events appended while
+   * count > 1 are flagged as repeated presentations.
+   */
+  const visitCountsRef = useRef<Map<string, number>>(new Map());
+  /** Whether the currently displayed card is a revisit of a previous one. */
+  const currentIsRepeatRef = useRef(false);
+  /**
+   * Per-phrase SRS progress, mirroring what a `ProgressStore` would hold.
+   * Updated via `reduceProgress` on each logged event so every HistoryEntry
+   * can surface its post-event `nextReviewAt`.
+   */
+  const progressByPhraseRef = useRef<Map<string, PhraseProgress>>(new Map());
+  /**
+   * Bound by the lesson host to `sessionEngine.getQueuePosition`. Read on
+   * each event append to snapshot the in-session distance for the logged
+   * phrase.
+   */
+  const slotsAheadSnapshotRef = useRef<
+    ((phraseId: string) => number | null) | null
+  >(null);
 
   const onPhraseEvent = useCallback((event: PhraseEvent): void => {
     const phrase = phraseRef.current;
@@ -113,11 +176,21 @@ export const useSessionHistory = (): UseSessionHistoryResult => {
       };
     }
 
+    const prevProgress = progressByPhraseRef.current.get(phrase.id) ?? null;
+    const nextProgress = reduceProgress(prevProgress, event);
+    progressByPhraseRef.current.set(phrase.id, nextProgress);
+
+    const slotsAheadAtEvent =
+      slotsAheadSnapshotRef.current?.(phrase.id) ?? null;
+
     const entry: HistoryEntry = {
       id: generateId(),
       event,
       phrase,
       scoreSummary,
+      isRepeatedPresentation: currentIsRepeatRef.current,
+      nextReviewAt: nextProgress.nextReviewAt,
+      slotsAheadAtEvent,
     };
 
     setHistory((prev) => [...prev, entry]);
@@ -130,9 +203,33 @@ export const useSessionHistory = (): UseSessionHistoryResult => {
     [],
   );
 
+  const onPresentationStart = useCallback((phrase: Phrase): void => {
+    const prev = visitCountsRef.current.get(phrase.id) ?? 0;
+    const next = prev + 1;
+    visitCountsRef.current.set(phrase.id, next);
+    currentIsRepeatRef.current = next > 1;
+  }, []);
+
+  const bindSlotsAheadSnapshot = useCallback(
+    (fn: ((phraseId: string) => number | null) | null): void => {
+      slotsAheadSnapshotRef.current = fn;
+    },
+    [],
+  );
+
   const clearHistory = useCallback((): void => {
+    visitCountsRef.current.clear();
+    currentIsRepeatRef.current = false;
+    progressByPhraseRef.current.clear();
     setHistory([]);
   }, []);
 
-  return { history, onPhraseEvent, bindCurrentPhrase, clearHistory };
+  return {
+    history,
+    onPhraseEvent,
+    bindCurrentPhrase,
+    onPresentationStart,
+    bindSlotsAheadSnapshot,
+    clearHistory,
+  };
 };
