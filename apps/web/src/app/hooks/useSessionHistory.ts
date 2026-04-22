@@ -2,9 +2,13 @@
 
 import { useCallback, useRef, useState } from "react";
 import {
+  alignWords,
+  computeAccuracy,
   computeMastery,
+  isAccuracySuccess,
   type Phrase,
   type PhraseEvent,
+  type SpokenWord,
 } from "@ai-spanish/logic";
 
 export interface ScoreSummary {
@@ -50,6 +54,13 @@ const generateId = (): string => {
  * For Attempt events we precompute a ScoreSummary — stability is pinned to
  * 0, matching the preview convention used by
  * usePhraseDisplay.lastScoreBreakdown.
+ *
+ * For PracticeAttempt events we also precompute a ScoreSummary as an
+ * informational display. These values are NEVER fed into `reduceProgress`,
+ * the mastery engine, or SRS — the spec rule "Try Again is motor/
+ * pronunciation only" is enforced upstream by the session engine and
+ * reducer. The history sidebar just reconstructs accuracy from the event's
+ * transcript + target word meta so the user can see per-retry improvement.
  */
 export const useSessionHistory = (): UseSessionHistoryResult => {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
@@ -59,6 +70,32 @@ export const useSessionHistory = (): UseSessionHistoryResult => {
     const phrase = phraseRef.current;
     if (!phrase) return;
 
+    // #region agent log
+    const transcriptStr =
+      event.eventType === "reveal"
+        ? ""
+        : (event as { transcript: string[] }).transcript.join(" ");
+    fetch("http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Debug-Session-Id": "f8262d",
+      },
+      body: JSON.stringify({
+        sessionId: "f8262d",
+        hypothesisId: "H1",
+        location: "useSessionHistory.ts:onPhraseEvent",
+        message: "session history append",
+        data: {
+          eventType: event.eventType,
+          phraseId: phrase.id,
+          transcriptPreview: transcriptStr.slice(0, 200),
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
+
     let scoreSummary: ScoreSummary | null = null;
     if (event.eventType === "attempt") {
       scoreSummary = {
@@ -66,6 +103,25 @@ export const useSessionHistory = (): UseSessionHistoryResult => {
         fluency: event.fluencyScore,
         mastery: computeMastery(event.accuracyScore, event.fluencyScore, 0),
         isAccuracySuccess: event.isAccuracySuccess,
+      };
+    } else if (event.eventType === "practice") {
+      // Practice events only carry transcript strings (no word timings).
+      // computeAccuracy is pure word-identity + POS-weight math, so zero-timed
+      // SpokenWord stubs produce the same score as fully timed input. Values
+      // are informational only — the mastery engine ignores practice events.
+      const target = phrase.Spanish.words;
+      const spokenStub: SpokenWord[] = event.transcript.map((w) => ({
+        word: w,
+        start: 0,
+        end: 0,
+      }));
+      const alignment = alignWords(target, spokenStub);
+      const { accuracy } = computeAccuracy(target, alignment);
+      scoreSummary = {
+        accuracy,
+        fluency: event.fluencyScore,
+        mastery: computeMastery(accuracy, event.fluencyScore, 0),
+        isAccuracySuccess: isAccuracySuccess(accuracy),
       };
     }
 

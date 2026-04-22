@@ -106,6 +106,9 @@ export function useSTT(): SpeechToTextHandle {
         prevCaptionLen: lastCaptionRef.current.length,
       });
     }
+    // #region agent log
+    fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f8262d'},body:JSON.stringify({sessionId:'f8262d',hypothesisId:'H2',location:'stt/index.web.ts:clearTranscription',message:'STT clearTranscription',data:{prevCaptionLen:lastCaptionRef.current.length,prevFinalized:finalizedWordsRef.current.length},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     setCaption('');
     setIsFinal(false);
     setWords([]);
@@ -221,6 +224,11 @@ export function useSTT(): SpeechToTextHandle {
     }
 
     const newCaption = (paragraphRef.current + ' ' + transcript).trim();
+    // #region agent log
+    if (transcript.length > 0) {
+      fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f8262d'},body:JSON.stringify({sessionId:'f8262d',hypothesisId:'H2',location:'stt/index.web.ts:Transcript:segment',message:'STT segment merged into caption',data:{paraBefore:paragraphRef.current.slice(0,200),transcript:transcript.slice(0,200),newCaption:newCaption.slice(0,400),dataIsFinal,segWords:segmentWords.length},timestamp:Date.now()})}).catch(()=>{});
+    }
+    // #endregion
     lastCaptionRef.current = newCaption;
     setCaption(newCaption);
 

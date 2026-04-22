@@ -281,12 +281,25 @@ const HistoryRow = ({ index, entry }: RowProps): JSX.Element => {
   const canExpand =
     event.eventType === "attempt" && scoreSummary != null;
 
+  // Try Again / practice events never update stored mastery, stability, or
+  // SRS — render them visibly muted so the informational accuracy/mastery
+  // values on these rows read as "not part of scored history".
+  const isPractice = event.eventType === "practice";
+  const primaryTextClass = isPractice ? "text-gray-500" : "text-gray-900";
+  const rowBgClass = isPractice
+    ? "bg-gray-100"
+    : canExpand
+      ? "cursor-pointer hover:bg-gray-50"
+      : "";
+  const rowTitle = isPractice
+    ? "Practice only — not scored, does not update mastery"
+    : undefined;
+
   return (
     <>
       <tr
-        className={`border-b border-gray-100 ${
-          canExpand ? "cursor-pointer hover:bg-gray-50" : ""
-        }`}
+        className={`border-b border-gray-100 ${rowBgClass}`}
+        title={rowTitle}
         onClick={() => canExpand && setExpanded((v) => !v)}
       >
         <td className="py-2 pl-3 pr-1 text-gray-400 tabular-nums align-top">
@@ -307,7 +320,7 @@ const HistoryRow = ({ index, entry }: RowProps): JSX.Element => {
             )}
           </div>
         </td>
-        <td className="py-2 px-1 text-gray-900 align-top max-w-[140px]">
+        <td className={`py-2 px-1 align-top max-w-[140px] ${primaryTextClass}`}>
           <div className="truncate" title={phrase.English.question}>
             {phrase.English.question}
           </div>
@@ -318,17 +331,13 @@ const HistoryRow = ({ index, entry }: RowProps): JSX.Element => {
             {userSaid}
           </div>
         </td>
-        <td className="py-2 px-1 text-right tabular-nums align-top text-gray-900">
+        <td className={`py-2 px-1 text-right tabular-nums align-top ${primaryTextClass}`}>
           {formatPct(scoreSummary?.accuracy ?? null)}
         </td>
-        <td className="py-2 px-1 text-right tabular-nums align-top text-gray-900">
-          {formatPct(
-            event.eventType === "practice"
-              ? (event as PracticeAttempt).fluencyScore
-              : (scoreSummary?.fluency ?? null),
-          )}
+        <td className={`py-2 px-1 text-right tabular-nums align-top ${primaryTextClass}`}>
+          {formatPct(scoreSummary?.fluency ?? null)}
         </td>
-        <td className="py-2 px-1 text-right tabular-nums align-top text-gray-900">
+        <td className={`py-2 px-1 text-right tabular-nums align-top ${primaryTextClass}`}>
           {formatPct(scoreSummary?.mastery ?? null)}
         </td>
         <td className="py-2 pl-1 pr-3 text-right align-top text-gray-400">
@@ -371,7 +380,7 @@ const EVENT_LEGEND: LegendItem[] = [
   {
     term: "retry",
     description:
-      "You pressed Try Again. Pure motor/pronunciation repetition — not scored and never changes mastery or the review schedule.",
+      "You pressed Try Again. Pure motor/pronunciation repetition — not scored and never changes mastery or the review schedule. Retry rows are grayed out to signal they're excluded from the mastery calculation.",
   },
   {
     term: "reveal",
