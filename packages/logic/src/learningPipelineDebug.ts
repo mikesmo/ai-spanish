@@ -270,10 +270,17 @@ export function logSttSegment(ctx: {
 export function logSttUtteranceEnd(ctx: {
   totalFinalized: number;
   caption: string;
+  /** Number of interim words pending at the moment utterance-end fires. */
+  pendingInterimWords: number;
+  /** Number of interim words that were salvaged (committed to finalized) by
+   * the utterance-end handler. Useful for diagnosing caption↔words drift. */
+  salvagedInterimWords: number;
 }): void {
   console.log(
     `${STT_PREFIX} utterance-end (empty-final)`,
     'totalFinalized=' + ctx.totalFinalized,
+    'pendingInterim=' + ctx.pendingInterimWords,
+    'salvaged=' + ctx.salvagedInterimWords,
     'caption=' + JSON.stringify(ctx.caption),
   );
 }

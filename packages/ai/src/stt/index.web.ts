@@ -56,10 +56,21 @@ export function useSTT(): SpeechToTextHandle {
   const paragraphRef = useRef('');
   const lastCaptionRef = useRef('');
   const finalizedWordsRef = useRef<SpokenWord[]>([]);
+  // The most recent interim segment's words. Deepgram sends interim results
+  // containing the full current utterance-so-far (each interim replaces the
+  // prior). When a synthetic `utterance_end` (transcript='', is_final=true)
+  // arrives *without* a matching real is_final=true for the pending interim,
+  // we need to salvage these words so `stt.words` stays aligned with
+  // `stt.caption` (which *is* committed via paragraphRef). Without this,
+  // downstream alignment runs on a subset of what the UI shows.
+  const pendingInterimWordsRef = useRef<SpokenWord[]>([]);
 
   const start = () => {
     isIntentionalStop.current = false;
     isUserStarted.current = true;
+    // #region agent log
+    fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'86d2f5'},body:JSON.stringify({sessionId:'86d2f5',hypothesisId:'H1b',location:'stt/index.web.ts:start',message:'stt.start() called',data:{connState:connectionStateRef.current,micState:microphoneState,path:connectionStateRef.current===LiveConnectionState.OPEN?'startMic-direct':'setupMic-async'},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     if (connectionStateRef.current === LiveConnectionState.OPEN) {
       startMicrophone();
     } else if (
@@ -73,6 +84,9 @@ export function useSTT(): SpeechToTextHandle {
   const stop = async () => {
     isIntentionalStop.current = true;
     isUserStarted.current = false;
+    // #region agent log
+    fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'86d2f5'},body:JSON.stringify({sessionId:'86d2f5',hypothesisId:'H1b',location:'stt/index.web.ts:stop',message:'stt.stop() called (disconnects WebSocket)',data:{connState:connectionStateRef.current,micState:microphoneState},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     if (reconnectTimer.current) {
       clearTimeout(reconnectTimer.current);
       reconnectTimer.current = null;
@@ -98,6 +112,7 @@ export function useSTT(): SpeechToTextHandle {
     paragraphRef.current = '';
     lastCaptionRef.current = '';
     finalizedWordsRef.current = [];
+    pendingInterimWordsRef.current = [];
   };
 
   // Warm up on mount
@@ -176,12 +191,29 @@ export function useSTT(): SpeechToTextHandle {
 
     if (transcript === '') {
       if (dataIsFinal) {
+        // Salvage any pending interim words. Deepgram's synthetic
+        // empty-final marks the utterance as closed without having finalized
+        // the latest interim segment, which would otherwise orphan those
+        // words: a subsequent interim segment rebuilds `words` as
+        // `finalizedWordsRef + newSegment`, dropping the pending ones.
+        const pending = pendingInterimWordsRef.current;
+        const salvagedCount = pending.length;
+        if (salvagedCount > 0) {
+          finalizedWordsRef.current = [
+            ...finalizedWordsRef.current,
+            ...pending,
+          ];
+          setWords(finalizedWordsRef.current);
+          pendingInterimWordsRef.current = [];
+        }
         paragraphRef.current = lastCaptionRef.current;
         setIsFinal(true);
         if (debugRef.current) {
           logSttUtteranceEnd({
             totalFinalized: finalizedWordsRef.current.length,
             caption: lastCaptionRef.current,
+            pendingInterimWords: salvagedCount,
+            salvagedInterimWords: salvagedCount,
           });
         }
       }
@@ -201,7 +233,9 @@ export function useSTT(): SpeechToTextHandle {
       paragraphRef.current = newCaption;
       setIsFinal(true);
       totalWords = finalizedWordsRef.current.length;
+      pendingInterimWordsRef.current = [];
     } else {
+      pendingInterimWordsRef.current = segmentWords;
       const merged = [...finalizedWordsRef.current, ...segmentWords];
       setWords(merged);
       setIsFinal(false);
