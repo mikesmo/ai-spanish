@@ -17,11 +17,9 @@ import {
   logPhraseBoundary,
   logRevealEmitted,
   logRevealSkipped,
-  logWrongPathRescheduled,
-  logWrongPathScheduled,
 } from './learningPipelineDebug';
 import { computeMastery } from './mastery';
-import { POST_SUCCESS_EXTRA_PAUSE_MS, WRONG_ANSWER_PAUSE_MS } from './phraseDisplayTiming';
+import { POST_SUCCESS_EXTRA_PAUSE_MS } from './phraseDisplayTiming';
 import type {
   Attempt,
   PhraseEvent,
@@ -145,8 +143,10 @@ export function usePhraseDisplay(
   statusRef.current = status;
 
   /** Timestamp (ms since epoch) of the first is_final=true for the current
-   * phrase presentation. Used to measure the debounce delay between the first
-   * finalized STT segment and the moment we actually emit the Attempt. */
+   * phrase presentation. Used as an observability metric in
+   * `logAttemptFireSource` — shows how much time elapsed between Deepgram's
+   * first finalized segment and the moment we actually emit the Attempt
+   * (≈0 ms for speech-final, success-chime duration for success-path-timer). */
   const firstIsFinalAtRef = useRef<number | null>(null);
   const prevIndexRef = useRef<number | null>(null);
   /**
@@ -173,7 +173,7 @@ export function usePhraseDisplay(
       words: SpokenWord[],
       now: number,
       meta: {
-        trigger: 'wrong-path-timer' | 'success-path-timer' | 'manual';
+        trigger: 'speech-final' | 'success-path-timer' | 'manual';
         isFinalAtCapture: boolean;
         msSinceFirstFinal: number | null;
       },
@@ -280,8 +280,8 @@ export function usePhraseDisplay(
       penaltyApplied: true,
       timestamp: now,
     };
-    // Mark an event as emitted so the wrong-path deferred timer (if still
-    // pending) short-circuits instead of double-emitting an Attempt.
+    // Mark an event as emitted so the speech-final emit effect (if it fires
+    // after this reveal) short-circuits instead of double-emitting an Attempt.
     attemptEmittedRef.current = true;
     onPhraseEventRef.current?.(reveal);
   }, [currentPhrase]);
@@ -466,72 +466,49 @@ export function usePhraseDisplay(
     };
   }, [isCorrect, status, currentIndex, playAnswerAudio, emitAttempt, emitPracticeAttempt, currentPhrase.id]);
 
-  // Final wrong transcript: schedule a debounce pause so trailing Deepgram
-  // segments can land, THEN snapshot sttRef.current at fire time and emit the
-  // attempt (or practice). We intentionally do NOT list stt.caption / stt.words
-  // in the dep array — the pause itself provides the debounce window, and the
-  // timer reads the freshest state via sttRef.current at fire time.
+  // Final wrong transcript: score synchronously the moment Deepgram closes
+  // the utterance (speech_final=true, or UtteranceEnd fallback). The STT
+  // adapter's endpointing (1500 ms) already provides the "wait for silence"
+  // debounce — there's no benefit to layering a client-side timer on top.
+  // Scoring here runs only when stt.isFinal flips true AND the caption is
+  // not a match (the isCorrect branch above owns the success path).
   useEffect(() => {
     if (!stt.isFinal || isCorrect || (status !== 'recording' && status !== 'tryAgain')) {
       return;
     }
-
-    const phraseId = currentPhrase.id;
-    if (debugLearningPipelineRef.current) {
-      logWrongPathScheduled({
-        phraseId,
-        isFinal: stt.isFinal,
-        captionNow: sttRef.current.caption,
-        wordCountNow: sttRef.current.words.length,
-        pauseMs: WRONG_ANSWER_PAUSE_MS,
-      });
+    if (attemptEmittedRef.current) {
+      void playAnswerAudio();
+      return;
     }
 
-    const t = setTimeout(() => {
-      if (attemptEmittedRef.current) {
-        void playAnswerAudio();
-        return;
-      }
-      const fireNow = Date.now();
-      const captureCaption = sttRef.current.caption;
-      const captureWords = sttRef.current.words;
-      const msAge =
-        firstIsFinalAtRef.current !== null
-          ? fireNow - firstIsFinalAtRef.current
-          : null;
-      if (debugLearningPipelineRef.current) {
-        logAttemptFireSource({
-          phraseId,
-          trigger: statusRef.current === 'tryAgain' ? 'practice' : 'wrong-path-timer',
-          captionAtFire: captureCaption,
-          wordCountAtFire: captureWords.length,
-          isFinalAtFire: sttRef.current.isFinal,
-          msSinceFirstFinal: msAge,
-        });
-      }
-      if (statusRef.current === 'tryAgain') {
-        emitPracticeAttempt(captureCaption, captureWords, fireNow);
-      } else {
-        emitAttempt(captureCaption, captureWords, fireNow, {
-          trigger: 'wrong-path-timer',
-          isFinalAtCapture: sttRef.current.isFinal,
-          msSinceFirstFinal: msAge,
-        });
-      }
-      void playAnswerAudio();
-    }, WRONG_ANSWER_PAUSE_MS);
-
-    return () => {
-      if (debugLearningPipelineRef.current) {
-        logWrongPathRescheduled({
-          phraseId,
-          isFinal: sttRef.current.isFinal,
-          captionNow: sttRef.current.caption,
-          wordCountNow: sttRef.current.words.length,
-        });
-      }
-      clearTimeout(t);
-    };
+    const phraseId = currentPhrase.id;
+    const fireNow = Date.now();
+    const captureCaption = sttRef.current.caption;
+    const captureWords = sttRef.current.words;
+    const msAge =
+      firstIsFinalAtRef.current !== null
+        ? fireNow - firstIsFinalAtRef.current
+        : null;
+    if (debugLearningPipelineRef.current) {
+      logAttemptFireSource({
+        phraseId,
+        trigger: statusRef.current === 'tryAgain' ? 'practice' : 'speech-final',
+        captionAtFire: captureCaption,
+        wordCountAtFire: captureWords.length,
+        isFinalAtFire: sttRef.current.isFinal,
+        msSinceFirstFinal: msAge,
+      });
+    }
+    if (statusRef.current === 'tryAgain') {
+      emitPracticeAttempt(captureCaption, captureWords, fireNow);
+    } else {
+      emitAttempt(captureCaption, captureWords, fireNow, {
+        trigger: 'speech-final',
+        isFinalAtCapture: sttRef.current.isFinal,
+        msSinceFirstFinal: msAge,
+      });
+    }
+    void playAnswerAudio();
   }, [
     stt.isFinal,
     isCorrect,

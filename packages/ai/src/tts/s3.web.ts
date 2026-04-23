@@ -53,6 +53,26 @@ export function useS3TTS(): TTSAdapter {
       if (!audioRef.current) audioRef.current = new Audio();
       const el = audioRef.current;
 
+      // #region agent log
+      const playStart = Date.now();
+      fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Debug-Session-Id': '961193',
+        },
+        body: JSON.stringify({
+          sessionId: '961193',
+          runId: 'jacket-bleed',
+          hypothesisId: 'H4-H5',
+          location: 'tts/s3.web.ts:play:start',
+          message: 'tts play start',
+          data: { lang, phraseIndex, rate },
+          timestamp: playStart,
+        }),
+      }).catch(() => {});
+      // #endregion
+
       for (const seg of segmentsForLanguage(lang)) {
         if (stoppedRef.current) return;
 
@@ -62,13 +82,81 @@ export function useS3TTS(): TTSAdapter {
           url = (await fetchPresignedUrl(phraseIndex, seg)) ?? undefined;
           if (url) urlCache.current.set(cacheKey, url);
         }
+        // #region agent log
+        fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Debug-Session-Id': '961193',
+          },
+          body: JSON.stringify({
+            sessionId: '961193',
+            runId: 'jacket-bleed',
+            hypothesisId: 'H4-H5',
+            location: 'tts/s3.web.ts:play:segment',
+            message: 'tts segment attempt',
+            data: {
+              lang,
+              phraseIndex,
+              seg,
+              hasUrl: !!url,
+              stopped: stoppedRef.current,
+            },
+            timestamp: Date.now(),
+          }),
+        }).catch(() => {});
+        // #endregion
         if (!url || stoppedRef.current) continue;
 
         await new Promise<void>((resolve, reject) => {
           el.src = url!;
           el.playbackRate = rate;
-          el.onended = () => resolve();
+          el.onended = () => {
+            // #region agent log
+            fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Debug-Session-Id': '961193',
+              },
+              body: JSON.stringify({
+                sessionId: '961193',
+                runId: 'jacket-bleed',
+                hypothesisId: 'H4-H5',
+                location: 'tts/s3.web.ts:play:onended',
+                message: 'tts segment ended',
+                data: { lang, phraseIndex, seg, via: 'onended' },
+                timestamp: Date.now(),
+              }),
+            }).catch(() => {});
+            // #endregion
+            resolve();
+          };
           el.onerror = () => {
+            // #region agent log
+            fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Debug-Session-Id': '961193',
+              },
+              body: JSON.stringify({
+                sessionId: '961193',
+                runId: 'jacket-bleed',
+                hypothesisId: 'H5',
+                location: 'tts/s3.web.ts:play:onerror',
+                message: 'tts segment error',
+                data: {
+                  lang,
+                  phraseIndex,
+                  seg,
+                  stopped: stoppedRef.current,
+                  src: (el.src || '').slice(0, 80),
+                },
+                timestamp: Date.now(),
+              }),
+            }).catch(() => {});
+            // #endregion
             if (stoppedRef.current) resolve();
             else reject(new Error(`Audio playback error for ${cacheKey}`));
           };
@@ -78,6 +166,24 @@ export function useS3TTS(): TTSAdapter {
           });
         });
       }
+      // #region agent log
+      fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Debug-Session-Id': '961193',
+        },
+        body: JSON.stringify({
+          sessionId: '961193',
+          runId: 'jacket-bleed',
+          hypothesisId: 'H4-H5',
+          location: 'tts/s3.web.ts:play:end',
+          message: 'tts play resolved',
+          data: { lang, phraseIndex, elapsedMs: Date.now() - playStart },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+      // #endregion
     },
     []
   );

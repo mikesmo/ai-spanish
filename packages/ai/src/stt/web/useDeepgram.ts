@@ -20,7 +20,9 @@ export { LiveConnectionState };
 export function useDeepgramConnection() {
   const [connectionState, setConnectionState] = useState<LiveConnectionState>(LiveConnectionState.CLOSED);
   const onTranscriptRef = useRef<((data: unknown) => void) | null>(null);
+  const onUtteranceEndRef = useRef<((data: unknown) => void) | null>(null);
   const transcriptHandlerRef = useRef<((data: unknown) => void) | null>(null);
+  const utteranceEndHandlerRef = useRef<((data: unknown) => void) | null>(null);
   const keepAliveIntervalRef = useRef<ReturnType<typeof setInterval> | undefined>();
   const connectionRef = useRef<LiveClient | null>(null);
   const connectionStateRef = useRef<LiveConnectionState>(LiveConnectionState.CLOSED);
@@ -109,6 +111,14 @@ export function useDeepgramConnection() {
       conn.addListener(LiveTranscriptionEvents.Transcript, handler);
       transcriptHandlerRef.current = handler;
 
+      // UtteranceEnd is a separate event type from Transcript. Deepgram emits
+      // it when `utterance_end_ms` of silence elapses without endpointing
+      // firing speech_final=true, giving us a safety-net utterance closer.
+      const utteranceEndHandler = (data: unknown) =>
+        onUtteranceEndRef.current?.(data);
+      conn.addListener(LiveTranscriptionEvents.UtteranceEnd, utteranceEndHandler);
+      utteranceEndHandlerRef.current = utteranceEndHandler;
+
       connectionRef.current = conn;
     } catch (err) {
       console.error(`[Deepgram connection ${id}] failed to create:`, err);
@@ -127,6 +137,12 @@ export function useDeepgramConnection() {
           connectionRef.current.removeListener(
             LiveTranscriptionEvents.Transcript,
             transcriptHandlerRef.current
+          );
+        }
+        if (utteranceEndHandlerRef.current) {
+          connectionRef.current.removeListener(
+            LiveTranscriptionEvents.UtteranceEnd,
+            utteranceEndHandlerRef.current
           );
         }
         connectionRef.current.finish();
@@ -221,6 +237,7 @@ export function useDeepgramConnection() {
     connectionStateRef,
     connectionFailedSignal,
     onTranscriptRef,
+    onUtteranceEndRef,
     connectToDeepgram,
     disconnectFromDeepgram,
     sendVoiceData,

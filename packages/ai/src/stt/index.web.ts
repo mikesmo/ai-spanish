@@ -12,24 +12,42 @@ import {
 } from '@ai-spanish/logic';
 
 const DEEPGRAM_OPTIONS = {
+  // nova-2 for Spanish: nova-3's VAD/endpointing was empirically unreliable
+  // on our beginner-phrase use case (spoken Spanish in a typical room), with
+  // neither speech_final nor UtteranceEnd firing after the learner stopped
+  // speaking. nova-2 closes utterances promptly for the same audio. If
+  // Deepgram fixes nova-3 Spanish VAD, revisit.
   model: 'nova-2',
   interim_results: true,
   smart_format: true,
   filler_words: true,
-  // utterance_end_ms: how long of total silence before declaring the whole
-  // utterance over (client gets a synthetic empty-final). Raised so learners
-  // who pause mid-phrase still get a chance to emit the second word.
-  // Deepgram's documented max is 5000 ms; values above cause the WebSocket
-  // upgrade to be refused (NS_ERROR_WEBSOCKET_CONNECTION_REFUSED).
+  // endpointing: ms of silence before Deepgram's VAD decides the speaker has
+  // stopped. When it fires, the next transcript message carries BOTH
+  // is_final=true AND speech_final=true — which is our real utterance-close
+  // signal. 1500 ms tolerates a mid-phrase hesitation without closing the
+  // utterance prematurely; Deepgram's endpointer IS our debounce now that
+  // the client-side wrong-path timer has been removed.
+  // See: https://developers.deepgram.com/docs/understand-endpointing-interim-results
+  endpointing: 1500,
+  // utterance_end_ms: safety-net fallback when endpointing fails to fire
+  // (e.g. learner trails off into noise that keeps VAD warm). Deepgram emits
+  // a separate `UtteranceEnd` event type after this much silence, which we
+  // subscribe to in useDeepgram.ts. Must be > endpointing.
   // See: https://developers.deepgram.com/docs/utterance-end
-  utterance_end_ms: 5000,
-  // endpointing: how long of silence before committing the current words as
-  // is_final=true. Lowered so each word-group is finalized eagerly, leaving
-  // Deepgram free to start a fresh segment for the next word (e.g. "algo"
-  // after "quieres ... <pause>").
-  endpointing: 500,
+  utterance_end_ms: 2000,
   language: 'es',
 } as const;
+
+/**
+ * Client-side inactivity watchdog: closes the utterance locally if Deepgram
+ * fails to fire BOTH `speech_final=true` AND `UtteranceEnd` within this many
+ * milliseconds of the last transcript message that carried new words. This is
+ * belt-and-suspenders against ASR-side VAD anomalies (observed with nova-3
+ * Spanish in some rooms: neither signal ever fires, leaving the UI hung).
+ * Must exceed `utterance_end_ms` (2000 ms) so Deepgram has a chance to close
+ * the utterance itself under normal conditions.
+ */
+const INACTIVITY_WATCHDOG_MS = 2500;
 
 export function useSTT(): SpeechToTextHandle {
   const {
@@ -37,6 +55,7 @@ export function useSTT(): SpeechToTextHandle {
     connectionStateRef,
     connectionFailedSignal,
     onTranscriptRef,
+    onUtteranceEndRef,
     connectToDeepgram,
     disconnectFromDeepgram,
     sendVoiceData,
@@ -58,23 +77,65 @@ export function useSTT(): SpeechToTextHandle {
   const paragraphRef = useRef('');
   const lastCaptionRef = useRef('');
   const finalizedWordsRef = useRef<SpokenWord[]>([]);
-  // The most recent interim segment's words. Deepgram sends interim results
-  // containing the full current utterance-so-far (each interim replaces the
-  // prior). When a synthetic `utterance_end` (transcript='', is_final=true)
-  // arrives *without* a matching real is_final=true for the pending interim,
-  // we need to salvage these words so `stt.words` stays aligned with
-  // `stt.caption` (which *is* committed via paragraphRef). Without this,
-  // downstream alignment runs on a subset of what the UI shows.
+  // The most recent interim segment's words. Needed because Deepgram sometimes
+  // closes an utterance with `is_final=true, speech_final=true, transcript=''`
+  // (a synthetic wrap-up that implicitly commits the prior interim's words).
+  // Tracking the last interim lets us commit those words when that happens.
   const pendingInterimWordsRef = useRef<SpokenWord[]>([]);
+  // Inactivity watchdog timer (see INACTIVITY_WATCHDOG_MS above).
+  const watchdogTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const debugRef = useRef(getDefaultLearningPipelineDebug());
   debugRef.current = getDefaultLearningPipelineDebug();
+
+  const clearWatchdog = useCallback(() => {
+    if (watchdogTimerRef.current) {
+      clearTimeout(watchdogTimerRef.current);
+      watchdogTimerRef.current = null;
+    }
+  }, []);
+
+  // Fires when we've received words but Deepgram never closed the utterance.
+  // Synthesizes an utterance-end using the same commit logic as
+  // handleUtteranceEnd, but tagged with a distinct trigger so the log clearly
+  // indicates this was a client-side fallback (helps diagnose ASR anomalies).
+  // NO "already closed" guard here: if this fires at all, it means the
+  // watchdog was armed and never cleared — which by construction means no
+  // prior close path has run for the current utterance.
+  const fireWatchdog = useCallback(() => {
+    watchdogTimerRef.current = null;
+    const pending = pendingInterimWordsRef.current;
+    if (pending.length > 0) {
+      finalizedWordsRef.current = [...finalizedWordsRef.current, ...pending];
+      setWords(finalizedWordsRef.current);
+      pendingInterimWordsRef.current = [];
+    }
+    paragraphRef.current = lastCaptionRef.current;
+    setIsFinal(true);
+    if (debugRef.current) {
+      logSttUtteranceEnd({
+        totalFinalized: finalizedWordsRef.current.length,
+        caption: lastCaptionRef.current,
+        trigger: 'inactivity-watchdog',
+      });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // (Re-)arm the watchdog. Call whenever a transcript message carrying NEW
+  // words arrives (interim or mid-utterance final). Critically, do NOT arm
+  // on empty-transcript / no-new-word messages — those are exactly the
+  // useless chunk boundaries we want the watchdog to time out past.
+  const armWatchdog = useCallback(() => {
+    if (watchdogTimerRef.current) clearTimeout(watchdogTimerRef.current);
+    watchdogTimerRef.current = setTimeout(fireWatchdog, INACTIVITY_WATCHDOG_MS);
+  }, [fireWatchdog]);
 
   // Transcript handler must be registered with stable hook order: all
   // useState/useRef/useCallback before any useEffect in this hook.
   const handleTranscript = useCallback((data: unknown) => {
     const d = data as {
       is_final?: boolean;
+      speech_final?: boolean;
       channel?: {
         alternatives?: {
           transcript?: string;
@@ -90,7 +151,11 @@ export function useSTT(): SpeechToTextHandle {
     };
     const alt = d?.channel?.alternatives?.[0];
     const transcript = alt?.transcript ?? '';
-    const dataIsFinal = d?.is_final ?? false;
+    const isFinalChunk = d?.is_final ?? false;
+    // speech_final=true means Deepgram's endpointer detected end-of-speech;
+    // this is our real utterance-close signal. is_final=true alone only means
+    // a chunk of words has been frozen — the utterance can still continue.
+    const isSpeechFinal = d?.speech_final ?? false;
     const rawWords = alt?.words ?? [];
 
     const segmentWords: SpokenWord[] = rawWords
@@ -108,32 +173,42 @@ export function useSTT(): SpeechToTextHandle {
       );
 
     if (transcript === '') {
-      if (dataIsFinal) {
-        // Salvage any pending interim words. Deepgram's synthetic
-        // empty-final marks the utterance as closed without having finalized
-        // the latest interim segment, which would otherwise orphan those
-        // words: a subsequent interim segment rebuilds `words` as
-        // `finalizedWordsRef + newSegment`, dropping the pending ones.
+      // Empty transcript messages come in three flavours:
+      //   - is_final=false: interim with no words yet — ignore.
+      //   - is_final=true,  speech_final=false: synthetic chunk boundary (no
+      //     new words). Safe to ignore; the utterance continues.
+      //   - is_final=true,  speech_final=true: synthetic end-of-utterance.
+      //     Implicitly commits the last interim's words. We must close the
+      //     utterance here — otherwise `isFinal` never flips and consumers
+      //     (usePhraseDisplay's speech-final emit effect) never fire.
+      if (isFinalChunk && isSpeechFinal) {
         const pending = pendingInterimWordsRef.current;
-        const salvagedCount = pending.length;
-        if (salvagedCount > 0) {
-          finalizedWordsRef.current = [
-            ...finalizedWordsRef.current,
-            ...pending,
-          ];
+        if (pending.length > 0) {
+          finalizedWordsRef.current = [...finalizedWordsRef.current, ...pending];
           setWords(finalizedWordsRef.current);
           pendingInterimWordsRef.current = [];
         }
         paragraphRef.current = lastCaptionRef.current;
         setIsFinal(true);
+        clearWatchdog();
         if (debugRef.current) {
           logSttUtteranceEnd({
             totalFinalized: finalizedWordsRef.current.length,
             caption: lastCaptionRef.current,
-            pendingInterimWords: salvagedCount,
-            salvagedInterimWords: salvagedCount,
+            trigger: 'speech-final',
           });
         }
+      }
+      if (debugRef.current) {
+        logSttSegment({
+          isFinal: isFinalChunk,
+          speechFinal: isSpeechFinal,
+          segmentWords: 0,
+          totalFinalized: finalizedWordsRef.current.length,
+          totalWords: finalizedWordsRef.current.length,
+          transcript,
+          captionLen: lastCaptionRef.current.length,
+        });
       }
       return;
     }
@@ -142,27 +217,54 @@ export function useSTT(): SpeechToTextHandle {
     lastCaptionRef.current = newCaption;
     setCaption(newCaption);
 
-    // Words arrive per segment; on final we append to finalized, on interim we
-    // show finalized + current interim segment so `words` mirrors `caption`.
     let totalWords: number;
-    if (dataIsFinal) {
+    if (isFinalChunk) {
       finalizedWordsRef.current = [...finalizedWordsRef.current, ...segmentWords];
       setWords(finalizedWordsRef.current);
-      paragraphRef.current = newCaption;
-      setIsFinal(true);
-      totalWords = finalizedWordsRef.current.length;
       pendingInterimWordsRef.current = [];
+      totalWords = finalizedWordsRef.current.length;
+      // Freeze the caption prefix on EVERY final chunk, not just the
+      // speech_final one. Deepgram can split a single utterance into
+      // multiple is_final=true chunks (e.g. when the learner pauses
+      // mid-phrase); the next interim's transcript is relative to the end
+      // of the most recent frozen chunk, so if we leave paragraphRef stale
+      // the subsequent interim rebuilds the caption from scratch and the
+      // prior chunk's text disappears from the displayed caption (though
+      // finalizedWordsRef still has the words).
+      paragraphRef.current = newCaption;
+      if (isSpeechFinal) {
+        // End of utterance: flip isFinal so consumers (usePhraseDisplay)
+        // advance. Chunks with is_final=true but speech_final=false stay
+        // mid-utterance.
+        setIsFinal(true);
+        clearWatchdog();
+        if (debugRef.current) {
+          logSttUtteranceEnd({
+            totalFinalized: finalizedWordsRef.current.length,
+            caption: newCaption,
+            trigger: 'speech-final',
+          });
+        }
+      } else {
+        setIsFinal(false);
+        // Mid-utterance commit: new words arrived. Reset the watchdog so
+        // we don't close prematurely while the learner is still talking.
+        armWatchdog();
+      }
     } else {
       pendingInterimWordsRef.current = segmentWords;
       const merged = [...finalizedWordsRef.current, ...segmentWords];
       setWords(merged);
       setIsFinal(false);
       totalWords = merged.length;
+      // Interim with words: reset watchdog.
+      armWatchdog();
     }
 
     if (debugRef.current) {
       logSttSegment({
-        isFinal: dataIsFinal,
+        isFinal: isFinalChunk,
+        speechFinal: isSpeechFinal,
         segmentWords: segmentWords.length,
         totalFinalized: finalizedWordsRef.current.length,
         totalWords,
@@ -173,19 +275,46 @@ export function useSTT(): SpeechToTextHandle {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   onTranscriptRef.current = handleTranscript;
 
-  // #region agent log
-  fetch("http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "7565d4" },
-    body: JSON.stringify({
-      sessionId: "7565d4",
-      location: "stt/index.web.ts:afterHandleTranscript",
-      message: "useSTT transcript hook registered and ref set",
-      data: { hypothesisId: "H1" },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
+  // Safety-net closer for when VAD endpointing doesn't fire speech_final in
+  // time (e.g. learner trails off into background noise that keeps VAD warm).
+  // Deepgram emits a separate `UtteranceEnd` event after `utterance_end_ms`
+  // of silence; we treat it as end-of-utterance only if we haven't already
+  // closed via speech_final. We detect "already closed" by checking whether
+  // the watchdog timer is still armed: every close path calls clearWatchdog,
+  // so a null timer ref means a prior close has run (speech_final or
+  // watchdog), or the utterance never had words to begin with.
+  const handleUtteranceEnd = useCallback(() => {
+    const watchdogWasArmed = watchdogTimerRef.current !== null;
+    if (debugRef.current) {
+      console.log(
+        '[ai-spanish/stt] UtteranceEnd event received',
+        'paragraphLen=' + paragraphRef.current.length,
+        'lastCaptionLen=' + lastCaptionRef.current.length,
+        'pendingInterim=' + pendingInterimWordsRef.current.length,
+        'watchdogArmed=' + watchdogWasArmed,
+      );
+    }
+    if (!watchdogWasArmed) {
+      return;
+    }
+    const pending = pendingInterimWordsRef.current;
+    if (pending.length > 0) {
+      finalizedWordsRef.current = [...finalizedWordsRef.current, ...pending];
+      setWords(finalizedWordsRef.current);
+      pendingInterimWordsRef.current = [];
+    }
+    paragraphRef.current = lastCaptionRef.current;
+    setIsFinal(true);
+    clearWatchdog();
+    if (debugRef.current) {
+      logSttUtteranceEnd({
+        totalFinalized: finalizedWordsRef.current.length,
+        caption: lastCaptionRef.current,
+        trigger: 'utterance-end-fallback',
+      });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  onUtteranceEndRef.current = handleUtteranceEnd;
 
   const start = () => {
     isIntentionalStop.current = false;
@@ -224,6 +353,7 @@ export function useSTT(): SpeechToTextHandle {
       reconnectTimer.current = null;
     }
     reconnectAttempts.current = 0;
+    clearWatchdog();
     stopMicrophone();
     await disconnectFromDeepgram();
   };
@@ -242,10 +372,17 @@ export function useSTT(): SpeechToTextHandle {
     lastCaptionRef.current = '';
     finalizedWordsRef.current = [];
     pendingInterimWordsRef.current = [];
+    clearWatchdog();
   };
 
-  // Warm up on mount
-  useEffect(() => { setupMicrophone(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // Warm up on mount; clear the watchdog timer on unmount so a late
+  // fire can't setState on an unmounted component.
+  useEffect(() => {
+    setupMicrophone();
+    return () => {
+      clearWatchdog();
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Connect to Deepgram once microphone is ready
   useEffect(() => {

@@ -45,7 +45,6 @@ export {
   logSttUtteranceEnd,
 } from './learningPipelineDebug';
 export {
-  WRONG_ANSWER_PAUSE_MS,
   POST_SUCCESS_EXTRA_PAUSE_MS,
   FEEDBACK_AUTO_ADVANCE_MS,
 } from './phraseDisplayTiming';

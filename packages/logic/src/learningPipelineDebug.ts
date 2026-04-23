@@ -44,7 +44,7 @@ export function logLearningAttempt(ctx: {
   /** ms between the first is_final=true and this emission firing; null if unknown. */
   msSinceFirstFinal: number | null;
   /** Where the emission fired from (which effect / callback). */
-  trigger: 'wrong-path-timer' | 'success-path-timer' | 'reveal' | 'practice' | 'manual';
+  trigger: 'speech-final' | 'success-path-timer' | 'reveal' | 'practice' | 'manual';
 }): void {
   const totalTargetWeight = ctx.targetWords.reduce((s, w) => s + w.weight, 0);
   console.groupCollapsed(
@@ -199,40 +199,9 @@ export function logPhraseBoundary(ctx: {
   );
 }
 
-export function logWrongPathScheduled(ctx: {
-  phraseId: string;
-  isFinal: boolean;
-  captionNow: string;
-  wordCountNow: number;
-  pauseMs: number;
-}): void {
-  console.log(
-    `${PREFIX} wrong-path · scheduled (${ctx.pauseMs}ms)`,
-    'phrase=' + ctx.phraseId,
-    'isFinal=' + ctx.isFinal,
-    'words=' + ctx.wordCountNow,
-    'captionLen=' + ctx.captionNow.length,
-  );
-}
-
-export function logWrongPathRescheduled(ctx: {
-  phraseId: string;
-  isFinal: boolean;
-  captionNow: string;
-  wordCountNow: number;
-}): void {
-  console.log(
-    `${PREFIX} wrong-path · rescheduled (cleanup → re-schedule)`,
-    'phrase=' + ctx.phraseId,
-    'isFinal=' + ctx.isFinal,
-    'words=' + ctx.wordCountNow,
-    'captionLen=' + ctx.captionNow.length,
-  );
-}
-
 export function logAttemptFireSource(ctx: {
   phraseId: string;
-  trigger: 'wrong-path-timer' | 'success-path-timer' | 'practice';
+  trigger: 'speech-final' | 'success-path-timer' | 'practice';
   captionAtFire: string;
   wordCountAtFire: number;
   isFinalAtFire: boolean;
@@ -250,6 +219,7 @@ export function logAttemptFireSource(ctx: {
 
 export function logSttSegment(ctx: {
   isFinal: boolean;
+  speechFinal?: boolean;
   segmentWords: number;
   totalFinalized: number;
   totalWords: number;
@@ -259,6 +229,7 @@ export function logSttSegment(ctx: {
   console.log(
     `${STT_PREFIX} seg`,
     'isFinal=' + ctx.isFinal,
+    'speechFinal=' + (ctx.speechFinal ?? false),
     'segWords=' + ctx.segmentWords,
     'totalFinalized=' + ctx.totalFinalized,
     'words=' + ctx.totalWords,
@@ -270,17 +241,18 @@ export function logSttSegment(ctx: {
 export function logSttUtteranceEnd(ctx: {
   totalFinalized: number;
   caption: string;
-  /** Number of interim words pending at the moment utterance-end fires. */
-  pendingInterimWords: number;
-  /** Number of interim words that were salvaged (committed to finalized) by
-   * the utterance-end handler. Useful for diagnosing caption↔words drift. */
-  salvagedInterimWords: number;
+  /** What actually closed the utterance:
+   *   - `speech-final`: Deepgram's endpointer fired speech_final=true
+   *   - `utterance-end-fallback`: Deepgram emitted a separate UtteranceEnd
+   *     event (utterance_end_ms silence after the last finalized word)
+   *   - `inactivity-watchdog`: neither of the above fired within our
+   *     client-side deadline after the last word; we closed locally to
+   *     avoid hanging the UI. Indicates a Deepgram VAD/endpointing anomaly. */
+  trigger: 'speech-final' | 'utterance-end-fallback' | 'inactivity-watchdog';
 }): void {
   console.log(
-    `${STT_PREFIX} utterance-end (empty-final)`,
+    `${STT_PREFIX} utterance-end (${ctx.trigger})`,
     'totalFinalized=' + ctx.totalFinalized,
-    'pendingInterim=' + ctx.pendingInterimWords,
-    'salvaged=' + ctx.salvagedInterimWords,
     'caption=' + JSON.stringify(ctx.caption),
   );
 }
