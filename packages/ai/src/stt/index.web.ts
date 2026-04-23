@@ -63,7 +63,7 @@ const DEEPGRAM_OPTIONS = {
  * a long thinking pause we saw in real sessions. Revisit if utterances
  * feel either sluggish or still cut off.
  */
-const INACTIVITY_WATCHDOG_MS = 4000;
+const INACTIVITY_WATCHDOG_MS = 3000;
 
 /**
  * Initial-silence safety net: if the mic starts recording but Deepgram never
@@ -81,7 +81,7 @@ const INACTIVITY_WATCHDOG_MS = 4000;
  * fires, the attempt closes with zero words (accuracy 0.000) rather than
  * hanging — the user can retry immediately.
  */
-const INITIAL_SILENCE_TIMEOUT_MS = 8000;
+const INITIAL_SILENCE_TIMEOUT_MS = 6000;
 
 /**
  * Feature flag: forward per-phrase `keywords` to Deepgram's live transcription
