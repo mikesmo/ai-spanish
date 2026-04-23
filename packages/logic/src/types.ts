@@ -100,7 +100,12 @@ export type PhraseDisplayAPI = {
   setSpeed: (s: '1x' | 'slow') => void;
   handleShowAnswer: () => void;
   handleTryAgain: () => void;
-  handleNext: () => void;
+  /**
+   * `exitToLoading`: set when another card will load — leaves the feedback
+   * screen in the same paint as clearing STT, before `advance()` updates the
+   * target phrase (avoids a flash of the wrong/incorrect diff layout).
+   */
+  handleNext: (options?: { exitToLoading?: boolean }) => void;
   handleReplay: () => Promise<void>;
   /**
    * Score breakdown for the most recent first-attempt; null until the first
