@@ -557,8 +557,11 @@ export function usePhraseDisplay(
     });
   };
 
-  const handleNext = () => {
+  const handleNext = (options?: { exitToLoading?: boolean }) => {
     sttRef.current.clearTranscription();
+    if (options?.exitToLoading) {
+      setStatus('loading');
+    }
     setCurrentIndex((i) => (i + 1) % phrases.length);
   };
 

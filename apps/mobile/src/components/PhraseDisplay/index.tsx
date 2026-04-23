@@ -1,6 +1,10 @@
 import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { usePhraseDisplay, useLessonSession } from "@ai-spanish/logic";
+import {
+  runPhraseFeedbackNext,
+  useLessonSession,
+  usePhraseDisplay,
+} from "@ai-spanish/logic";
 import { useSTT, useS3TTS } from "@ai-spanish/ai";
 import { playSuccessChime } from "../../lib/playSuccessChime";
 import type { PhraseDisplayProps } from "./PhraseDisplay.types";
@@ -58,7 +62,7 @@ export const PhraseDisplay = ({ phrases }: PhraseDisplayProps): JSX.Element => {
         />
       )}
 
-      {display.status === "answer" && (
+      {display.status === "answer" && !session.isComplete && (
         <UserFeedback
           transcription={display.caption}
           spanishPhrase={display.spanishText}
@@ -68,7 +72,9 @@ export const PhraseDisplay = ({ phrases }: PhraseDisplayProps): JSX.Element => {
           onSpeedChange={display.setSpeed}
           onReplay={display.handleReplay}
           onTryAgain={display.handleTryAgain}
-          onNext={session.advance}
+          onNext={() => {
+            runPhraseFeedbackNext(display, session);
+          }}
         />
       )}
     </View>
