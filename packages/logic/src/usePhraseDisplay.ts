@@ -40,6 +40,26 @@ const PLAYBACK_RATES: Record<'1x' | 'slow', number> = { '1x': 1.0, slow: 0.5 };
 
 const noopSuccessChime = async (_signal: AbortSignal): Promise<void> => {};
 
+/**
+ * Tokenize a Spanish target phrase into keywords suitable for Deepgram's
+ * `keywords` biasing parameter. Accented characters are preserved (`más`,
+ * `está`, `¿algo?` → `algo`), punctuation is stripped, tokens are lowercased
+ * and deduped, and 1-character tokens (usually stray letters from splitting)
+ * are dropped. Common function words (`el`, `la`, `de`, `y`, …) are kept —
+ * they don't harm the LM and we stay well under Deepgram's 100-keyword cap
+ * for any realistic beginner-level phrase length.
+ */
+const tokenizeTarget = (s: string): string[] =>
+  Array.from(
+    new Set(
+      s
+        .toLowerCase()
+        .replace(/[^\p{Letter}\s]/gu, ' ')
+        .split(/\s+/)
+        .filter((w) => w.length > 1),
+    ),
+  );
+
 export type UsePhraseDisplayOptions = {
   /** Web: play a short success sound; must resolve when finished or reject on abort. */
   playSuccessChime?: (signal: AbortSignal) => Promise<void>;
@@ -360,7 +380,9 @@ export function usePhraseDisplay(
         );
         if (cancelled) return;
         sttRef.current.clearTranscription();
-        sttRef.current.start();
+        sttRef.current.start({
+          keywords: tokenizeTarget(currentPhrase.Spanish.answer),
+        });
       } catch (error) {
         if (!cancelled) {
           console.error('[usePhraseDisplay] Error loading phrase audio:', error);
@@ -530,7 +552,9 @@ export function usePhraseDisplay(
     // recording pass" bit.
     attemptEmittedRef.current = false;
     setStatus('tryAgain');
-    sttRef.current.start();
+    sttRef.current.start({
+      keywords: tokenizeTarget(currentPhrase.Spanish.answer),
+    });
   };
 
   const handleNext = () => {

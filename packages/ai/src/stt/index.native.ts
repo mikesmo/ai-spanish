@@ -1,6 +1,10 @@
 import { useRef, useState } from 'react';
 import { useDeepgramSpeechToText } from 'react-native-deepgram';
-import type { SpeechToTextHandle, SpokenWord } from '@ai-spanish/logic';
+import type {
+  SpeechToTextHandle,
+  SpokenWord,
+  SttStartOptions,
+} from '@ai-spanish/logic';
 
 type TranscriptEvent = { isFinal?: boolean };
 
@@ -48,7 +52,12 @@ export function useSTT(): SpeechToTextHandle {
   const words: SpokenWord[] = [];
 
   return {
-    start: () => startListening(),
+    // TODO(native-stt-keywords): `react-native-deepgram` doesn't expose the
+    // underlying WebSocket query params, so we can't forward options.keywords
+    // to Deepgram's `keywords` biasing on native today. Accept the arg for
+    // API parity with the web adapter; revisit when the underlying SDK
+    // gains a keywords knob.
+    start: (_options?: SttStartOptions) => startListening(),
     stop: () => stopListening(),
     isRecording: state?.status === 'listening',
     caption,

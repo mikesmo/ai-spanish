@@ -53,8 +53,23 @@ export type TTSAdapter = {
   stop: () => void;
 };
 
+/**
+ * Per-attempt options passed to `SpeechToTextHandle.start`. Adapters that
+ * don't support a given option should ignore it gracefully (documented on the
+ * adapter).
+ */
+export type SttStartOptions = {
+  /**
+   * Target words to bias the ASR toward for this attempt, typically the
+   * tokens of the current phrase. Web adapter forwards these to Deepgram's
+   * `keywords` parameter (Nova-2). Native adapter currently ignores this
+   * until the underlying SDK exposes the equivalent knob.
+   */
+  keywords?: string[];
+};
+
 export type SpeechToTextHandle = {
-  start: () => void;
+  start: (options?: SttStartOptions) => void;
   stop: () => void | Promise<void>;
   isRecording: boolean;
   caption: string;

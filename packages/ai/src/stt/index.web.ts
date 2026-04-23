@@ -1,7 +1,11 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useDeepgramConnection, LiveConnectionState } from './web/useDeepgram';
 import { useMicrophone, MicrophoneState } from './web/useMicrophone';
-import type { SpeechToTextHandle, SpokenWord } from '@ai-spanish/logic';
+import type {
+  SpeechToTextHandle,
+  SpokenWord,
+  SttStartOptions,
+} from '@ai-spanish/logic';
 import {
   getDefaultLearningPipelineDebug,
   logSttAdapterStart,
@@ -29,25 +33,80 @@ const DEEPGRAM_OPTIONS = {
   // the client-side wrong-path timer has been removed.
   // See: https://developers.deepgram.com/docs/understand-endpointing-interim-results
   endpointing: 1500,
-  // utterance_end_ms: safety-net fallback when endpointing fails to fire
-  // (e.g. learner trails off into noise that keeps VAD warm). Deepgram emits
-  // a separate `UtteranceEnd` event type after this much silence, which we
-  // subscribe to in useDeepgram.ts. Must be > endpointing.
-  // See: https://developers.deepgram.com/docs/utterance-end
-  utterance_end_ms: 2000,
-  language: 'es',
+  // NOTE: utterance_end_ms is intentionally NOT set. Its word-timing-based
+  // silence detector was firing prematurely on beginner-learner pauses
+  // (e.g. "Voy a la librería a comprar…" [think] "…una novela" got cut
+  // after "comprar" because 2000 ms elapsed since the last word-end). With
+  // utterance_end_ms omitted, Deepgram closes utterances only via VAD
+  // endpointing (speech_final), and our client-side INACTIVITY_WATCHDOG_MS
+  // below is the safety net if VAD stays warm and never fires. The
+  // UtteranceEnd listener in useDeepgram.ts and handleUtteranceEnd in
+  // this file remain registered but will never fire — kept as dead code
+  // so re-enabling is a one-line revert.
+  language: 'es-ES',
 } as const;
 
 /**
  * Client-side inactivity watchdog: closes the utterance locally if Deepgram
- * fails to fire BOTH `speech_final=true` AND `UtteranceEnd` within this many
- * milliseconds of the last transcript message that carried new words. This is
- * belt-and-suspenders against ASR-side VAD anomalies (observed with nova-3
- * Spanish in some rooms: neither signal ever fires, leaving the UI hung).
- * Must exceed `utterance_end_ms` (2000 ms) so Deepgram has a chance to close
- * the utterance itself under normal conditions.
+ * fails to fire `speech_final=true` within this many milliseconds of the
+ * last transcript message that carried new words. Now that
+ * `utterance_end_ms` has been disabled (see DEEPGRAM_OPTIONS above), this
+ * watchdog is the ONLY fallback when VAD endpointing stays warm and never
+ * fires speech_final — typically when the learner is mumbling a word they
+ * haven't fully recalled yet: VAD hears just enough signal not to count
+ * the time as clean silence, but Deepgram can't confidently transcribe
+ * anything, so we get a run of empty interims. This value must be long
+ * enough to tolerate mid-phrase vocab-retrieval pauses (e.g. "…que te
+ * lleves…" [3 s thinking] "…la chaqueta"), but short enough that a
+ * genuinely-ended utterance doesn't feel laggy. 4000 ms was arrived at
+ * empirically: 2500 ms was cutting users off mid-phrase; 4000 ms covered
+ * a long thinking pause we saw in real sessions. Revisit if utterances
+ * feel either sluggish or still cut off.
  */
-const INACTIVITY_WATCHDOG_MS = 2500;
+const INACTIVITY_WATCHDOG_MS = 4000;
+
+/**
+ * Initial-silence safety net: if the mic starts recording but Deepgram never
+ * emits a transcript with any words, we have no "last words arrived" moment
+ * to drive INACTIVITY_WATCHDOG_MS from, so without this timer the adapter
+ * would hang forever. Arm this the moment audio starts flowing (WS open +
+ * mic started); clear it as soon as the first word arrives. Causes seen in
+ * the wild:
+ *   - Firefox returned a live-but-silent mic track after many start/stop
+ *     cycles.
+ *   - Learner said the phrase too quietly for Deepgram to cross its
+ *     confidence threshold, producing a stream of empty interims only.
+ * This must be > INACTIVITY_WATCHDOG_MS because it also covers the
+ * "user-is-still-reading-the-prompt" latency before speech begins. If it
+ * fires, the attempt closes with zero words (accuracy 0.000) rather than
+ * hanging — the user can retry immediately.
+ */
+const INITIAL_SILENCE_TIMEOUT_MS = 8000;
+
+/**
+ * Feature flag: forward per-phrase `keywords` to Deepgram's live transcription
+ * for ASR biasing. Driven by the public env var `NEXT_PUBLIC_STT_KEYWORDS_ENABLED`
+ * so the flag is readable from the client bundle. Defaults to ENABLED so a
+ * deployment without the variable set continues to get keyword biasing (which
+ * we added to fix the "algo"→"agol" family of mis-transcriptions); set to
+ * `false` / `0` / `off` / `no` to turn it off for A/B comparison or to rule
+ * out biasing as a cause when debugging a new ASR regression.
+ *
+ * Computed once at module init rather than on every buildConnectOptions() call
+ * because the value can't change without a page reload (env vars are baked into
+ * the Next.js bundle at build time for NEXT_PUBLIC_*).
+ */
+const KEYWORDS_FEATURE_ENABLED: boolean = (() => {
+  const v = process.env.NEXT_PUBLIC_STT_KEYWORDS_ENABLED;
+  if (v === undefined || v === '') return true;
+  const normalized = v.trim().toLowerCase();
+  return (
+    normalized !== 'false' &&
+    normalized !== '0' &&
+    normalized !== 'off' &&
+    normalized !== 'no'
+  );
+})();
 
 export function useSTT(): SpeechToTextHandle {
   const {
@@ -61,8 +120,13 @@ export function useSTT(): SpeechToTextHandle {
     sendVoiceData,
   } = useDeepgramConnection();
 
-  const { microphoneState, setupMicrophone, startMicrophone, stopMicrophone } =
-    useMicrophone(sendVoiceData);
+  const {
+    microphoneState,
+    setupMicrophone,
+    startMicrophone,
+    stopMicrophone,
+    teardownMicrophone,
+  } = useMicrophone(sendVoiceData);
 
   const prevConnectionState = useRef<LiveConnectionState>(LiveConnectionState.CLOSED);
   const isIntentionalStop = useRef(false);
@@ -84,6 +148,11 @@ export function useSTT(): SpeechToTextHandle {
   const pendingInterimWordsRef = useRef<SpokenWord[]>([]);
   // Inactivity watchdog timer (see INACTIVITY_WATCHDOG_MS above).
   const watchdogTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Target-phrase tokens to bias Deepgram toward for the NEXT connect. Set
+  // by start(options) and read by buildConnectOptions() whenever the adapter
+  // opens a new WebSocket (initial mic-Ready, unexpected reconnect, backoff
+  // retry). Empty array means "no bias" — falls back to DEEPGRAM_OPTIONS as-is.
+  const nextKeywordsRef = useRef<string[]>([]);
 
   const debugRef = useRef(getDefaultLearningPipelineDebug());
   debugRef.current = getDefaultLearningPipelineDebug();
@@ -121,13 +190,16 @@ export function useSTT(): SpeechToTextHandle {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // (Re-)arm the watchdog. Call whenever a transcript message carrying NEW
-  // words arrives (interim or mid-utterance final). Critically, do NOT arm
-  // on empty-transcript / no-new-word messages — those are exactly the
+  // (Re-)arm the watchdog. Call with no arg whenever a transcript message
+  // carrying NEW words arrives (interim or mid-utterance final) — uses the
+  // normal INACTIVITY_WATCHDOG_MS. Call with INITIAL_SILENCE_TIMEOUT_MS
+  // from the mic-start paths so that a zero-words-ever session still closes
+  // instead of hanging. Critically, do NOT arm on empty-transcript /
+  // no-new-word messages during an utterance — those are exactly the
   // useless chunk boundaries we want the watchdog to time out past.
-  const armWatchdog = useCallback(() => {
+  const armWatchdog = useCallback((timeoutMs: number = INACTIVITY_WATCHDOG_MS) => {
     if (watchdogTimerRef.current) clearTimeout(watchdogTimerRef.current);
-    watchdogTimerRef.current = setTimeout(fireWatchdog, INACTIVITY_WATCHDOG_MS);
+    watchdogTimerRef.current = setTimeout(fireWatchdog, timeoutMs);
   }, [fireWatchdog]);
 
   // Transcript handler must be registered with stable hook order: all
@@ -316,25 +388,76 @@ export function useSTT(): SpeechToTextHandle {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   onUtteranceEndRef.current = handleUtteranceEnd;
 
-  const start = () => {
+  // Merge the current phrase's target words (if any) into Deepgram's connect
+  // options. The `:2` intensifier is a moderate boost — high enough to
+  // recover short trailing Spanish words like "algo" that the LM otherwise
+  // discounts without right-context, but below the `:3+` range where
+  // Deepgram's docs warn about hallucinated matches. Must be called at
+  // every connectToDeepgram site (initial, unexpected-close reconnect, and
+  // backoff retry) so the next WebSocket inherits the currently-armed bias.
+  //
+  // Gated on KEYWORDS_FEATURE_ENABLED so we can flip the feature off via
+  // `NEXT_PUBLIC_STT_KEYWORDS_ENABLED=false` for A/B comparison without
+  // touching the call sites (all four adapter paths go through here).
+  const buildConnectOptions = () => {
+    if (!KEYWORDS_FEATURE_ENABLED) return DEEPGRAM_OPTIONS;
+    const kws = nextKeywordsRef.current;
+    return kws.length > 0
+      ? { ...DEEPGRAM_OPTIONS, keywords: kws.map((w) => `${w}:2`) }
+      : DEEPGRAM_OPTIONS;
+  };
+
+  const start = (options?: SttStartOptions) => {
     isIntentionalStop.current = false;
     isUserStarted.current = true;
+    // When the feature flag is OFF, zero out the ref so every downstream
+    // consumer (adapter-start console log, buildConnectOptions(), and the
+    // debug-session NDJSON) reports a consistent "no keywords" state rather
+    // than misleadingly showing the tokens that WOULD have been sent.
+    nextKeywordsRef.current = KEYWORDS_FEATURE_ENABLED
+      ? (options?.keywords ?? [])
+      : [];
+    // #region agent log
+    fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'961193'},body:JSON.stringify({sessionId:'961193',runId:'cold-start',hypothesisId:'H1-H3-H5',location:'index.web.ts:start',message:'adapter.start() called',data:{connState:String(connectionStateRef.current),micState:String(microphoneState),keywords:nextKeywordsRef.current},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+
+    // Three-way branch over the current (mic, conn) state:
+    //   - conn OPEN                → startMic-direct (fast path; pre-warm was on)
+    //   - mic Ready, conn not OPEN → connect-direct (mic warm from prior attempt,
+    //                                 WS closed by last stop; open a fresh WS now)
+    //   - mic NotSetup / Stopped   → setupMic-async (cold start; mic-Ready effect
+    //                                 will then connect, gated on isUserStarted)
+    const path: 'startMic-direct' | 'connect-direct' | 'setupMic-async' =
+      connectionStateRef.current === LiveConnectionState.OPEN
+        ? 'startMic-direct'
+        : microphoneState === MicrophoneState.Ready
+          ? 'connect-direct'
+          : 'setupMic-async';
+
     if (debugRef.current) {
       logSttAdapterStart({
         connState: String(connectionStateRef.current),
         micState: String(microphoneState),
-        path:
-          connectionStateRef.current === LiveConnectionState.OPEN
-            ? 'startMic-direct'
-            : 'setupMic-async',
+        path,
+        keywords: nextKeywordsRef.current,
       });
     }
-    if (connectionStateRef.current === LiveConnectionState.OPEN) {
+
+    if (path === 'startMic-direct') {
       startMicrophone();
-    } else if (
-      microphoneState === MicrophoneState.NotSetup ||
-      microphoneState === MicrophoneState.Stopped
-    ) {
+      // WS already open, mic starting synchronously from here — arm the
+      // no-speech-ever safety net now. The connectionState useEffect won't
+      // re-fire (edge-triggered) so this is the only arming point for this
+      // path.
+      armWatchdog(INITIAL_SILENCE_TIMEOUT_MS);
+    } else if (path === 'connect-direct') {
+      // Mic stack is warm from a prior attempt (setupMicrophone is now
+      // idempotent and stopMicrophone leaves us in Ready), but the WS was
+      // closed by the adapter.stop() that ended the previous attempt. Open
+      // a fresh WS with the current keyword bias; the WS-open effect will
+      // call startMicrophone() once it connects and isUserStarted is true.
+      connectToDeepgram(buildConnectOptions());
+    } else {
       setupMicrophone();
     }
   };
@@ -354,7 +477,7 @@ export function useSTT(): SpeechToTextHandle {
     }
     reconnectAttempts.current = 0;
     clearWatchdog();
-    stopMicrophone();
+    await stopMicrophone();
     await disconnectFromDeepgram();
   };
 
@@ -375,23 +498,47 @@ export function useSTT(): SpeechToTextHandle {
     clearWatchdog();
   };
 
-  // Warm up on mount; clear the watchdog timer on unmount so a late
-  // fire can't setState on an unmounted component.
+  // Pre-warm intentionally DISABLED: the mount effect no longer calls
+  // setupMicrophone(), and the mic-Ready effect below is gated on
+  // isUserStarted.current. Net result: no getUserMedia prompt, no mic
+  // track, and no Deepgram WebSocket open until the user explicitly
+  // calls start(). The first start() triggers setupMicrophone (via the
+  // NotSetup/Stopped branch in start()); when that completes, the
+  // gated effect below opens the WS, and the existing WS-OPEN effect
+  // then starts the mic recorder. Trade-off: first start() pays
+  // getUserMedia + WS handshake latency instead of having it amortised
+  // on page load. Re-enable by restoring setupMicrophone() in the
+  // mount effect AND removing the isUserStarted.current guard below.
   useEffect(() => {
-    setupMicrophone();
     return () => {
       clearWatchdog();
+      teardownMicrophone();
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Connect to Deepgram once microphone is ready
+  // Connect to Deepgram once microphone is ready — but only if the user
+  // has called start(). Without this guard, completing setupMicrophone()
+  // (e.g. after a stop/start cycle leaves the mic Ready) would
+  // auto-open a WebSocket before the next start(), defeating the
+  // pre-warm-disabled policy.
   useEffect(() => {
-    if (microphoneState === MicrophoneState.Ready) connectToDeepgram(DEEPGRAM_OPTIONS);
+    if (microphoneState === MicrophoneState.Ready && isUserStarted.current) {
+      connectToDeepgram(buildConnectOptions());
+    }
   }, [microphoneState]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Start microphone once connection opens (if user has called start())
+  // Start microphone once connection opens (if user has called start()).
+  // Arm the initial-silence watchdog here so a zero-words-ever session
+  // (e.g. Firefox silent mic, or voice below ASR threshold) still force-
+  // closes instead of hanging the adapter.
   useEffect(() => {
-    if (connectionState === LiveConnectionState.OPEN && isUserStarted.current) startMicrophone();
+    if (connectionState === LiveConnectionState.OPEN && isUserStarted.current) {
+      // #region agent log
+      fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'961193'},body:JSON.stringify({sessionId:'961193',runId:'cold-start',hypothesisId:'H1-H3',location:'index.web.ts:wsOpenEffect',message:'WS OPEN → startMicrophone() about to fire',data:{},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+      startMicrophone();
+      armWatchdog(INITIAL_SILENCE_TIMEOUT_MS);
+    }
   }, [connectionState]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fast reconnect on unexpected disconnect
@@ -402,7 +549,7 @@ export function useSTT(): SpeechToTextHandle {
       !isIntentionalStop.current
     ) {
       reconnectAttempts.current = 0;
-      connectToDeepgram(DEEPGRAM_OPTIONS);
+      connectToDeepgram(buildConnectOptions());
     }
     if (connectionState === LiveConnectionState.OPEN) reconnectAttempts.current = 0;
     prevConnectionState.current = connectionState;
@@ -415,7 +562,16 @@ export function useSTT(): SpeechToTextHandle {
     if (reconnectAttempts.current <= MAX_ATTEMPTS) {
       const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current - 1), 16000);
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
-      reconnectTimer.current = setTimeout(() => connectToDeepgram(DEEPGRAM_OPTIONS), delay);
+      // #region agent log
+      const scheduledAt = Date.now();
+      fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'961193'},body:JSON.stringify({sessionId:'961193',runId:'cold-start',hypothesisId:'H1-H2-H3',location:'index.web.ts:reconnectEffect:schedule',message:'reconnect scheduled',data:{attempts:reconnectAttempts.current,delayMs:delay,connectionFailedSignal},timestamp:scheduledAt})}).catch(()=>{});
+      // #endregion
+      reconnectTimer.current = setTimeout(() => {
+        // #region agent log
+        fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'961193'},body:JSON.stringify({sessionId:'961193',runId:'cold-start',hypothesisId:'H1-H2-H3',location:'index.web.ts:reconnectEffect:fire',message:'reconnect timer fired',data:{attempts:reconnectAttempts.current,actualDelayMs:Date.now()-scheduledAt,scheduledDelayMs:delay},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
+        connectToDeepgram(buildConnectOptions());
+      }, delay);
     }
   }, [connectionFailedSignal]); // eslint-disable-line react-hooks/exhaustive-deps
 

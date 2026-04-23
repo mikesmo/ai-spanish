@@ -271,13 +271,18 @@ export function logSttClear(ctx: {
 export function logSttAdapterStart(ctx: {
   connState: string;
   micState: string;
-  path: 'startMic-direct' | 'setupMic-async';
+  path: 'startMic-direct' | 'connect-direct' | 'setupMic-async';
+  keywords?: string[];
 }): void {
+  const keywordsSuffix =
+    ctx.keywords && ctx.keywords.length > 0
+      ? ` keywords=[${ctx.keywords.join(',')}]`
+      : ' keywords=[]';
   console.log(
     `${STT_PREFIX} adapter · start`,
     'conn=' + ctx.connState,
     'mic=' + ctx.micState,
-    'path=' + ctx.path,
+    'path=' + ctx.path + keywordsSuffix,
   );
 }
 
