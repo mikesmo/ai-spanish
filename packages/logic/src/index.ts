@@ -27,6 +27,11 @@ export {
 export type { S3PathConfig } from './s3-keys';
 export { usePhraseDisplay } from './usePhraseDisplay';
 export type { UsePhraseDisplayOptions } from './usePhraseDisplay';
+export { useLessonSession } from './useLessonSession';
+export type {
+  UseLessonSessionOptions,
+  UseLessonSessionResult,
+} from './useLessonSession';
 export {
   getDefaultLearningPipelineDebug,
   logSessionHistoryAppend,

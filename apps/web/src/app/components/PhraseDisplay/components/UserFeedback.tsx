@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { FEEDBACK_AUTO_ADVANCE_MS } from "@ai-spanish/logic";
-import type {
-  DiffWordResult,
-  UserFeedbackProps,
-} from "../PhraseDisplay.types";
-import { diffWords } from "../utils/diff-words";
+import {
+  FEEDBACK_AUTO_ADVANCE_MS,
+  diffWords,
+  type DiffEntry,
+} from "@ai-spanish/logic";
+import type { UserFeedbackProps } from "../PhraseDisplay.types";
 
 interface AutoNextButtonProps {
   label: string;
@@ -158,7 +158,7 @@ const AudioControls = ({
   </div>
 );
 
-const renderSpokenWords = (diff: DiffWordResult[] | null): JSX.Element => {
+const renderSpokenWords = (diff: DiffEntry[] | null): JSX.Element => {
   if (!diff) {
     return <span className="text-gray-400">No answer recorded</span>;
   }
@@ -180,7 +180,7 @@ const renderSpokenWords = (diff: DiffWordResult[] | null): JSX.Element => {
 };
 
 const renderCorrectWords = (
-  diff: DiffWordResult[] | null,
+  diff: DiffEntry[] | null,
   fallbackPhrase: string,
 ): JSX.Element => {
   if (!diff) {

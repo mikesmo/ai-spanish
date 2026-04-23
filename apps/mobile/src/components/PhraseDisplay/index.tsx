@@ -1,5 +1,6 @@
+import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { usePhraseDisplay } from "@ai-spanish/logic";
+import { usePhraseDisplay, useLessonSession } from "@ai-spanish/logic";
 import { useSTT, useS3TTS } from "@ai-spanish/ai";
 import { playSuccessChime } from "../../lib/playSuccessChime";
 import type { PhraseDisplayProps } from "./PhraseDisplay.types";
@@ -10,12 +11,34 @@ import { UserRecording } from "./components/UserRecording";
 export const PhraseDisplay = ({ phrases }: PhraseDisplayProps): JSX.Element => {
   const tts = useS3TTS();
   const stt = useSTT();
-  const display = usePhraseDisplay(phrases, stt, tts, { playSuccessChime });
+  const session = useLessonSession(phrases);
+
+  /**
+   * Map each phrase id to its original deck index so `usePhraseDisplay`
+   * (and therefore the S3 TTS adapter) requests the right audio clip.
+   * Without this, the queue-driven 1-element `session.phrases` array
+   * always resolves to `currentIndex === 0` and every prompt would replay
+   * the first phrase's audio.
+   */
+  const deckIndexById = useMemo(() => {
+    const m = new Map<string, number>();
+    phrases.forEach((p, i) => m.set(p.id, i));
+    return m;
+  }, [phrases]);
+  const ttsPhraseIndex = deckIndexById.get(session.currentPhrase.id) ?? 0;
+
+  const display = usePhraseDisplay(session.phrases, stt, tts, {
+    playSuccessChime,
+    onPhraseEvent: session.onPhraseEvent,
+    onPresentationStart: session.onPresentationStart,
+    presentationVersion: session.presentationVersion,
+    ttsPhraseIndex,
+  });
 
   return (
     <View style={styles.container}>
       <Text style={styles.counter}>
-        {display.currentIndex + 1} / {display.totalPhrases}
+        {session.isComplete ? "session complete" : `${session.remaining} left`}
       </Text>
 
       {(display.status === "loading" || display.status === "idle") && (
@@ -45,7 +68,7 @@ export const PhraseDisplay = ({ phrases }: PhraseDisplayProps): JSX.Element => {
           onSpeedChange={display.setSpeed}
           onReplay={display.handleReplay}
           onTryAgain={display.handleTryAgain}
-          onNext={display.handleNext}
+          onNext={session.advance}
         />
       )}
     </View>
@@ -67,4 +90,3 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
 });
-

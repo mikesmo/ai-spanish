@@ -24,7 +24,9 @@ const DEEPGRAM_OPTIONS = {
   model: 'nova-2',
   interim_results: true,
   smart_format: true,
-  filler_words: true,
+  // filler_words is intentionally disabled: for a beginner-phrase learner
+  // use case we don't want "um"/"uh"/"eh" tokens polluting the accuracy
+  // diff (they'd count as `wrong` words against the target phrase).
   // endpointing: ms of silence before Deepgram's VAD decides the speaker has
   // stopped. When it fires, the next transcript message carries BOTH
   // is_final=true AND speech_final=true — which is our real utterance-close

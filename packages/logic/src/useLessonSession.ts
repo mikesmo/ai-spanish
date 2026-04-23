@@ -1,0 +1,176 @@
+'use client';
+
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { createSessionEngine, type SessionEngine } from './sessionEngine';
+import { createInMemoryProgressStore } from './progressStore';
+import type { Phrase } from './types';
+import type { PhraseEvent } from './events';
+
+export interface UseLessonSessionOptions {
+  /**
+   * Optional side-channel invoked on every PhraseEvent *after* the engine has
+   * processed it (so `engine.getQueuePosition` reflects the post-event state).
+   * The web app wires this to its session-history hook.
+   */
+  onEvent?: (event: PhraseEvent) => void;
+  /**
+   * Optional stable callback invoked once, after mount, with a function that
+   * returns the live queue position for any phraseId. The web session-history
+   * hook uses this to snapshot per-event queue positions. Receives `null`
+   * on unmount so consumers can drop their reference.
+   */
+  bindQueuePositionLookup?: (
+    fn: ((phraseId: string) => number | null) | null,
+  ) => void;
+  /**
+   * Optional stable callback forwarded directly from the host. If provided,
+   * the core hook re-exports it as `onPresentationStart` so
+   * `usePhraseDisplay` consumers can wire it without the host having to
+   * destructure separately. Not used by the engine itself.
+   */
+  onPresentationStart?: (phrase: Phrase) => void;
+}
+
+export interface UseLessonSessionResult {
+  /**
+   * The phrase currently on screen. Stays on the last-drawn phrase after
+   * the queue drains (paired with `isComplete`) so `usePhraseDisplay` never
+   * sees an empty array.
+   */
+  currentPhrase: Phrase;
+  /**
+   * One-element array for `usePhraseDisplay`. Using a 1-element array +
+   * `presentationVersion` lets the in-logic phrase-bootstrap effect re-fire
+   * on requeued phrases without rebuilding the hook.
+   */
+  phrases: [Phrase];
+  /**
+   * Monotonic counter bumped on every `advance()`. Passed to
+   * `usePhraseDisplay` as `presentationVersion` so a requeued phrase at the
+   * same index (or a 1-element `phrases` array) still triggers a fresh
+   * bootstrap.
+   */
+  presentationVersion: number;
+  /** Wire to `usePhraseDisplay.onPhraseEvent`. */
+  onPhraseEvent: (event: PhraseEvent) => void;
+  /**
+   * Forwarded from `options.onPresentationStart`. Undefined when the host
+   * does not provide one — the mobile app currently does not need session
+   * history so this is commonly undefined there.
+   */
+  onPresentationStart: ((phrase: Phrase) => void) | undefined;
+  /** Draws the next phrase from the engine queue. No-op when complete. */
+  advance: () => void;
+  /** Phrases remaining in the queue (excludes the current card). */
+  remaining: number;
+  /** True when the engine has drained its queue. */
+  isComplete: boolean;
+  /**
+   * Live lookup: current queue position of `phraseId`, or `null` if it's
+   * not in the remaining queue (dropped / already-drawn / never-enqueued).
+   */
+  getLiveSlotsAhead: (phraseId: string) => number | null;
+}
+
+/**
+ * Core session hook shared by web + mobile. Owns the session engine +
+ * in-memory progress store for a given deck, and exposes the slim surface
+ * `usePhraseDisplay` needs. Session-history / sidebar plumbing lives in a
+ * web-only wrapper that composes this hook.
+ */
+export const useLessonSession = (
+  deck: Phrase[],
+  options: UseLessonSessionOptions = {},
+): UseLessonSessionResult => {
+  if (deck.length === 0) {
+    throw new Error('useLessonSession: deck must contain at least one phrase');
+  }
+
+  const { onEvent, bindQueuePositionLookup, onPresentationStart } = options;
+
+  // Engine + store are imperative and identity-stable across renders. Built
+  // once per mount; we do not rebuild when `deck` identity changes (the
+  // engine owns queue state that would be lost on rebuild). Consumers that
+  // need to switch decks should remount this component.
+  const engineRef = useRef<SessionEngine | null>(null);
+  if (engineRef.current === null) {
+    const store = createInMemoryProgressStore();
+    engineRef.current = createSessionEngine(deck, store);
+  }
+
+  // Initial draw runs once via the useState initializer (StrictMode-safe,
+  // unlike a render-body side effect). The engine is non-null by the time
+  // this runs because the ref assignment above precedes useState.
+  const [currentPhrase, setCurrentPhrase] = useState<Phrase>(() => {
+    const first = engineRef.current!.pickNext();
+    if (!first) {
+      throw new Error('useLessonSession: engine returned no phrases');
+    }
+    return first;
+  });
+  const [presentationVersion, setPresentationVersion] = useState(1);
+  const [isComplete, setIsComplete] = useState(false);
+  const [remaining, setRemaining] = useState<number>(() =>
+    engineRef.current!.remaining(),
+  );
+
+  const onEventRef = useRef<typeof onEvent>(onEvent);
+  onEventRef.current = onEvent;
+
+  // Surface the engine's queue-position lookup to the host exactly once
+  // (and clear it on unmount). The host keeps its ref to this function
+  // stable, so we don't need to re-run when it changes identity.
+  useEffect(() => {
+    const engine = engineRef.current;
+    if (!engine || !bindQueuePositionLookup) return;
+    bindQueuePositionLookup((phraseId) => engine.getQueuePosition(phraseId));
+    return () => {
+      bindQueuePositionLookup(null);
+    };
+  }, [bindQueuePositionLookup]);
+
+  const onPhraseEvent = useCallback((event: PhraseEvent): void => {
+    const engine = engineRef.current;
+    if (!engine) return;
+    engine.onEvent(event);
+    onEventRef.current?.(event);
+    setRemaining(engine.remaining());
+  }, []);
+
+  const advance = useCallback((): void => {
+    const engine = engineRef.current;
+    if (!engine) return;
+    const next = engine.pickNext();
+    if (next) {
+      setCurrentPhrase(next);
+      setPresentationVersion((v) => v + 1);
+      setRemaining(engine.remaining());
+    } else {
+      setIsComplete(true);
+      setRemaining(0);
+    }
+  }, []);
+
+  const getLiveSlotsAhead = useCallback((phraseId: string): number | null => {
+    return engineRef.current?.getQueuePosition(phraseId) ?? null;
+  }, []);
+
+  // Stable 1-element array keyed on currentPhrase identity; avoids a
+  // useMemo dep since the reference only changes when the phrase does.
+  const phrasesRef = useRef<[Phrase]>([currentPhrase]);
+  if (phrasesRef.current[0] !== currentPhrase) {
+    phrasesRef.current = [currentPhrase];
+  }
+
+  return {
+    currentPhrase,
+    phrases: phrasesRef.current,
+    presentationVersion,
+    onPhraseEvent,
+    onPresentationStart,
+    advance,
+    remaining,
+    isComplete,
+    getLiveSlotsAhead,
+  };
+};

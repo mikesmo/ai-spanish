@@ -28,9 +28,3 @@ export interface UserFeedbackProps {
   onTryAgain: () => void;
   onNext: () => void;
 }
-
-export interface DiffWordResult {
-  word: string;
-  spanishWord: string | null;
-  type: "correct" | "wrong" | "missing";
-}
