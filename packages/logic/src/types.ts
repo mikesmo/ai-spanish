@@ -54,7 +54,9 @@ export type UIStatus = 'loading' | 'idle' | 'recording' | 'answer' | 'tryAgain';
 export type TtsAdapterOptions = {
   /**
    * When true, English S3 playback is `en-explain` only (no `en-question` after);
-   * when false or omitted, `en-intro` + `en-question`.
+   * when false or omitted, `en-intro` + `en-question`. `usePhraseDisplay` may
+   * set this false for repeat in-session presentations of a phrase, even when
+   * `Phrase.English.explain` is non-empty in JSON.
    */
   englishUseExplain?: boolean;
 };

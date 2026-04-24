@@ -189,6 +189,17 @@ export function usePhraseDisplay(
    * same logical card. Key: index|phraseId|presentationVersion.
    */
   const lastPresentationNotifyKeyRef = useRef<string | null>(null);
+  /**
+   * Session-scoped count of how many times each phrase id was presented
+   * (incremented only when `shouldNotifyPresentation` is true — same as
+   * `onPresentationStart`). Used to play explain audio only on the first visit.
+   */
+  const phraseIdPresentationCountRef = useRef<Map<string, number>>(new Map());
+  /**
+   * False after Try Again so a future English replay would not use explain
+   * clips; cleared to true on each new presentation notification.
+   */
+  const englishFirstPassOnCardRef = useRef(true);
 
   const currentPhrase = phrases[currentIndex]!;
   const englishText = currentPhrase.English.intro
@@ -430,16 +441,31 @@ export function usePhraseDisplay(
     const notifyKey = `${currentIndex}|${currentPhrase.id}|${presentationVersion ?? ''}`;
     const shouldNotifyPresentation =
       lastPresentationNotifyKeyRef.current !== notifyKey;
+    const phraseId = currentPhrase.id;
+    let isFirstSessionPresentation = false;
     if (shouldNotifyPresentation) {
       lastPresentationNotifyKeyRef.current = notifyKey;
       onPresentationStartRef.current?.(currentPhrase);
+      const c =
+        (phraseIdPresentationCountRef.current.get(phraseId) ?? 0) + 1;
+      phraseIdPresentationCountRef.current.set(phraseId, c);
+      isFirstSessionPresentation = c === 1;
+      englishFirstPassOnCardRef.current = true;
+    } else {
+      const c = phraseIdPresentationCountRef.current.get(phraseId) ?? 0;
+      isFirstSessionPresentation = c === 1;
     }
+    const useExplainClips =
+      englishUseExplain &&
+      isFirstSessionPresentation &&
+      englishFirstPassOnCardRef.current;
+    const enOpts = { englishUseExplain: useExplainClips };
+
     let cancelled = false;
 
     const init = async () => {
       try {
         const hintedIndex = ttsPhraseIndexRef.current;
-        const enOpts = { englishUseExplain };
         await Promise.all([
           ttsRef.current.prefetch(englishText, 'en', hintedIndex, enOpts),
           ttsRef.current.prefetch(spanishText, 'es', hintedIndex),
@@ -619,6 +645,7 @@ export function usePhraseDisplay(
   ]);
 
   const handleTryAgain = () => {
+    englishFirstPassOnCardRef.current = false;
     ttsRef.current.stop();
     sttRef.current.clearTranscription();
     // Try Again starts a new practice session for this phrase — we do NOT

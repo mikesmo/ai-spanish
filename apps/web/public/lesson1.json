@@ -24,8 +24,8 @@
     "type": "new",
     "English": {
       "explain": "This is how you formally address a young woman in Spanish:",
-      "intro": "How would you formally address a young woman?",
-      "question": "Miss"
+      "intro": "How would you...",
+      "question": "formally address a young woman?"
     },
     "Spanish": {
       "grammar": "",
@@ -43,7 +43,7 @@
     "id": "entiende",
     "type": "new",
     "English": {
-      "explain": "This is how you say 'Do you understand?'. Like in English you need to ask a question with rising intonation at the end of the end of the end.",
+      "explain": "This is how you say 'Do you understand?'. Like in English, there is arising intonation at the end because it is a question.",
       "intro": "How do you ask:",
       "question": "Do you understand?"
     },
