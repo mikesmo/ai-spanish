@@ -168,7 +168,7 @@ type ResultBadge = { label: string; className: string; title: string };
 const getResultBadge = (entry: HistoryEntry): ResultBadge | null => {
   if (entry.event.eventType === "reveal") {
     return {
-      label: "shown",
+      label: "reveal",
       className: "bg-red-100 text-red-700 border-red-200",
       title: "User tapped Show Answer — penalty applied",
     };

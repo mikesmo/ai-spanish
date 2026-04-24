@@ -44,7 +44,13 @@ export function logLearningAttempt(ctx: {
   /** ms between the first is_final=true and this emission firing; null if unknown. */
   msSinceFirstFinal: number | null;
   /** Where the emission fired from (which effect / callback). */
-  trigger: 'speech-final' | 'success-path-timer' | 'reveal' | 'practice' | 'manual';
+  trigger:
+    | 'speech-final'
+    | 'success-path-timer'
+    | 'reveal'
+    | 'practice'
+    | 'manual'
+    | 'show-answer';
 }): void {
   const totalTargetWeight = ctx.targetWords.reduce((s, w) => s + w.weight, 0);
   console.groupCollapsed(
@@ -183,6 +189,13 @@ export function logRevealSkipped(phraseId: string): void {
   console.log(
     `${PREFIX} Show Answer · ${phraseId}`,
     '— no RevealEvent (attempt or practice already recorded for this card)',
+  );
+}
+
+export function logShowAnswerTryAgainNoProgress(phraseId: string): void {
+  console.log(
+    `${PREFIX} Show Answer · ${phraseId}`,
+    '(Try Again, no gradable speech) — no PhraseEvent; mastery unchanged',
   );
 }
 

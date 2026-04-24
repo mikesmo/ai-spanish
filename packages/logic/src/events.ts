@@ -7,8 +7,10 @@ import type { FluencyBreakdown } from './fluency';
  * Only `Attempt` events update mastery, stability, and cross-session SRS.
  * `PracticeAttempt` is the "Try Again" loop — purely motor/pronunciation
  * training, never touches progress state.
- * `RevealEvent` (tapping "Show Answer") is a strong failure signal that
- * decays both mastery and stability.
+ * `RevealEvent` is emitted when the user taps "Show Answer" on the **scored**
+ * card with **no** gradable speech yet — a strong failure signal that decays
+ * both mastery and stability. Try Again + Show Answer with no speech does not
+ * emit this (see `usePhraseDisplay.handleShowAnswer`).
  */
 export interface Attempt {
   eventType: 'attempt';

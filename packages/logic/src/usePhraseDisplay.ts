@@ -17,6 +17,7 @@ import {
   logPhraseBoundary,
   logRevealEmitted,
   logRevealSkipped,
+  logShowAnswerTryAgainNoProgress,
 } from './learningPipelineDebug';
 import { computeMastery } from './mastery';
 import { POST_SUCCESS_EXTRA_PAUSE_MS } from './phraseDisplayTiming';
@@ -101,6 +102,18 @@ export type UsePhraseDisplayOptions = {
 const splitWords = (s: string): string[] =>
   s.trim().split(/\s+/).filter(Boolean);
 
+/** Caption for scoring on Show Answer: prefer live caption, else join STT words. */
+function captionAndGradableFromStt(
+  caption: string | undefined,
+  words: SpokenWord[],
+): { finalCaption: string; hasGradableSpeech: boolean } {
+  const trimmed = caption?.trim() ?? '';
+  const fromWords = words.map((w) => w.word).join(' ').trim();
+  const finalCaption = trimmed.length > 0 ? trimmed : fromWords;
+  const hasGradableSpeech = finalCaption.length > 0 || words.length > 0;
+  return { finalCaption, hasGradableSpeech };
+}
+
 // UI flows through these states in order:
 //
 //   loading → idle → recording → answer
@@ -155,9 +168,8 @@ export function usePhraseDisplay(
   sttRef.current = stt;
   ttsRef.current = tts;
 
-  /** Tracks whether an Attempt/PracticeAttempt event has already been emitted for the
-   * current phrase presentation. Used to suppress duplicate events and to
-   * classify a Show-Answer click as Reveal vs. no-op. */
+  /** Tracks whether an Attempt/PracticeAttempt/Reveal (or tryAgain no-speech Show Answer)
+   * has already been recorded for the current pass. Suppresses duplicate emissions. */
   const attemptEmittedRef = useRef(false);
   const statusRef = useRef<UIStatus>(status);
   statusRef.current = status;
@@ -193,7 +205,11 @@ export function usePhraseDisplay(
       words: SpokenWord[],
       now: number,
       meta: {
-        trigger: 'speech-final' | 'success-path-timer' | 'manual';
+        trigger:
+          | 'speech-final'
+          | 'success-path-timer'
+          | 'manual'
+          | 'show-answer';
         isFinalAtCapture: boolean;
         msSinceFirstFinal: number | null;
       },
@@ -330,16 +346,60 @@ export function usePhraseDisplay(
     }
   }, [spanishText]);
 
-  /** User explicitly clicked "Show Answer". Emits a Reveal event if no attempt
-   * has already been emitted for this phrase presentation. */
+  /**
+   * User clicked "Show Answer". If nothing was scored yet for this pass:
+   * first pass with gradable STT → Attempt; first pass with no speech → Reveal;
+   * Try Again with gradable STT → PracticeAttempt; Try Again with no speech →
+   * only mark emitted (no event — must not decay mastery).
+   */
   const handleShowAnswer = useCallback(async () => {
-    if (!attemptEmittedRef.current) {
-      emitReveal(Date.now());
-    } else if (debugLearningPipelineRef.current) {
-      logRevealSkipped(currentPhrase.id);
+    if (attemptEmittedRef.current) {
+      if (debugLearningPipelineRef.current) {
+        logRevealSkipped(currentPhrase.id);
+      }
+      await playAnswerAudio();
+      return;
     }
+
+    const now = Date.now();
+    const words = sttRef.current.words;
+    const { finalCaption, hasGradableSpeech } = captionAndGradableFromStt(
+      sttRef.current.caption,
+      words,
+    );
+    const msSinceFirstFinal =
+      firstIsFinalAtRef.current !== null
+        ? now - firstIsFinalAtRef.current
+        : null;
+    const isTryAgain = statusRef.current === 'tryAgain';
+
+    if (isTryAgain) {
+      if (hasGradableSpeech) {
+        emitPracticeAttempt(finalCaption, words, now);
+      } else {
+        attemptEmittedRef.current = true;
+        if (debugLearningPipelineRef.current) {
+          logShowAnswerTryAgainNoProgress(currentPhrase.id);
+        }
+      }
+    } else if (hasGradableSpeech) {
+      emitAttempt(finalCaption, words, now, {
+        trigger: 'show-answer',
+        isFinalAtCapture: sttRef.current.isFinal,
+        msSinceFirstFinal,
+      });
+    } else {
+      emitReveal(now);
+    }
+
     await playAnswerAudio();
-  }, [currentPhrase.id, emitReveal, playAnswerAudio]);
+  }, [
+    currentPhrase.id,
+    emitAttempt,
+    emitPracticeAttempt,
+    emitReveal,
+    playAnswerAudio,
+  ]);
 
   // On phrase change: prefetch both audios, play English prompt, then auto-start recording.
   useEffect(() => {
