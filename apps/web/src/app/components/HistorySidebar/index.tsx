@@ -25,6 +25,7 @@ import {
   REVEAL_STABILITY_DECAY,
   STABILITY_EMA_ALPHA,
   alignWords,
+  fluencyForMastery,
   normalizeStr,
   type AccuracyBreakdown,
   type Attempt,
@@ -394,32 +395,38 @@ const StabilityBreakdownSection = ({
 
 const MasteryEngineSection = ({
   accuracy,
-  fluencyScore,
+  fluencyRecorded,
+  fluencyMastery,
   stabilityAfter,
   masteryAfter,
   sessionRequeueApplies,
 }: {
   accuracy: number;
-  fluencyScore: number | null;
+  /** Shown/recorded measured fluency; null if not computed. */
+  fluencyRecorded: number | null;
+  /** Value passed to the engine’s `computeMastery` (imputed 1 for single-word + null). */
+  fluencyMastery: number | null;
   stabilityAfter: number;
   masteryAfter: number;
   /** False for Try Again: stored mastery unchanged; do not imply requeue from this row. */
   sessionRequeueApplies: boolean;
 }): JSX.Element => {
-  const hasFluency = fluencyScore != null;
-  const blended = hasFluency
+  const hasFluencyMastery = fluencyMastery != null;
+  const blended = hasFluencyMastery
     ? MASTERY_W_ACCURACY * accuracy +
-      MASTERY_W_FLUENCY * (fluencyScore ?? 0) +
+      MASTERY_W_FLUENCY * (fluencyMastery ?? 0) +
       MASTERY_W_STABILITY * stabilityAfter
     : MASTERY_W_ACCURACY_NO_FLUENCY * accuracy +
       MASTERY_W_STABILITY_NO_FLUENCY * stabilityAfter;
+  const imputedFluency =
+    fluencyRecorded == null && fluencyMastery != null;
   return (
     <div>
       <div className="font-semibold text-gray-700 mb-1">
         Mastery (engine, post-event)
       </div>
       <div className="text-gray-700 font-mono space-y-0.5">
-        {hasFluency ? (
+        {hasFluencyMastery ? (
           <>
             <div>
               mastery = clamp({MASTERY_W_ACCURACY}×accuracy +{" "}
@@ -427,9 +434,16 @@ const MasteryEngineSection = ({
             </div>
             <div className="pl-2">
               = {MASTERY_W_ACCURACY}×{fmt(accuracy, 3)} + {MASTERY_W_FLUENCY}×
-              {fmt(fluencyScore ?? 0, 3)} + {MASTERY_W_STABILITY}×
+              {fmt(fluencyMastery ?? 0, 3)} + {MASTERY_W_STABILITY}×
               {fmt(stabilityAfter, 3)} ≈ {fmt(blended, 3)}
             </div>
+            {imputedFluency && (
+              <div className="pl-2 text-gray-500 normal-case text-[10px] pt-0.5">
+                Measured fluency was not recorded; mastery used the with-fluency
+                path with imputed fluency = {fmt(fluencyMastery ?? 0, 3)} (single
+                STT word).
+              </div>
+            )}
           </>
         ) : (
           <>
@@ -471,6 +485,10 @@ const ScoredEventDetail = ({
   const { event, phrase, scoreSummary, stabilityBreakdown } = entry;
   const ab = event.accuracyBreakdown;
   const fb = event.fluencyBreakdown;
+  const wordCountForMasteryImputation =
+    event.eventType === "attempt"
+      ? (event.spokenWordCount ?? 0)
+      : event.transcript.length;
 
   const { rows, extraWordsDisplay } = useMemo(() => {
     if (event.eventType === "attempt") {
@@ -574,7 +592,11 @@ const ScoredEventDetail = ({
       <StabilityBreakdownSection snap={stabilityBreakdown} />
       <MasteryEngineSection
         accuracy={scoreSummary.accuracy}
-        fluencyScore={scoreSummary.fluency}
+        fluencyRecorded={event.fluencyScore}
+        fluencyMastery={fluencyForMastery(
+          event.fluencyScore,
+          wordCountForMasteryImputation,
+        )}
         stabilityAfter={stabilityBreakdown.after}
         masteryAfter={scoreSummary.mastery}
         sessionRequeueApplies={!isPractice}
@@ -953,7 +975,7 @@ const BREAKDOWN_TERMS_LEGEND: LegendItem[] = [
   {
     term: "Mastery blend (attempt / retry)",
     description:
-      "Post-attempt mastery is a weighted sum of accuracy, fluency (when timings exist), and S′, then clamped. Without fluency, the formula uses only accuracy and S′ with different weights — see the expanded row for the exact coefficients.",
+      "Post-attempt mastery is a weighted sum of accuracy, fluency, and S′, then clamped. When word-level fluency is not recorded but exactly one STT word was captured, fluency is imputed as 1 for this calculation only. Otherwise, without a measured fluency score, the formula uses only accuracy and S′ with different weights — see the expanded row for the exact coefficients.",
   },
 ];
 

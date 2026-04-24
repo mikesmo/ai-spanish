@@ -28,6 +28,23 @@ export const REVEAL_STABILITY_DECAY = 0.7;
 
 const clamp01 = (n: number): number => (n < 0 ? 0 : n > 1 ? 1 : n);
 
+/**
+ * Fluency value passed into `computeMastery` / `reduceProgress`. When
+ * `fluencyScore` is null (no measured composite) but the user spoke exactly one
+ * timed word, inter-word fluency is undefined; we impute `1` so the with-
+ * fluency mastery path applies. Recorded `fluencyScore` on the event stays
+ * null — this is mastery-only. For `spokenWordCount` omitted/0 and null
+ * fluency, returns null (legacy events / not single-word).
+ */
+export function fluencyForMastery(
+  fluencyScore: number | null,
+  spokenWordCount: number | undefined,
+): number | null {
+  if (fluencyScore != null) return fluencyScore;
+  if ((spokenWordCount ?? 0) === 1) return 1;
+  return null;
+}
+
 export function classifyState(mastery: number): PhraseState {
   if (mastery < MASTERY_LEARNING_CEIL) return 'learning';
   if (mastery < MASTERY_STABILIZING_CEIL) return 'stabilizing';
@@ -93,7 +110,7 @@ export function reduceProgress(
       );
       const masteryScore = computeMastery(
         event.accuracyScore,
-        event.fluencyScore,
+        fluencyForMastery(event.fluencyScore, event.spokenWordCount),
         stabilityScore,
       );
       const state = classifyState(masteryScore);

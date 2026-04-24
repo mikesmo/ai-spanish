@@ -2,6 +2,7 @@ import type { AlignmentResult } from './alignment';
 import type { AccuracyBreakdown } from './accuracy';
 import { ACCURACY_SUCCESS_THRESHOLD } from './accuracy';
 import type { FluencyBreakdown } from './fluency';
+import { fluencyForMastery } from './mastery';
 import type { SpokenWord, WordMeta } from './types';
 
 const PREFIX = '[ai-spanish/learn]';
@@ -122,9 +123,16 @@ export function logLearningAttempt(ctx: {
       longPauses_over_0_5s: ctx.fluency.longPauses,
     });
   } else {
-    console.log(
-      'fluencyScore: null → reducer uses mastery = 0.6×accuracy + 0.4×stability (no fluency term)',
-    );
+    const imputed = fluencyForMastery(null, ctx.spokenWords.length);
+    if (imputed != null) {
+      console.log(
+        'fluencyScore: null (not recorded) · single STT word → mastery imputes fluency=1 (with-fluency weights)',
+      );
+    } else {
+      console.log(
+        'fluencyScore: null → reducer uses mastery = 0.6×accuracy + 0.4×stability (no fluency term)',
+      );
+    }
   }
 
   console.log('--- Signals ---', {

@@ -12,6 +12,7 @@ import {
   STABILITY_EMA_ALPHA,
   classifyState,
   computeMastery,
+  fluencyForMastery,
   reduceProgress,
 } from '../mastery';
 import type { Attempt, PracticeAttempt, RevealEvent } from '../events';
@@ -110,6 +111,21 @@ describe('computeMastery', () => {
   });
 });
 
+describe('fluencyForMastery', () => {
+  it('imputes 1 for a single STT word when measured fluency is null', () => {
+    expect(fluencyForMastery(null, 1)).toBe(1);
+  });
+  it('stays null when word count is not 1 and measured fluency is null', () => {
+    expect(fluencyForMastery(null, 0)).toBeNull();
+    expect(fluencyForMastery(null, 2)).toBeNull();
+    expect(fluencyForMastery(null, undefined)).toBeNull();
+  });
+  it('passes through a measured score', () => {
+    expect(fluencyForMastery(0.4, 1)).toBe(0.4);
+    expect(fluencyForMastery(0.4, 99)).toBe(0.4);
+  });
+});
+
 describe('classifyState', () => {
   it('maps mastery bands to states', () => {
     expect(classifyState(0)).toBe('learning');
@@ -167,6 +183,20 @@ describe('reduceProgress — attempt', () => {
     );
     // S_1 = 0.3; mastery = 0.6*1 + 0.4*0.3 = 0.72
     expect(result.masteryScore).toBeCloseTo(0.72);
+  });
+
+  it('imputes fluency = 1 for mastery when one STT word and fluency is null', () => {
+    const result = reduceProgress(
+      null,
+      attempt({
+        fluencyScore: null,
+        accuracyScore: 1,
+        spokenWordCount: 1,
+      }),
+      CTX,
+    );
+    // S_1 = 0.3; with-fluency: 0.5*1 + 0.3*1 + 0.2*0.3 = 0.86
+    expect(result.masteryScore).toBeCloseTo(0.86);
   });
 
   it('sets dueOnLessonSessionIndex per the SRS bands', () => {

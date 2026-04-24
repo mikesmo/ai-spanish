@@ -26,6 +26,13 @@ export interface Attempt {
   /** Fluency score 0..1, or null if fluency could not be computed. */
   fluencyScore: number | null;
   /**
+   * Timed STT words in this attempt (`stt.words.length` at capture). When 1
+   * and `fluencyScore` is null, the reducer imputes fluency = 1 for mastery
+   * only (no measured fluency row). Omitted/undefined is treated as 0
+   * (no imputation), for older payloads.
+   */
+  spokenWordCount?: number;
+  /**
    * Canonical learning-success signal: `accuracyScore >= ACCURACY_SUCCESS_THRESHOLD`.
    * Feeds the stability EMA and mastery engine.
    */

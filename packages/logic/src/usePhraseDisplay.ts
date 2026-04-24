@@ -19,7 +19,7 @@ import {
   logRevealSkipped,
   logShowAnswerTryAgainNoProgress,
 } from './learningPipelineDebug';
-import { computeMastery } from './mastery';
+import { computeMastery, fluencyForMastery } from './mastery';
 import { POST_SUCCESS_EXTRA_PAUSE_MS } from './phraseDisplayTiming';
 import type {
   Attempt,
@@ -233,13 +233,14 @@ export function usePhraseDisplay(
       const accuracy = computeAccuracy(target, alignment);
       const fluency = computeFluency(words);
       const fluencyScore = fluency?.fluencyScore ?? null;
+      const spokenWordCount = words.length;
       const accuracySucceeded = isAccuracyThresholdReached(accuracy.accuracy);
       const uiSuccess =
         !!finalCaption.trim() &&
         normalizeStr(finalCaption) === normalizeStr(spanishText);
       const mastery = computeMastery(
         accuracy.accuracy,
-        fluencyScore,
+        fluencyForMastery(fluencyScore, spokenWordCount),
         // Stability update happens inside the reducer; we surface the pure
         // mastery of *this* attempt alone for UI, using the prior stability
         // the host may or may not have. Keep it simple: use 0 for UI preview.
@@ -261,6 +262,7 @@ export function usePhraseDisplay(
         extraWords: alignment.extra.map((w) => w.word),
         accuracyScore: accuracy.accuracy,
         fluencyScore,
+        spokenWordCount,
         isAccuracySuccess: accuracySucceeded,
         success: uiSuccess,
         timestamp: now,
