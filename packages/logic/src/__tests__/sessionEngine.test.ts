@@ -26,17 +26,74 @@ const phrase = (id: string): Phrase => ({
   },
 });
 
-const attempt = (phraseId: string, overrides: Partial<Attempt> = {}): Attempt => ({
-  eventType: 'attempt',
+const stubFluency = (fluencyScore: number) => ({
+  speedScore: 1,
+  pauseScore: 1,
+  gapConsistencyScore: 1,
+  fluencyScore,
+  wordsPerSecond: 3,
+  longPauses: 0,
+});
+
+const attempt = (phraseId: string, overrides: Partial<Attempt> = {}): Attempt => {
+  const accuracyScore = overrides.accuracyScore ?? 1;
+  const fluencyScore =
+    overrides.fluencyScore !== undefined ? overrides.fluencyScore : 1;
+  const base: Attempt = {
+    eventType: 'attempt',
+    phraseId,
+    transcript: [],
+    missingWords: [],
+    extraWords: [],
+    accuracyScore,
+    fluencyScore,
+    isAccuracySuccess: true,
+    success: true,
+    timestamp: NOW,
+    accuracyBreakdown: {
+      accuracy: accuracyScore,
+      totalWeight: 1,
+      missingPenalty: 0,
+      extraPenalty: 0,
+      rawExtraPenalty: 0,
+    },
+    fluencyBreakdown:
+      fluencyScore == null ? null : stubFluency(fluencyScore),
+  };
+  const merged: Attempt = { ...base, ...overrides };
+  if (!overrides.accuracyBreakdown) {
+    merged.accuracyBreakdown = {
+      accuracy: merged.accuracyScore,
+      totalWeight: 1,
+      missingPenalty: 0,
+      extraPenalty: 0,
+      rawExtraPenalty: 0,
+    };
+  }
+  if (overrides.fluencyBreakdown === undefined) {
+    merged.fluencyBreakdown =
+      merged.fluencyScore == null ? null : stubFluency(merged.fluencyScore);
+  }
+  return merged;
+};
+
+const practicePayload = (
+  phraseId: string,
+  overrides: Partial<PracticeAttempt> = {},
+): PracticeAttempt => ({
+  eventType: 'practice',
   phraseId,
   transcript: [],
-  missingWords: [],
-  extraWords: [],
-  accuracyScore: 1,
   fluencyScore: 1,
-  isAccuracySuccess: true,
-  success: true,
   timestamp: NOW,
+  accuracyBreakdown: {
+    accuracy: 1,
+    totalWeight: 1,
+    missingPenalty: 0,
+    extraPenalty: 0,
+    rawExtraPenalty: 0,
+  },
+  fluencyBreakdown: stubFluency(1),
   ...overrides,
 });
 
@@ -182,13 +239,7 @@ describe('createSessionEngine', () => {
     const deck = [phrase('a'), phrase('b')];
     const engine = createSessionEngine(deck, createInMemoryProgressStore());
     engine.pickNext(); // a
-    const practice: PracticeAttempt = {
-      eventType: 'practice',
-      phraseId: 'a',
-      transcript: [],
-      fluencyScore: 1,
-      timestamp: NOW,
-    };
+    const practice: PracticeAttempt = practicePayload('a');
     engine.onEvent(practice);
     expect(engine.pickNext()?.id).toBe('b');
     expect(engine.pickNext()).toBeNull();
@@ -199,13 +250,7 @@ describe('createSessionEngine', () => {
     const store = createInMemoryProgressStore();
     const engine = createSessionEngine(deck, store);
     engine.pickNext();
-    engine.onEvent({
-      eventType: 'practice',
-      phraseId: 'a',
-      transcript: [],
-      fluencyScore: 1,
-      timestamp: NOW,
-    });
+    engine.onEvent(practicePayload('a'));
     expect(store.get('a')).toBeNull();
   });
 

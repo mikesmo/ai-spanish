@@ -20,19 +20,56 @@ import type { PhraseProgress } from '../types';
 const NOW = 1_700_000_000_000;
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
-const attempt = (overrides: Partial<Attempt> = {}): Attempt => ({
-  eventType: 'attempt',
-  phraseId: 'p1',
-  transcript: [],
-  missingWords: [],
-  extraWords: [],
-  accuracyScore: 1,
-  fluencyScore: 1,
-  isAccuracySuccess: true,
-  success: true,
-  timestamp: NOW,
-  ...overrides,
+const stubFluency = (fluencyScore: number) => ({
+  speedScore: 1,
+  pauseScore: 1,
+  gapConsistencyScore: 1,
+  fluencyScore,
+  wordsPerSecond: 3,
+  longPauses: 0,
 });
+
+const attempt = (overrides: Partial<Attempt> = {}): Attempt => {
+  const accuracyScore = overrides.accuracyScore ?? 1;
+  const fluencyScore =
+    overrides.fluencyScore !== undefined ? overrides.fluencyScore : 1;
+  const base: Attempt = {
+    eventType: 'attempt',
+    phraseId: 'p1',
+    transcript: [],
+    missingWords: [],
+    extraWords: [],
+    accuracyScore,
+    fluencyScore,
+    isAccuracySuccess: true,
+    success: true,
+    timestamp: NOW,
+    accuracyBreakdown: {
+      accuracy: accuracyScore,
+      totalWeight: 1,
+      missingPenalty: 0,
+      extraPenalty: 0,
+      rawExtraPenalty: 0,
+    },
+    fluencyBreakdown:
+      fluencyScore == null ? null : stubFluency(fluencyScore),
+  };
+  const merged: Attempt = { ...base, ...overrides };
+  if (!overrides.accuracyBreakdown) {
+    merged.accuracyBreakdown = {
+      accuracy: merged.accuracyScore,
+      totalWeight: 1,
+      missingPenalty: 0,
+      extraPenalty: 0,
+      rawExtraPenalty: 0,
+    };
+  }
+  if (overrides.fluencyBreakdown === undefined) {
+    merged.fluencyBreakdown =
+      merged.fluencyScore == null ? null : stubFluency(merged.fluencyScore);
+  }
+  return merged;
+};
 
 describe('mastery weights', () => {
   it('with-fluency weights sum to 1', () => {
@@ -155,6 +192,14 @@ describe('reduceProgress — practice', () => {
       transcript: ['tengo'],
       fluencyScore: 1,
       timestamp: NOW + 5_000,
+      accuracyBreakdown: {
+        accuracy: 1,
+        totalWeight: 1,
+        missingPenalty: 0,
+        extraPenalty: 0,
+        rawExtraPenalty: 0,
+      },
+      fluencyBreakdown: stubFluency(1),
     };
     const next = reduceProgress(prev, practice);
     expect(next).toEqual(prev);

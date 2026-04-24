@@ -234,6 +234,8 @@ export function usePhraseDisplay(
         isAccuracySuccess: accuracySucceeded,
         success: uiSuccess,
         timestamp: now,
+        accuracyBreakdown: accuracy,
+        fluencyBreakdown: fluency,
       };
 
       attemptEmittedRef.current = true;
@@ -262,11 +264,11 @@ export function usePhraseDisplay(
 
   const emitPracticeAttempt = useCallback(
     (finalCaption: string, words: SpokenWord[], now: number) => {
+      const target = currentPhrase.Spanish.words;
+      const alignment = alignWords(target, words);
+      const accuracy = computeAccuracy(target, alignment);
       const fluency = computeFluency(words);
       if (debugLearningPipelineRef.current) {
-        const target = currentPhrase.Spanish.words;
-        const alignment = alignWords(target, words);
-        const accuracy = computeAccuracy(target, alignment);
         logLearningPractice({
           phraseId: currentPhrase.id,
           spanishTarget: spanishText,
@@ -283,6 +285,8 @@ export function usePhraseDisplay(
         transcript: splitWords(finalCaption),
         fluencyScore: fluency?.fluencyScore ?? null,
         timestamp: now,
+        accuracyBreakdown: accuracy,
+        fluencyBreakdown: fluency,
       };
       attemptEmittedRef.current = true;
       onPhraseEventRef.current?.(practice);

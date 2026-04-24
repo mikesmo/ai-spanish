@@ -1,3 +1,6 @@
+import type { AccuracyBreakdown } from './accuracy';
+import type { FluencyBreakdown } from './fluency';
+
 /**
  * Events emitted by the UI that the mastery/SRS engines consume.
  *
@@ -32,6 +35,10 @@ export interface Attempt {
    */
   success: boolean;
   timestamp: number;
+  /** Full weighted accuracy from `computeAccuracy` at emit time. */
+  accuracyBreakdown: AccuracyBreakdown;
+  /** Fluency subscores, or null when `fluencyScore` is null. */
+  fluencyBreakdown: FluencyBreakdown | null;
 }
 
 export interface PracticeAttempt {
@@ -40,6 +47,8 @@ export interface PracticeAttempt {
   transcript: string[];
   fluencyScore: number | null;
   timestamp: number;
+  accuracyBreakdown: AccuracyBreakdown;
+  fluencyBreakdown: FluencyBreakdown | null;
 }
 
 export interface RevealEvent {

@@ -2,9 +2,6 @@
 
 import { useCallback, useRef, useState } from "react";
 import {
-  alignWords,
-  computeAccuracy,
-  computeMastery,
   getDefaultLearningPipelineDebug,
   isAccuracySuccess,
   logSessionHistoryAppend,
@@ -13,14 +10,22 @@ import {
   type PhraseEvent,
   type PhraseEventContext,
   type PhraseProgress,
-  type SpokenWord,
 } from "@ai-spanish/logic";
 
 export interface ScoreSummary {
   accuracy: number;
   fluency: number | null;
+  /** Post-event mastery from `reduceProgress` (matches the engine). */
   mastery: number;
   isAccuracySuccess: boolean;
+}
+
+/** Per-row stability transition after applying the event in `reduceProgress`. */
+export interface StabilityBreakdownSnapshot {
+  before: number;
+  after: number;
+  kind: "attempt_ema" | "reveal_decay" | "practice_unchanged";
+  emaInput?: 0 | 1;
 }
 
 export interface HistoryEntry {
@@ -28,6 +33,10 @@ export interface HistoryEntry {
   event: PhraseEvent;
   phrase: Phrase;
   scoreSummary: ScoreSummary | null;
+  stabilityBreakdown: StabilityBreakdownSnapshot;
+  /** Mastery immediately before / after this event (reducer output). */
+  masteryBefore: number;
+  masteryAfter: number;
   /**
    * True when this event was logged during a second-or-later presentation of
    * the same `phrase.id` in the current session (e.g. Pimsleur requeue or
@@ -90,16 +99,12 @@ const generateId = (): string => {
 /**
  * In-memory log of every PhraseEvent emitted during the current session.
  *
- * For Attempt events we precompute a ScoreSummary — stability is pinned to
- * 0, matching the preview convention used by
- * usePhraseDisplay.lastScoreBreakdown.
- *
- * For PracticeAttempt events we also precompute a ScoreSummary as an
- * informational display. These values are NEVER fed into `reduceProgress`,
- * the mastery engine, or SRS — the spec rule "Try Again is motor/
- * pronunciation only" is enforced upstream by the session engine and
- * reducer. The history sidebar just reconstructs accuracy from the event's
- * transcript + target word meta so the user can see per-retry improvement.
+ * Attempt and practice rows include a ScoreSummary: accuracy and fluency from
+ * the emitted event; `mastery` is the post-event value from `reduceProgress`
+ * (engine truth). Practice attempts do not change stored progress — mastery
+ * before and after match — but accuracy/fluency still reflect the retry for
+ * display. Each entry carries `stabilityBreakdown` and mastery before/after
+ * for the sidebar.
  */
 export const useSessionHistory = (): UseSessionHistoryResult => {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
@@ -124,38 +129,53 @@ export const useSessionHistory = (): UseSessionHistoryResult => {
     const phrase = phraseRef.current;
     if (!phrase) return;
 
+    const prevProgress = progressByPhraseRef.current.get(phrase.id) ?? null;
+    const nextProgress = reduceProgress(prevProgress, event);
+    progressByPhraseRef.current.set(phrase.id, nextProgress);
+
+    const stabilityBefore = prevProgress?.stabilityScore ?? 0;
+    const masteryBefore = prevProgress?.masteryScore ?? 0;
+    const masteryAfter = nextProgress.masteryScore;
+
+    let stabilityBreakdown: StabilityBreakdownSnapshot;
+    if (event.eventType === "attempt") {
+      stabilityBreakdown = {
+        kind: "attempt_ema",
+        before: stabilityBefore,
+        after: nextProgress.stabilityScore,
+        emaInput: event.isAccuracySuccess ? 1 : 0,
+      };
+    } else if (event.eventType === "reveal") {
+      stabilityBreakdown = {
+        kind: "reveal_decay",
+        before: stabilityBefore,
+        after: nextProgress.stabilityScore,
+      };
+    } else {
+      stabilityBreakdown = {
+        kind: "practice_unchanged",
+        before: stabilityBefore,
+        after: nextProgress.stabilityScore,
+      };
+    }
+
     let scoreSummary: ScoreSummary | null = null;
     if (event.eventType === "attempt") {
       scoreSummary = {
         accuracy: event.accuracyScore,
         fluency: event.fluencyScore,
-        mastery: computeMastery(event.accuracyScore, event.fluencyScore, 0),
+        mastery: masteryAfter,
         isAccuracySuccess: event.isAccuracySuccess,
       };
     } else if (event.eventType === "practice") {
-      // Practice events only carry transcript strings (no word timings).
-      // computeAccuracy is pure word-identity + POS-weight math, so zero-timed
-      // SpokenWord stubs produce the same score as fully timed input. Values
-      // are informational only — the mastery engine ignores practice events.
-      const target = phrase.Spanish.words;
-      const spokenStub: SpokenWord[] = event.transcript.map((w) => ({
-        word: w,
-        start: 0,
-        end: 0,
-      }));
-      const alignment = alignWords(target, spokenStub);
-      const { accuracy } = computeAccuracy(target, alignment);
+      const acc = event.accuracyBreakdown.accuracy;
       scoreSummary = {
-        accuracy,
+        accuracy: acc,
         fluency: event.fluencyScore,
-        mastery: computeMastery(accuracy, event.fluencyScore, 0),
-        isAccuracySuccess: isAccuracySuccess(accuracy),
+        mastery: masteryAfter,
+        isAccuracySuccess: isAccuracySuccess(acc),
       };
     }
-
-    const prevProgress = progressByPhraseRef.current.get(phrase.id) ?? null;
-    const nextProgress = reduceProgress(prevProgress, event);
-    progressByPhraseRef.current.set(phrase.id, nextProgress);
 
     const slotsAheadAtEvent = ctx.slotsAheadAtEvent;
 
@@ -179,6 +199,9 @@ export const useSessionHistory = (): UseSessionHistoryResult => {
       event,
       phrase,
       scoreSummary,
+      stabilityBreakdown,
+      masteryBefore,
+      masteryAfter,
       isRepeatedPresentation: currentIsRepeatRef.current,
       nextReviewAt: nextProgress.nextReviewAt,
       slotsAheadAtEvent,
