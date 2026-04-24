@@ -1,5 +1,5 @@
 import { useCallback, useRef } from 'react';
-import type { Language, TTSAdapter } from '@ai-spanish/logic';
+import type { Language, TTSAdapter, TtsAdapterOptions } from '@ai-spanish/logic';
 import { fetchPresignedUrl as _fetchPresignedUrl, segmentsForLanguage } from './s3-shared';
 
 function fetchPresignedUrl(phraseIndex: number, segment: string): Promise<string | null> {
@@ -9,8 +9,8 @@ function fetchPresignedUrl(phraseIndex: number, segment: string): Promise<string
 /**
  * S3-backed TTS adapter for web.
  *
- * - English: fetches and plays en-explain, en-intro, then en-question back-to-back
- *   so the segments feel like one continuous utterance.
+ * - English: en-explain only when options.englishUseExplain, else en-intro +
+ *   en-question, played back-to-back.
  * - Spanish: fetches and plays es-question (single clip per phrase).
  * - Missing clips (skipped at batch time due to empty text) are silently skipped.
  * - Requires a valid phraseIndex; calls without one are no-ops so the adapter
@@ -31,10 +31,15 @@ export function useS3TTS(): TTSAdapter {
   }, []);
 
   const prefetch = useCallback(
-    async (_text: string, lang: Language, phraseIndex?: number): Promise<void> => {
+    async (
+      _text: string,
+      lang: Language,
+      phraseIndex?: number,
+      options?: TtsAdapterOptions
+    ): Promise<void> => {
       if (phraseIndex === undefined) return;
       await Promise.all(
-        segmentsForLanguage(lang).map(async (seg) => {
+        segmentsForLanguage(lang, options).map(async (seg) => {
           const cacheKey = `${phraseIndex}-${seg}`;
           if (urlCache.current.has(cacheKey)) return;
           const url = await fetchPresignedUrl(phraseIndex, seg);
@@ -46,14 +51,20 @@ export function useS3TTS(): TTSAdapter {
   );
 
   const play = useCallback(
-    async (_text: string, lang: Language, rate = 1, phraseIndex?: number): Promise<void> => {
+    async (
+      _text: string,
+      lang: Language,
+      rate = 1,
+      phraseIndex?: number,
+      options?: TtsAdapterOptions
+    ): Promise<void> => {
       if (phraseIndex === undefined) return;
 
       stoppedRef.current = false;
       if (!audioRef.current) audioRef.current = new Audio();
       const el = audioRef.current;
 
-      for (const seg of segmentsForLanguage(lang)) {
+      for (const seg of segmentsForLanguage(lang, options)) {
         if (stoppedRef.current) return;
 
         const cacheKey = `${phraseIndex}-${seg}`;

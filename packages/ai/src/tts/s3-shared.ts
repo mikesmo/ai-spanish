@@ -1,11 +1,20 @@
-import type { Language } from '@ai-spanish/logic';
+import type { Language, TtsAdapterOptions } from '@ai-spanish/logic';
 
 export interface AudioUrlResponse {
   url: string;
 }
 
-export function segmentsForLanguage(lang: Language): string[] {
-  return lang === 'en' ? ['en-explain', 'en-intro', 'en-question'] : ['es-question'];
+export function segmentsForLanguage(
+  lang: Language,
+  options?: TtsAdapterOptions
+): string[] {
+  if (lang === 'en') {
+    if (options?.englishUseExplain) {
+      return ['en-explain'];
+    }
+    return ['en-intro', 'en-question'];
+  }
+  return ['es-question'];
 }
 
 /**

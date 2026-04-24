@@ -1,7 +1,7 @@
 import { useCallback, useRef } from 'react';
 import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system';
-import type { Language, TTSAdapter } from '@ai-spanish/logic';
+import type { Language, TTSAdapter, TtsAdapterOptions } from '@ai-spanish/logic';
 import { fetchPresignedUrl as _fetchPresignedUrl, segmentsForLanguage } from './s3-shared';
 
 function getWebOrigin(): string {
@@ -43,7 +43,8 @@ async function ensureLocalFile(
 /**
  * S3-backed TTS adapter for React Native (same clips as web).
  *
- * - English: en-explain, en-intro, then en-question.
+ * - English: en-explain only when options.englishUseExplain, else en-intro +
+ *   en-question.
  * - Spanish: es-question only.
  * - Missing clips are skipped silently.
  * - Requires phraseIndex; calls without it are no-ops.
@@ -97,10 +98,15 @@ export function useS3TTS(): TTSAdapter {
   }, []);
 
   const prefetch = useCallback(
-    async (_text: string, lang: Language, phraseIndex?: number): Promise<void> => {
+    async (
+      _text: string,
+      lang: Language,
+      phraseIndex?: number,
+      options?: TtsAdapterOptions
+    ): Promise<void> => {
       if (phraseIndex === undefined) return;
       await Promise.all(
-        segmentsForLanguage(lang).map(async (seg) => {
+        segmentsForLanguage(lang, options).map(async (seg) => {
           await ensureLocalFile(phraseIndex, seg, fileCacheRef.current).catch(() => {});
         })
       );
@@ -109,14 +115,20 @@ export function useS3TTS(): TTSAdapter {
   );
 
   const play = useCallback(
-    async (_text: string, lang: Language, rate = 1, phraseIndex?: number): Promise<void> => {
+    async (
+      _text: string,
+      lang: Language,
+      rate = 1,
+      phraseIndex?: number,
+      options?: TtsAdapterOptions
+    ): Promise<void> => {
       if (phraseIndex === undefined) return;
 
       stoppedRef.current = false;
       await unloadCurrentSound();
       stopIntentionallyRef.current = false;
 
-      for (const seg of segmentsForLanguage(lang)) {
+      for (const seg of segmentsForLanguage(lang, options)) {
         if (stoppedRef.current) return;
 
         const uri = await ensureLocalFile(phraseIndex, seg, fileCacheRef.current);

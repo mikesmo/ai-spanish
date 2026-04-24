@@ -194,6 +194,7 @@ export function usePhraseDisplay(
   const englishText = currentPhrase.English.intro
     ? `${currentPhrase.English.intro}: ${currentPhrase.English.question}`
     : currentPhrase.English.question;
+  const englishUseExplain = (currentPhrase.English.explain ?? '').trim() !== '';
   const spanishText = currentPhrase.Spanish.answer;
   const caption = stt.caption;
   const sttWords: SpokenWord[] = stt.words;
@@ -438,8 +439,9 @@ export function usePhraseDisplay(
     const init = async () => {
       try {
         const hintedIndex = ttsPhraseIndexRef.current;
+        const enOpts = { englishUseExplain };
         await Promise.all([
-          ttsRef.current.prefetch(englishText, 'en', hintedIndex),
+          ttsRef.current.prefetch(englishText, 'en', hintedIndex, enOpts),
           ttsRef.current.prefetch(spanishText, 'es', hintedIndex),
         ]);
         if (cancelled) return;
@@ -450,6 +452,7 @@ export function usePhraseDisplay(
           'en',
           undefined,
           ttsPhraseIndexRef.current,
+          enOpts,
         );
         if (cancelled) return;
         sttRef.current.clearTranscription();
@@ -477,7 +480,7 @@ export function usePhraseDisplay(
     // at the same index (or a one-element `phrases` array) still triggers a
     // fresh bootstrap. currentPhrase.id is included so queue-driven hosts
     // that swap the in-array identity without changing index also re-run.
-  }, [currentIndex, currentPhrase.id, presentationVersion]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentIndex, currentPhrase.id, presentationVersion, englishUseExplain]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Transition to recording once the mic opens. Preserve the 'tryAgain'
   // status so Try Again passes continue to emit PracticeAttempt events (and

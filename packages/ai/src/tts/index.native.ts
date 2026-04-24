@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system';
 import { fetchTTSAudio } from './deepgram';
-import type { TTSAdapter, Language } from '@ai-spanish/logic';
+import type { TTSAdapter, Language, TtsAdapterOptions } from '@ai-spanish/logic';
 
 const audioCache = new Map<string, string>(); // cacheKey → file URI
 let currentSound: Audio.Sound | null = null;
@@ -84,10 +84,11 @@ async function playAudio(text: string, language: Language, rate = 1): Promise<vo
 
 export function useTTS(): TTSAdapter {
   const play = useCallback(
-    (text: string, lang: Language, rate?: number) => playAudio(text, lang, rate),
+    (text: string, lang: Language, rate?: number, _phraseIndex?: number, _options?: TtsAdapterOptions) =>
+      playAudio(text, lang, rate),
     []
   );
-  const prefetch = useCallback(async (text: string, lang: Language) => {
+  const prefetch = useCallback(async (text: string, lang: Language, _phraseIndex?: number, _options?: TtsAdapterOptions) => {
     await fetchAndCacheAudio(text, lang).catch((err) => console.error('[TTS prefetch]', err));
   }, []);
   const stop = useCallback(() => { stopAudio(); }, []);

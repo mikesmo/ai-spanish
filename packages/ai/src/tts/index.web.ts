@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import type { TTSAdapter, Language } from '@ai-spanish/logic';
+import type { TTSAdapter, Language, TtsAdapterOptions } from '@ai-spanish/logic';
 
 // Web TTS calls the Next.js API route so the Deepgram key stays server-side.
 // The route at /api/text-to-speech accepts { text, provider, language }.
@@ -56,10 +56,11 @@ async function playAudio(text: string, language: Language, rate = 1): Promise<vo
 
 export function useTTS(): TTSAdapter {
   const play = useCallback(
-    (text: string, lang: Language, rate?: number) => playAudio(text, lang, rate),
+    (text: string, lang: Language, rate?: number, _phraseIndex?: number, _options?: TtsAdapterOptions) =>
+      playAudio(text, lang, rate),
     []
   );
-  const prefetch = useCallback(async (text: string, lang: Language) => {
+  const prefetch = useCallback(async (text: string, lang: Language, _phraseIndex?: number, _options?: TtsAdapterOptions) => {
     await fetchAudio(text, lang).catch((err) => console.error('[TTS prefetch]', err));
   }, []);
   const stop = useCallback(() => stopAudio(), []);

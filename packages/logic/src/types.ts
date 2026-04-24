@@ -47,18 +47,36 @@ export interface SpokenWord {
 
 export type UIStatus = 'loading' | 'idle' | 'recording' | 'answer' | 'tryAgain';
 
+/**
+ * Optional hints for TTS. Segment-based adapters (e.g. S3 clip playback) may
+ * use them; on-the-fly TTS can ignore.
+ */
+export type TtsAdapterOptions = {
+  /**
+   * When true, English S3 playback is `en-explain` only (no `en-question` after);
+   * when false or omitted, `en-intro` + `en-question`.
+   */
+  englishUseExplain?: boolean;
+};
+
 export type TTSAdapter = {
   /**
    * Play audio for the given text and language.
    * When `phraseIndex` is provided, adapters that support S3 delivery can use
    * it to derive the clip key instead of synthesizing from text.
    */
-  play: (text: string, lang: Language, rate?: number, phraseIndex?: number) => Promise<void>;
+  play: (
+    text: string,
+    lang: Language,
+    rate?: number,
+    phraseIndex?: number,
+    options?: TtsAdapterOptions
+  ) => Promise<void>;
   /**
    * Prefetch / warm-up audio so playback starts immediately.
    * `phraseIndex` has the same semantics as in `play`.
    */
-  prefetch: (text: string, lang: Language, phraseIndex?: number) => Promise<void>;
+  prefetch: (text: string, lang: Language, phraseIndex?: number, options?: TtsAdapterOptions) => Promise<void>;
   stop: () => void;
 };
 
