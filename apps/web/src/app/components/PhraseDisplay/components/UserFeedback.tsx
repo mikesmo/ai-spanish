@@ -226,19 +226,10 @@ export const UserFeedback = ({
       {isCorrect ? (
         <div className="flex flex-col items-center flex-1 justify-center">
           <p className="text-[18px] text-[#1D9E75] text-center leading-relaxed">{spanishPhrase}</p>
-          <div className="mt-4">
-            <AudioControls
-              isAudioPlaying={isAudioPlaying}
-              speed={speed}
-              onSpeedChange={onSpeedChange}
-              onReplay={onReplay}
-            />
-          </div>
         </div>
       ) : (
         <div className="flex flex-col items-center gap-8 flex-1 justify-center">
           <div className="flex flex-col items-center gap-2">
-            <p className="text-[11px] text-gray-400 uppercase tracking-wide">You said</p>
             <p className="text-[18px] text-center leading-relaxed">{renderSpokenWords(diff)}</p>
           </div>
 
@@ -267,9 +258,7 @@ export const UserFeedback = ({
           <div className="flex flex-col items-center gap-4">
             <PillNavButton label={NEXT_PHRASE_LABEL} onClick={onNext} variant="secondary" />
             <PillNavButton label="Try again" onClick={onTryAgain} variant="primary" />
-       
           </div>
-     
         )}
       </div>
     </div>

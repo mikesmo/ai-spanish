@@ -162,15 +162,6 @@ export const UserFeedback = ({
         {isCorrect ? (
           <View style={styles.correctCenter}>
             <Text style={styles.correctPhrase}>{spanishPhrase}</Text>
-
-            <View style={styles.audioControlsRow}>
-              <AudioControls
-                isAudioPlaying={isAudioPlaying}
-                speed={speed}
-                onSpeedChange={onSpeedChange}
-                onReplay={onReplay}
-              />
-            </View>
           </View>
         ) : (
           <View style={styles.incorrectCenter}>
@@ -279,9 +270,6 @@ const styles = StyleSheet.create({
     color: "#1D9E75",
     textAlign: "center",
     lineHeight: 26,
-  },
-  audioControlsRow: {
-    marginTop: 4,
   },
   incorrectCenter: {
     flex: 1,
