@@ -413,15 +413,12 @@ export function useSTT(): SpeechToTextHandle {
     isIntentionalStop.current = false;
     isUserStarted.current = true;
     // When the feature flag is OFF, zero out the ref so every downstream
-    // consumer (adapter-start console log, buildConnectOptions(), and the
-    // debug-session NDJSON) reports a consistent "no keywords" state rather
-    // than misleadingly showing the tokens that WOULD have been sent.
+    // consumer (adapter-start console log, buildConnectOptions()) reports a
+    // consistent "no keywords" state rather than misleadingly showing the
+    // tokens that WOULD have been sent.
     nextKeywordsRef.current = KEYWORDS_FEATURE_ENABLED
       ? (options?.keywords ?? [])
       : [];
-    // #region agent log
-    fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'961193'},body:JSON.stringify({sessionId:'961193',runId:'cold-start',hypothesisId:'H1-H3-H5',location:'index.web.ts:start',message:'adapter.start() called',data:{connState:String(connectionStateRef.current),micState:String(microphoneState),keywords:nextKeywordsRef.current},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
 
     // Three-way branch over the current (mic, conn) state:
     //   - conn OPEN                → startMic-direct (fast path; pre-warm was on)
@@ -535,9 +532,6 @@ export function useSTT(): SpeechToTextHandle {
   // closes instead of hanging the adapter.
   useEffect(() => {
     if (connectionState === LiveConnectionState.OPEN && isUserStarted.current) {
-      // #region agent log
-      fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'961193'},body:JSON.stringify({sessionId:'961193',runId:'cold-start',hypothesisId:'H1-H3',location:'index.web.ts:wsOpenEffect',message:'WS OPEN → startMicrophone() about to fire',data:{},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       startMicrophone();
       armWatchdog(INITIAL_SILENCE_TIMEOUT_MS);
     }
@@ -564,14 +558,7 @@ export function useSTT(): SpeechToTextHandle {
     if (reconnectAttempts.current <= MAX_ATTEMPTS) {
       const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current - 1), 16000);
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
-      // #region agent log
-      const scheduledAt = Date.now();
-      fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'961193'},body:JSON.stringify({sessionId:'961193',runId:'cold-start',hypothesisId:'H1-H2-H3',location:'index.web.ts:reconnectEffect:schedule',message:'reconnect scheduled',data:{attempts:reconnectAttempts.current,delayMs:delay,connectionFailedSignal},timestamp:scheduledAt})}).catch(()=>{});
-      // #endregion
       reconnectTimer.current = setTimeout(() => {
-        // #region agent log
-        fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'961193'},body:JSON.stringify({sessionId:'961193',runId:'cold-start',hypothesisId:'H1-H2-H3',location:'index.web.ts:reconnectEffect:fire',message:'reconnect timer fired',data:{attempts:reconnectAttempts.current,actualDelayMs:Date.now()-scheduledAt,scheduledDelayMs:delay},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
         connectToDeepgram(buildConnectOptions());
       }, delay);
     }

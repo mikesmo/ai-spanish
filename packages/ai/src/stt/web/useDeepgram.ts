@@ -69,10 +69,6 @@ export function useDeepgramConnection() {
   const connectToDeepgram = useCallback(async (options: LiveSchema) => {
     connectionIdRef.current++;
     const id = connectionIdRef.current;
-    // #region agent log
-    const connectStartAt = Date.now();
-    fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'961193'},body:JSON.stringify({sessionId:'961193',runId:'cold-start',hypothesisId:'H1-H2-H5',location:'useDeepgram.ts:connectToDeepgram:entry',message:'connectToDeepgram called',data:{connId:id,keyCacheHit:!!(nextApiKeyRef.current && Date.now()-nextApiKeyRef.current.fetchedAt<45000)},timestamp:connectStartAt})}).catch(()=>{});
-    // #endregion
     try {
       let key: string;
       const cached = nextApiKeyRef.current;
@@ -83,9 +79,6 @@ export function useDeepgramConnection() {
         nextApiKeyRef.current = null;
         key = await getApiKey();
       }
-      // #region agent log
-      fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'961193'},body:JSON.stringify({sessionId:'961193',runId:'algo-bias',hypothesisId:'H-ALGO-1',location:'useDeepgram.ts:connectToDeepgram:optionsSent',message:'options forwarded to Deepgram listen.live',data:{connId:id,optionKeys:Object.keys(options as object),keywords:(options as {keywords?:string[]}).keywords??null,language:(options as {language?:string}).language??null,model:(options as {model?:string}).model??null},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
 
       const conn = createClient(key).listen.live({
         ...options,
@@ -101,18 +94,12 @@ export function useDeepgramConnection() {
         setConnectionState(LiveConnectionState.OPEN);
         startKeepAlive(conn);
         prefetchApiKey();
-        // #region agent log
-        fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'961193'},body:JSON.stringify({sessionId:'961193',runId:'cold-start',hypothesisId:'H1-H4-H5',location:'useDeepgram.ts:ws:Open',message:'WS Open event',data:{connId:id,msSinceConnectStart:Date.now()-connectStartAt},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
       });
 
       conn.addListener(LiveTranscriptionEvents.Close, () => {
         stopKeepAlive();
         connectionStateRef.current = LiveConnectionState.CLOSED;
         setConnectionState(LiveConnectionState.CLOSED);
-        // #region agent log
-        fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'961193'},body:JSON.stringify({sessionId:'961193',runId:'cold-start',hypothesisId:'H1-H2-H4',location:'useDeepgram.ts:ws:Close',message:'WS Close event',data:{connId:id,opened,msSinceConnectStart:Date.now()-connectStartAt,willFireFailedSignal:!opened},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
         if (!opened) setConnectionFailedSignal((n) => n + 1);
       });
 

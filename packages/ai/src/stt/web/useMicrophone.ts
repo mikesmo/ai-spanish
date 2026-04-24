@@ -103,24 +103,6 @@ export function useMicrophone(onVoiceData: (ev: BlobEvent) => void) {
       mic = new MediaRecorder(stream);
       microphone.current = mic;
     }
-    // #region agent log
-    fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Debug-Session-Id': '961193',
-      },
-      body: JSON.stringify({
-        sessionId: '961193',
-        runId: 'jacket-bleed',
-        hypothesisId: 'H5',
-        location: 'stt/web/useMicrophone.ts:startMicrophone',
-        message: 'mic start()',
-        data: { recorderState: mic.state },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
     if (getDefaultLearningPipelineDebug()) {
       logSttMicStart({
         recorderState: mic.state,
@@ -130,49 +112,6 @@ export function useMicrophone(onVoiceData: (ev: BlobEvent) => void) {
     setMicrophoneState(MicrophoneState.Opening);
     mic.addEventListener('dataavailable', onReceiveData);
     mic.start(250);
-    // #region agent log
-    if (energyTimerRef.current) {
-      clearInterval(energyTimerRef.current);
-      energyTimerRef.current = null;
-    }
-    const analyser = energyAnalyserRef.current;
-    const buf = energyBufRef.current;
-    if (analyser && buf) {
-      energyTimerRef.current = setInterval(() => {
-        try {
-          analyser.getFloatTimeDomainData(buf);
-          let sum = 0;
-          let peak = 0;
-          for (let i = 0; i < buf.length; i++) {
-            const v = buf[i];
-            sum += v * v;
-            const abs = v < 0 ? -v : v;
-            if (abs > peak) peak = abs;
-          }
-          const rms = Math.sqrt(sum / buf.length);
-          fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Debug-Session-Id': '961193',
-            },
-            body: JSON.stringify({
-              sessionId: '961193',
-              runId: 'audio-energy',
-              hypothesisId: 'H6-H7',
-              location: 'stt/web/useMicrophone.ts:rmsTick',
-              message: 'mic rms sample',
-              data: {
-                rms: Number(rms.toFixed(4)),
-                peak: Number(peak.toFixed(4)),
-              },
-              timestamp: Date.now(),
-            }),
-          }).catch(() => {});
-        } catch {}
-      }, 250);
-    }
-    // #endregion
     setMicrophoneState(MicrophoneState.Open);
   };
 
