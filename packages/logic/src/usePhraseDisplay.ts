@@ -115,6 +115,10 @@ export type UsePhraseDisplayOptions = {
 const splitWords = (s: string): string[] =>
   s.trim().split(/\s+/).filter(Boolean);
 
+/** True when `answer` is a single whitespace-separated word (for Deepgram keyword biasing). */
+const isSingleWordAnswer = (answer: string): boolean =>
+  splitWords(answer).length === 1;
+
 /** Caption for scoring on Show Answer: prefer live caption, else join STT words. */
 function captionAndGradableFromStt(
   caption: string | undefined,
@@ -548,7 +552,9 @@ export function usePhraseDisplay(
         if (cancelled) return;
         sttRef.current.clearTranscription();
         sttRef.current.start({
-          keywords: tokenizeTarget(currentPhrase.Spanish.answer),
+          keywords: isSingleWordAnswer(currentPhrase.Spanish.answer)
+            ? tokenizeTarget(currentPhrase.Spanish.answer)
+            : [],
         });
       } catch (error) {
         if (!cancelled) {
@@ -748,7 +754,9 @@ export function usePhraseDisplay(
     attemptEmittedRef.current = false;
     setStatus('tryAgain');
     sttRef.current.start({
-      keywords: tokenizeTarget(currentPhrase.Spanish.answer),
+      keywords: isSingleWordAnswer(currentPhrase.Spanish.answer)
+        ? tokenizeTarget(currentPhrase.Spanish.answer)
+        : [],
     });
   };
 

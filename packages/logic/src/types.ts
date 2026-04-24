@@ -108,7 +108,8 @@ export type TTSAdapter = {
 export type SttStartOptions = {
   /**
    * Target words to bias the ASR toward for this attempt, typically the
-   * tokens of the current phrase. Web adapter forwards these to Deepgram's
+   * tokens of the current phrase. The learning pipeline only supplies this
+   * for single-word target answers. Web adapter forwards these to Deepgram's
    * `keywords` parameter (Nova-2). Native adapter currently ignores this
    * until the underlying SDK exposes the equivalent knob.
    */
