@@ -1,27 +1,39 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
+import {
+  getDefaultLearningPipelineDebug,
+  logSessionEnginePhraseMismatch,
+} from './learningPipelineDebug';
 import { createSessionEngine, type SessionEngine } from './sessionEngine';
 import { createInMemoryProgressStore } from './progressStore';
 import type { Phrase } from './types';
 import type { PhraseEvent } from './events';
 
+/**
+ * Emitted with `onEvent` after `engine.onEvent` so consumers do not rely on a
+ * separately bound `getQueuePosition` ref (race with first event / ordering).
+ */
+export interface PhraseEventContext {
+  /**
+   * `engine.getQueuePosition(event.phraseId)` right after the engine applied
+   * the event. `null` when the phrase is not in the remaining queue.
+   */
+  slotsAheadAtEvent: number | null;
+  /**
+   * Second read of `getQueuePosition` in the same turn; should match
+   * `slotsAheadAtEvent` (sidebar "session (now)" uses the same lookup later).
+   */
+  liveSlotsAhead: number | null;
+}
+
 export interface UseLessonSessionOptions {
   /**
    * Optional side-channel invoked on every PhraseEvent *after* the engine has
-   * processed it (so `engine.getQueuePosition` reflects the post-event state).
-   * The web app wires this to its session-history hook.
+   * processed it. Receives the same `getQueuePosition` snapshot the session
+   * history needs so it is never `null` due to a stale ref callback.
    */
-  onEvent?: (event: PhraseEvent) => void;
-  /**
-   * Optional stable callback invoked once, after mount, with a function that
-   * returns the live queue position for any phraseId. The web session-history
-   * hook uses this to snapshot per-event queue positions. Receives `null`
-   * on unmount so consumers can drop their reference.
-   */
-  bindQueuePositionLookup?: (
-    fn: ((phraseId: string) => number | null) | null,
-  ) => void;
+  onEvent?: (event: PhraseEvent, ctx: PhraseEventContext) => void;
   /**
    * Optional stable callback forwarded directly from the host. If provided,
    * the core hook re-exports it as `onPresentationStart` so
@@ -86,7 +98,7 @@ export const useLessonSession = (
     throw new Error('useLessonSession: deck must contain at least one phrase');
   }
 
-  const { onEvent, bindQueuePositionLookup, onPresentationStart } = options;
+  const { onEvent, onPresentationStart } = options;
 
   // Engine + store are imperative and identity-stable across renders. Built
   // once per mount; we do not rebuild when `deck` identity changes (the
@@ -98,16 +110,23 @@ export const useLessonSession = (
     engineRef.current = createSessionEngine(deck, store);
   }
 
-  // Initial draw runs once via the useState initializer (StrictMode-safe,
-  // unlike a render-body side effect). The engine is non-null by the time
-  // this runs because the ref assignment above precedes useState.
-  const [currentPhrase, setCurrentPhrase] = useState<Phrase>(() => {
+  /**
+   * In React 18+ Strict Mode the `useState(() => init())` lazy initializer
+   * can run **twice**; each call to `pickNext()` mutates the engine. A second
+   * `pickNext` advances the queue and `currentPhraseId` so the on-screen
+   * phrase and the engine can disagree — `onEvent` then skips requeue
+   * (`event.phraseId !== currentPhraseId`) and `getQueuePosition` is null.
+   * Guard so `pickNext` runs at most once for the first card.
+   */
+  const firstPhraseRef = useRef<Phrase | null>(null);
+  if (firstPhraseRef.current === null) {
     const first = engineRef.current!.pickNext();
     if (!first) {
       throw new Error('useLessonSession: engine returned no phrases');
     }
-    return first;
-  });
+    firstPhraseRef.current = first;
+  }
+  const [currentPhrase, setCurrentPhrase] = useState<Phrase>(firstPhraseRef.current);
   const [presentationVersion, setPresentationVersion] = useState(1);
   const [isComplete, setIsComplete] = useState(false);
   const [remaining, setRemaining] = useState<number>(() =>
@@ -117,23 +136,24 @@ export const useLessonSession = (
   const onEventRef = useRef<typeof onEvent>(onEvent);
   onEventRef.current = onEvent;
 
-  // Surface the engine's queue-position lookup to the host exactly once
-  // (and clear it on unmount). The host keeps its ref to this function
-  // stable, so we don't need to re-run when it changes identity.
-  useEffect(() => {
-    const engine = engineRef.current;
-    if (!engine || !bindQueuePositionLookup) return;
-    bindQueuePositionLookup((phraseId) => engine.getQueuePosition(phraseId));
-    return () => {
-      bindQueuePositionLookup(null);
-    };
-  }, [bindQueuePositionLookup]);
-
   const onPhraseEvent = useCallback((event: PhraseEvent): void => {
     const engine = engineRef.current;
     if (!engine) return;
     engine.onEvent(event);
-    onEventRef.current?.(event);
+    if (
+      getDefaultLearningPipelineDebug() &&
+      event.eventType !== 'practice' &&
+      engine.getCurrentPresentedPhraseId() != null &&
+      event.phraseId !== engine.getCurrentPresentedPhraseId()
+    ) {
+      logSessionEnginePhraseMismatch({
+        eventPhraseId: event.phraseId,
+        currentPresentedPhraseId: engine.getCurrentPresentedPhraseId()!,
+      });
+    }
+    const slotsAheadAtEvent = engine.getQueuePosition(event.phraseId);
+    const liveSlotsAhead = engine.getQueuePosition(event.phraseId);
+    onEventRef.current?.(event, { slotsAheadAtEvent, liveSlotsAhead });
     setRemaining(engine.remaining());
   }, []);
 

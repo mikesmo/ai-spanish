@@ -48,6 +48,14 @@ const reveal = (phraseId: string): RevealEvent => ({
 });
 
 describe('createSessionEngine', () => {
+  it('exposes the current card id (not the queue) from getCurrentPresentedPhraseId', () => {
+    const deck = [phrase('a'), phrase('b')];
+    const engine = createSessionEngine(deck, createInMemoryProgressStore());
+    expect(engine.getCurrentPresentedPhraseId()).toBeNull();
+    expect(engine.pickNext()?.id).toBe('a');
+    expect(engine.getCurrentPresentedPhraseId()).toBe('a');
+  });
+
   it('returns phrases in deck order by default', () => {
     const deck = [phrase('a'), phrase('b'), phrase('c')];
     const engine = createSessionEngine(deck, createInMemoryProgressStore());

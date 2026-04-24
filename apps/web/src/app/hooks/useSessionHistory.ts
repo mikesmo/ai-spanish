@@ -11,6 +11,7 @@ import {
   reduceProgress,
   type Phrase,
   type PhraseEvent,
+  type PhraseEventContext,
   type PhraseProgress,
   type SpokenWord,
 } from "@ai-spanish/logic";
@@ -45,17 +46,21 @@ export interface HistoryEntry {
    * Snapshot of the in-session queue position (0-based index into the
    * remaining queue) for this phrase **immediately after** the session engine
    * processed this event. `null` when the phrase is not in the queue — e.g.
-   * a mastered attempt that dropped the card, a practice event (which never
-   * reorders), or when no session engine is wired. Static after creation;
-   * pair with a live `getQueuePosition` lookup to show "now N cards away".
+   * a mastered attempt that dropped the card, or a practice event (which
+   * never reorders). Populated from `useLessonSession` `PhraseEventContext`
+   * (not a ref). Static after creation; pair with a live
+   * `getLiveSlotsAhead` for “session (now)”.
    */
   slotsAheadAtEvent: number | null;
 }
 
 export interface UseSessionHistoryResult {
   history: HistoryEntry[];
-  /** Stable callback — pass to usePhraseDisplay options. */
-  onPhraseEvent: (event: PhraseEvent) => void;
+  /**
+   * Called from `useLessonSession` after the engine has applied the event.
+   * `ctx` is required when wiring through the web lesson host.
+   */
+  onPhraseEvent: (event: PhraseEvent, ctx: PhraseEventContext) => void;
   /**
    * Call on each render with the currently displayed phrase. Events emitted
    * before the next call will be attributed to this phrase. Setting a ref
@@ -69,15 +74,6 @@ export interface UseSessionHistoryResult {
    * repeated presentations.
    */
   onPresentationStart: (phrase: Phrase) => void;
-  /**
-   * Bind a snapshot function that returns the current in-session queue
-   * position for a phrase (post-event, since the host runs
-   * `engine.onEvent(event)` before forwarding to us). Pass `null` to clear.
-   * When unbound, `HistoryEntry.slotsAheadAtEvent` is `null`.
-   */
-  bindSlotsAheadSnapshot: (
-    fn: ((phraseId: string) => number | null) | null,
-  ) => void;
   clearHistory: () => void;
 }
 
@@ -122,30 +118,11 @@ export const useSessionHistory = (): UseSessionHistoryResult => {
    * can surface its post-event `nextReviewAt`.
    */
   const progressByPhraseRef = useRef<Map<string, PhraseProgress>>(new Map());
-  /**
-   * Bound by the lesson host to `sessionEngine.getQueuePosition`. Read on
-   * each event append to snapshot the in-session distance for the logged
-   * phrase.
-   */
-  const slotsAheadSnapshotRef = useRef<
-    ((phraseId: string) => number | null) | null
-  >(null);
 
-  const onPhraseEvent = useCallback((event: PhraseEvent): void => {
+  const onPhraseEvent = useCallback(
+    (event: PhraseEvent, ctx: PhraseEventContext): void => {
     const phrase = phraseRef.current;
     if (!phrase) return;
-
-    if (getDefaultLearningPipelineDebug()) {
-      const transcriptStr =
-        event.eventType === "reveal"
-          ? ""
-          : (event as { transcript: string[] }).transcript.join(" ");
-      logSessionHistoryAppend({
-        eventType: event.eventType,
-        phraseId: phrase.id,
-        transcriptPreview: transcriptStr,
-      });
-    }
 
     let scoreSummary: ScoreSummary | null = null;
     if (event.eventType === "attempt") {
@@ -180,8 +157,22 @@ export const useSessionHistory = (): UseSessionHistoryResult => {
     const nextProgress = reduceProgress(prevProgress, event);
     progressByPhraseRef.current.set(phrase.id, nextProgress);
 
-    const slotsAheadAtEvent =
-      slotsAheadSnapshotRef.current?.(phrase.id) ?? null;
+    const slotsAheadAtEvent = ctx.slotsAheadAtEvent;
+
+    if (getDefaultLearningPipelineDebug()) {
+      const transcriptStr =
+        event.eventType === "reveal"
+          ? ""
+          : (event as { transcript: string[] }).transcript.join(" ");
+      logSessionHistoryAppend({
+        eventType: event.eventType,
+        phraseId: phrase.id,
+        transcriptPreview: transcriptStr,
+        nextReviewAt: nextProgress.nextReviewAt,
+        slotsSessionLog: ctx.slotsAheadAtEvent,
+        slotsSessionNow: ctx.liveSlotsAhead,
+      });
+    }
 
     const entry: HistoryEntry = {
       id: generateId(),
@@ -194,7 +185,9 @@ export const useSessionHistory = (): UseSessionHistoryResult => {
     };
 
     setHistory((prev) => [...prev, entry]);
-  }, []);
+  },
+  [],
+  );
 
   const bindCurrentPhrase = useCallback(
     (phrase: Phrase | undefined): void => {
@@ -210,13 +203,6 @@ export const useSessionHistory = (): UseSessionHistoryResult => {
     currentIsRepeatRef.current = next > 1;
   }, []);
 
-  const bindSlotsAheadSnapshot = useCallback(
-    (fn: ((phraseId: string) => number | null) | null): void => {
-      slotsAheadSnapshotRef.current = fn;
-    },
-    [],
-  );
-
   const clearHistory = useCallback((): void => {
     visitCountsRef.current.clear();
     currentIsRepeatRef.current = false;
@@ -229,7 +215,6 @@ export const useSessionHistory = (): UseSessionHistoryResult => {
     onPhraseEvent,
     bindCurrentPhrase,
     onPresentationStart,
-    bindSlotsAheadSnapshot,
     clearHistory,
   };
 };

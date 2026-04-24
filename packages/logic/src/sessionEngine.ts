@@ -57,6 +57,8 @@ export interface SessionEngine {
   pickNext(): Phrase | null;
   /** Consume an event, updating progress and reordering the queue. */
   onEvent(event: PhraseEvent): void;
+  /** The id of the last phrase returned by `pickNext` (current card; not in `queue`). */
+  getCurrentPresentedPhraseId(): string | null;
   /** Phrases left in the session (including any reinsertions). */
   remaining(): number;
   /**
@@ -100,6 +102,10 @@ export function createSessionEngine(
       const next = queue.shift() ?? null;
       currentPhraseId = next?.id ?? null;
       return next;
+    },
+
+    getCurrentPresentedPhraseId() {
+      return currentPhraseId;
     },
 
     onEvent(event) {
