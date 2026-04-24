@@ -370,11 +370,41 @@ export function logSessionHistoryAppend(ctx: {
   eventType: string;
   phraseId: string;
   transcriptPreview: string;
+  /** Epoch ms from `reduceProgress` (SRS) — matches sidebar `next`. */
+  nextReviewAt?: number;
+  /** 0-based slot in remaining queue, or `null` — matches sidebar `session (log)`. */
+  slotsSessionLog?: number | null;
+  /** Same engine lookup reread; matches sidebar `session (now)` at append time. */
+  slotsSessionNow?: number | null;
 }): void {
-  console.log(
-    `${PREFIX} session history · append`,
+  const parts: string[] = [
     'event=' + ctx.eventType,
     'phrase=' + ctx.phraseId,
     'transcriptPreview=' + JSON.stringify(ctx.transcriptPreview.slice(0, 200)),
-  );
+  ];
+  if (ctx.nextReviewAt !== undefined) {
+    parts.push('next=' + String(ctx.nextReviewAt));
+  }
+  if (ctx.slotsSessionLog !== undefined) {
+    parts.push('session(log)=' + String(ctx.slotsSessionLog));
+  }
+  if (ctx.slotsSessionNow !== undefined) {
+    parts.push('session(now)=' + String(ctx.slotsSessionNow));
+  }
+  console.log(`${PREFIX} session history · append`, ...parts);
+}
+
+/**
+ * Fires when a phrase event is for a different id than the engine’s current
+ * card — in-session requeue is skipped, so `getQueuePosition` stays null. Often
+ * caused by calling `pickNext` twice in a React Strict Mode `useState` init.
+ */
+export function logSessionEnginePhraseMismatch(ctx: {
+  eventPhraseId: string;
+  currentPresentedPhraseId: string;
+}): void {
+  console.warn(`${PREFIX} session engine · phrase id mismatch (requeue skipped)`, {
+    eventPhraseId: ctx.eventPhraseId,
+    currentPresentedPhraseId: ctx.currentPresentedPhraseId,
+  });
 }

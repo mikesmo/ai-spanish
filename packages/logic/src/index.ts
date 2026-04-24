@@ -30,6 +30,7 @@ export type { UsePhraseDisplayOptions } from './usePhraseDisplay';
 export { runPhraseFeedbackNext } from './phraseFeedbackNext';
 export { useLessonSession } from './useLessonSession';
 export type {
+  PhraseEventContext,
   UseLessonSessionOptions,
   UseLessonSessionResult,
 } from './useLessonSession';

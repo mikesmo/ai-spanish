@@ -5,6 +5,7 @@ import {
   useLessonSession as useCoreLessonSession,
   type Phrase,
   type PhraseEvent,
+  type PhraseEventContext,
   type UseLessonSessionResult as CoreUseLessonSessionResult,
 } from "@ai-spanish/logic";
 import {
@@ -31,19 +32,17 @@ export const useLessonSession = (
 ): UseLessonSessionResult => {
   const history = useSessionHistory();
 
-  // Bind history's per-event callback so the core hook calls it AFTER the
-  // engine processes each event, ensuring `engine.getQueuePosition` reflects
-  // the post-event queue state when history snapshots `slotsAheadAtEvent`.
+  // `onEvent` runs in the same turn as `engine.onEvent` and receives
+  // `PhraseEventContext` with `getQueuePosition` from the live engine.
   const onEvent = useCallback(
-    (event: PhraseEvent) => {
-      history.onPhraseEvent(event);
+    (event: PhraseEvent, ctx: PhraseEventContext) => {
+      history.onPhraseEvent(event, ctx);
     },
     [history],
   );
 
   const core = useCoreLessonSession(deck, {
     onEvent,
-    bindQueuePositionLookup: history.bindSlotsAheadSnapshot,
     onPresentationStart: history.onPresentationStart,
   });
 
