@@ -24,8 +24,8 @@
     "type": "new",
     "English": {
       "first-intro": "This is how you formally address a young woman in Spanish",
-      "second-intro": "How would you...",
-      "question": "Formally address a young woman?"
+      "second-intro": "How would you:",
+      "question": "Formally address a young woman"
     },
     "Spanish": {
       "grammar": "",
@@ -43,7 +43,7 @@
     "id": "entiende",
     "type": "new",
     "English": {
-      "first-intro": "This is how you say 'Do you understand?'. Like in English, since this is a question, there is arising intonation at the end",
+      "first-intro": "This is how you say 'Do you understand?'",
       "second-intro": "How do you ask:",
       "question": "Do you understand?"
     },
@@ -69,7 +69,7 @@
     },
     "Spanish": {
       "grammar": "",
-      "answer": "inglés",
+      "answer": "Inglés",
       "words": [
         {
           "word": "inglés",
@@ -133,8 +133,8 @@
       "question": "sir"
     },
     "Spanish": {
-      "grammar": "",
-      "answer": "señor",
+      "grammar": "This is how you say:",
+      "answer": "Señor",
       "words": [
         {
           "word": "señor",
@@ -150,7 +150,7 @@
     "English": {
       "first-intro": "",
       "second-intro": "How do you say:",
-      "question": "No, sir."
+      "question": "No sir"
     },
     "Spanish": {
       "grammar": "",
@@ -193,7 +193,7 @@
     "id": "no-entiendo",
     "type": "combination",
     "English": {
-      "first-intro": "Now try to say:",
+      "first-intro": "Now, try to say:",
       "second-intro": "How do you say:",
       "question": "I don’t understand."
     },
@@ -219,7 +219,7 @@
     "type": "new",
     "English": {
       "first-intro": "This is how you say:",
-      "second-intro": "Say:",
+      "second-intro": "Now say the phrase",
       "question": "I speak."
     },
     "Spanish": {
@@ -235,61 +235,26 @@
     }
   },
   {
-    "id": "un",
-    "type": "new",
-    "English": {
-      "first-intro": "This is how you say 'a', as in the phrase 'a little.'",
-      "second-intro": "Say 'a' as in 'a little.'",
-      "question": "a"
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "un",
-      "words": [
-        {
-          "word": "un",
-          "type": "article",
-          "weight": 0.5
-        }
-      ]
-    }
-  },
-  {
     "id": "poco",
     "type": "new",
     "English": {
       "first-intro": "This is how you say:",
       "second-intro": "Say:",
-      "question": "little"
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "poco",
-      "words": [
-        {
-          "word": "poco",
-          "type": "adverb",
-          "weight": 1.5
-        }
-      ]
-    }
-  },
-  {
-    "id": "de",
-    "type": "combination",
-    "English": {
-      "first-intro": "Now put it together, how would you say:",
-      "second-intro": "How would you say:",
       "question": "A little"
     },
     "Spanish": {
       "grammar": "",
-      "answer": "de",
+      "answer": "Un poco",
       "words": [
         {
-          "word": "de",
-          "type": "preposition",
-          "weight": 1
+          "word": "un",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "poco",
+          "type": "adverb",
+          "weight": 1.5
         }
       ]
     }

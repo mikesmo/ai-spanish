@@ -28,6 +28,10 @@ export {
   buildS3AudioKey,
 } from './s3-keys';
 export type { S3PathConfig } from './s3-keys';
+export {
+  DEEPGRAM_KEYWORD_MAX,
+  tokenizeForDeepgramKeywords,
+} from './deepgramKeywords';
 export { usePhraseDisplay } from './usePhraseDisplay';
 export type { UsePhraseDisplayOptions } from './usePhraseDisplay';
 export { runPhraseFeedbackNext } from './phraseFeedbackNext';

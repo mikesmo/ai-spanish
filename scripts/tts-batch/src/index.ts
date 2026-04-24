@@ -26,6 +26,7 @@ import {
   writeHashCache,
   writeManifest,
 } from './writer.js';
+import { runVerifyStt } from './stt-verify.js';
 
 import type { Phrase } from '@ai-spanish/logic';
 
@@ -53,6 +54,7 @@ function parseArgs(argv: string[]): CliOptions {
   let uploadOnly = false;
   let lesson: string | undefined;
   let noAudioPos = false;
+  let verifyStt = false;
 
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
@@ -70,6 +72,8 @@ function parseArgs(argv: string[]): CliOptions {
       localOnly = true;
     } else if (a === '--upload-only') {
       uploadOnly = true;
+    } else if (a === '--verify-stt') {
+      verifyStt = true;
     } else if (a === '--no-audio-pos') {
       noAudioPos = true;
     } else if (a === '--help' || a === '-h') {
@@ -78,7 +82,7 @@ function parseArgs(argv: string[]): CliOptions {
     }
   }
 
-  return { inputPath, outDir, bucket, force, localOnly, uploadOnly, lesson, noAudioPos };
+  return { inputPath, outDir, bucket, force, localOnly, uploadOnly, lesson, noAudioPos, verifyStt };
 }
 
 /** CLI --lesson overrides S3_LESSON env. */
@@ -102,6 +106,7 @@ Options:
   --force         Regenerate all audio (ignore cache)
   --local-only    Write audio + manifest to disk only; skip S3 (no AWS credentials needed)
   --upload-only   Upload existing manifest + audio from --out to S3; no Deepgram (no DEEPGRAM_API_KEY)
+  --verify-stt    Prerecorded STT (Deepgram) + optional keyword bias from expected text; strict compare; exit 1 on mismatch
   --lesson        Optional folder under AUDIO_CONTENT_PREFIX (overrides S3_LESSON), e.g. lesson1
   --no-audio-pos  Skip ffmpeg post-processing (50 ms fade-out + 5 ms tail trim); write raw Deepgram output (requires no ffmpeg)
   --help, -h      Show this help
@@ -111,7 +116,7 @@ Examples:
   npm run tts:batch -- --upload-only --out ./output --bucket my-bucket --lesson lesson1
 
 Environment:
-  DEEPGRAM_API_KEY        Required unless --upload-only
+  DEEPGRAM_API_KEY        Required unless --upload-only; required for --verify-stt
   AWS_* / S3_BUCKET_NAME  Required unless --local-only; required for --upload-only
   AUDIO_CONTENT_PREFIX    S3 key prefix (default: audio-content); single segment, e.g. audio-content
   S3_LESSON               Optional lesson segment if --lesson not passed
@@ -197,6 +202,15 @@ async function shouldSkipJob(
 
 async function main(): Promise<void> {
   const opts = parseArgs(process.argv);
+
+  if (opts.verifyStt && opts.uploadOnly) {
+    throw new Error('--verify-stt cannot be used with --upload-only');
+  }
+  if (opts.verifyStt) {
+    const apiKey = requireEnv('DEEPGRAM_API_KEY');
+    const code = await runVerifyStt(opts.outDir, apiKey);
+    process.exit(code);
+  }
 
   if (opts.uploadOnly) {
     await runUploadOnly(opts);

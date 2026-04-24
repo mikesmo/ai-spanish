@@ -35,7 +35,7 @@ Run commands from the **monorepo root** so default paths resolve (`apps/web/publ
 
 | Variable | When |
 |----------|------|
-| `DEEPGRAM_API_KEY` | Required for any run that calls TTS (omit only with `--upload-only`) |
+| `DEEPGRAM_API_KEY` | Required for TTS and for `--verify-stt` (omit only with `--upload-only`) |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | Required when uploading to S3 (not needed for `--local-only`) |
 | `AWS_REGION` | Optional; defaults to `us-east-1` |
 | `S3_BUCKET_NAME` | Bucket **name only** (e.g. `my-bucket`). Do not use `s3://...` or paths |
@@ -56,6 +56,7 @@ Secrets belong in `.env` (gitignored). Never commit real keys.
 | `--force` | Regenerate all clips; ignore hash cache |
 | `--local-only` | Write `output/` only; no S3, no AWS keys required |
 | `--upload-only` | Upload existing `output/` to S3; no Deepgram calls |
+| `--verify-stt` | Prerecorded Deepgram STT for each `manifest.json` entry’s MP3; optional `keywords` from expected `text` (tokenize via `tokenizeForDeepgramKeywords` in `@ai-spanish/logic`, sent as `word:1` and only if there are **3+** tokens, to limit over-biasing; live STT can still use `word:2` on short Spanish targets); **strict** normalized compare to `text`; log mismatches; exit 1 on mismatch or error (requires `DEEPGRAM_API_KEY`) |
 | `--no-audio-pos` | Skip ffmpeg post-processing; write raw Deepgram output (no ffmpeg required) |
 | `--help`, `-h` | Show help |
 
@@ -64,6 +65,7 @@ Secrets belong in `.env` (gitignored). Never commit real keys.
 - **Default:** synthesize missing/changed clips (with cache), apply audio post-processing, write `manifest.json`, then upload to S3 if credentials and bucket are set.
 - **`--local-only`:** synthesize only; manifest omits `s3Key` until a later upload with the same layout config.
 - **`--upload-only`:** read `output/manifest.json`, recompute S3 keys from current `AUDIO_CONTENT_PREFIX` / `--lesson` / `S3_LESSON`, upload MP3s and manifest. Incompatible with `--local-only` and `--force`.
+- **`--verify-stt`:** read `output/manifest.json`, transcribe each `localFile` with Deepgram prerecorded STT (model `nova-2`, optional `keywords` from expected `text`), and compare to the entry’s `text` with **strict** equality after the same normalization (whitespace, quotes, all Unicode “Punctuation” stripped, then lowercased by language). If STT and manifest disagree, fix the **lesson / transcript** and regenerate audio—do not loosen the compare step. Incompatible with `--upload-only` (and does not run TTS or S3). Exits with status 1 if any file mismatches, is missing, or the API returns an error. Entries whose expected `text` is a single character (after trim) are **skipped** (warning only; counted in `ok`) because STT is not reliable for them.
 
 ## Audio post-processing
 

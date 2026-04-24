@@ -40,4 +40,6 @@ export interface CliOptions {
   lesson: string | undefined;
   /** Skip ffmpeg post-processing (fade-out + tail trim); write raw Deepgram output as-is. */
   noAudioPos: boolean;
+  /** STT every manifest MP3 and compare to manifest text; no TTS or S3. */
+  verifyStt: boolean;
 }
