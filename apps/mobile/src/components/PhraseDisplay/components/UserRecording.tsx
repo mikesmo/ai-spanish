@@ -6,6 +6,7 @@ import { PillButton } from "./PillButton";
 
 export const UserRecording = ({
   englishText,
+  spanishLine,
   transcription,
   isRecording,
   isCorrect,
@@ -64,7 +65,14 @@ export const UserRecording = ({
             <Feather name="mic" size={28} color="white" />
           </Animated.View>
 
-          <Text style={styles.englishText}>{englishText}</Text>
+          {spanishLine ? (
+            <View style={styles.hintBlock}>
+              <Text style={styles.englishLine}>{englishText}</Text>
+              <Text style={styles.spanishLine}>{spanishLine}</Text>
+            </View>
+          ) : (
+            <Text style={styles.englishText}>{englishText}</Text>
+          )}
 
           <View style={styles.transcriptArea}>
             <Text style={[styles.transcriptText, isCorrect && styles.transcriptCorrect]}>
@@ -130,6 +138,25 @@ const styles = StyleSheet.create({
   },
   micCircleCorrect: {
     backgroundColor: "rgba(29, 158, 117, 0.7)",
+  },
+  hintBlock: {
+    alignItems: "center",
+    maxWidth: 280,
+    marginTop: 24,
+    gap: 4,
+  },
+  englishLine: {
+    fontSize: 15,
+    color: "#6B7280",
+    textAlign: "center",
+    lineHeight: 22,
+  },
+  spanishLine: {
+    fontSize: 18,
+    fontWeight: "500",
+    color: "#1D1D1D",
+    textAlign: "center",
+    lineHeight: 26,
   },
   englishText: {
     fontSize: 15,

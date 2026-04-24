@@ -7,6 +7,7 @@ const showAnswerPillClassName =
 
 export const UserRecording = ({
   englishText,
+  spanishLine,
   transcription,
   isRecording,
   isCorrect,
@@ -78,9 +79,21 @@ export const UserRecording = ({
         </svg>
       </div>
 
-      <p className="text-[15px] text-gray-400 text-center max-w-[280px] mt-6" style={{ opacity: 0.45 }}>
-        {englishText}
-      </p>
+      {spanishLine ? (
+        <div className="mt-6 flex max-w-[280px] flex-col items-center gap-1">
+          <p className="text-center text-[15px] leading-snug text-gray-500">{englishText}</p>
+          <p className="text-center text-[18px] font-medium leading-relaxed text-[#1D1D1D]">
+            {spanishLine}
+          </p>
+        </div>
+      ) : (
+        <p
+          className="mt-6 max-w-[280px] text-center text-[15px] text-gray-400"
+          style={{ opacity: 0.45 }}
+        >
+          {englishText}
+        </p>
+      )}
 
       <div className="mt-6 min-h-[28px] flex items-center justify-center px-4">
         <p className={`text-[18px] text-center ${isCorrect ? "text-[#1D9E75]" : "text-gray-500"}`}>

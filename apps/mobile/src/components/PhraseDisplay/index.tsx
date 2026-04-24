@@ -67,6 +67,12 @@ export const PhraseDisplay = ({ phrases }: PhraseDisplayProps): JSX.Element => {
       {(display.status === "recording" || display.status === "tryAgain") && (
         <UserRecording
           englishText={display.currentPhrase.English.question}
+          spanishLine={
+            display.currentPhrase.type === "new" &&
+            !display.hasUsedTryAgainOnCurrentCard
+              ? display.spanishText
+              : undefined
+          }
           transcription={display.caption}
           isRecording={stt.isRecording}
           isCorrect={display.isCorrect}

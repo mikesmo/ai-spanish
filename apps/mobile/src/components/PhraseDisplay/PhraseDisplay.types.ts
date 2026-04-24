@@ -15,6 +15,10 @@ export interface AISpeakingProps {
 
 export interface UserRecordingProps {
   englishText: string;
+  /**
+   * When set, show `englishText` in grey and this line below (new-phrase, first pass).
+   */
+  spanishLine?: string | null;
   transcription: string;
   isRecording: boolean;
   isCorrect: boolean;

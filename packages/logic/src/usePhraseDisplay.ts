@@ -131,6 +131,8 @@ export function usePhraseDisplay(
   const [speed, setSpeed] = useState<'1x' | 'slow'>('1x');
   const [lastScoreBreakdown, setLastScoreBreakdown] =
     useState<ScoreBreakdown | null>(null);
+  const [hasUsedTryAgainOnCurrentCard, setHasUsedTryAgainOnCurrentCard] =
+    useState(false);
 
   /**
    * S3 phrase-index hint passed to the TTS adapter. Falls back to
@@ -428,6 +430,7 @@ export function usePhraseDisplay(
     setStatus('loading');
     setIsAudioPlaying(false);
     setLastScoreBreakdown(null);
+    setHasUsedTryAgainOnCurrentCard(false);
     attemptEmittedRef.current = false;
     answerAudioInFlightRef.current = false;
     firstIsFinalAtRef.current = null;
@@ -679,6 +682,7 @@ export function usePhraseDisplay(
   ]);
 
   const handleTryAgain = () => {
+    setHasUsedTryAgainOnCurrentCard(true);
     englishFirstPassOnCardRef.current = false;
     ttsRef.current.stop();
     sttRef.current.clearTranscription();
@@ -734,6 +738,7 @@ export function usePhraseDisplay(
     handleTryAgain,
     handleNext,
     handleReplay,
+    hasUsedTryAgainOnCurrentCard,
     lastScoreBreakdown,
   };
 }

@@ -151,6 +151,11 @@ export type PhraseDisplayAPI = {
   handleNext: (options?: { exitToLoading?: boolean }) => void;
   handleReplay: () => Promise<void>;
   /**
+   * True after the user taps Try Again for the current card; reset when the
+   * phrase (re)presents. Used for “first pass” UI on the answer screen.
+   */
+  hasUsedTryAgainOnCurrentCard: boolean;
+  /**
    * Score breakdown for the most recent first-attempt; null until the first
    * attempt of the current phrase completes.
    */
