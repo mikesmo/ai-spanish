@@ -484,6 +484,8 @@ export function usePhraseDisplay(
       englishFirstPassOnCardRef.current;
     const enOpts = { englishUseExplain: useExplainClips };
     const isNewLessonCard = currentPhrase.type === 'new';
+    const shouldPronunciationExample =
+      isNewLessonCard && isFirstSessionPresentation;
 
     let cancelled = false;
 
@@ -506,7 +508,7 @@ export function usePhraseDisplay(
         );
         if (cancelled) return;
 
-        if (isNewLessonCard) {
+        if (shouldPronunciationExample) {
           if (!cancelled) {
             setStatus('pronunciationExample');
             setIsAudioPlaying(true);

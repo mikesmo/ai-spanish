@@ -58,7 +58,9 @@ export const PhraseDisplay = ({ phrases }: PhraseDisplayProps): JSX.Element => {
               : undefined
           }
           spanishLine={
-            display.status === "pronunciationExample"
+            display.status === "pronunciationExample" &&
+            display.isFirstSessionPresentationOfCurrentPhrase &&
+            display.currentPhrase.type === "new"
               ? display.spanishText
               : undefined
           }
@@ -70,6 +72,7 @@ export const PhraseDisplay = ({ phrases }: PhraseDisplayProps): JSX.Element => {
           englishText={display.currentPhrase.English.question}
           spanishLine={
             display.currentPhrase.type === "new" &&
+            display.isFirstSessionPresentationOfCurrentPhrase &&
             !display.hasUsedTryAgainOnCurrentCard
               ? display.spanishText
               : undefined

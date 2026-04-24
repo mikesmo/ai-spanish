@@ -13,9 +13,9 @@ export type PhraseLessonType = 'new' | 'combination';
 export interface Phrase {
   id: string;
   /**
-   * Lesson card kind from JSON. When `'new'`, the UI shows a Spanish
-   * pronunciation example (audio + text) on AISpeaking after the English
-   * prompt, before the user records.
+   * Lesson card kind from JSON. When `'new'`, the first in-session
+   * presentation may show a Spanish pronunciation example (audio + text) on
+   * AISpeaking after the English prompt; revisits skip that phase.
    */
   type?: PhraseLessonType;
   English: { intro: string; question: string; explain: string };
@@ -53,6 +53,10 @@ export interface SpokenWord {
   confidence?: number;
 }
 
+/**
+ * `pronunciationExample` is used only for `Phrase.type === 'new'` on the
+ * first presentation of that phrase id in the current session.
+ */
 export type UIStatus =
   | 'loading'
   | 'idle'
