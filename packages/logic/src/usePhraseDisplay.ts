@@ -500,7 +500,14 @@ export function usePhraseDisplay(
       englishUseFirstIntro &&
       isFirstSessionPresentation &&
       englishFirstPassOnCardRef.current;
-    const enOpts = { englishUseFirstIntro: useFirstIntroClips };
+    const introTextForClips = useFirstIntroClips
+      ? (en['first-intro'] ?? '')
+      : (en['second-intro'] ?? '');
+    const englishAppendQuestion = introTextForClips.trimEnd().endsWith(':');
+    const enOpts = {
+      englishUseFirstIntro: useFirstIntroClips,
+      englishAppendQuestion,
+    };
     const isNewLessonCard = currentPhrase.type === 'new';
     const shouldPronunciationExample =
       isNewLessonCard && isFirstSessionPresentation;
@@ -583,6 +590,8 @@ export function usePhraseDisplay(
     currentPhrase.type,
     presentationVersion,
     englishUseFirstIntro,
+    en['first-intro'],
+    en['second-intro'],
   ]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Transition to recording once the mic opens. Preserve the 'tryAgain'

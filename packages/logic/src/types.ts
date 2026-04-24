@@ -75,12 +75,17 @@ export type UIStatus =
  */
 export type TtsAdapterOptions = {
   /**
-   * When true, English S3 playback is `en-first-intro` only (no `en-question` after);
-   * when false or omitted, `en-second-intro` + `en-question`. `usePhraseDisplay` may
-   * set this false for repeat in-session presentations of a phrase, even when
-   * `Phrase.English['first-intro']` is non-empty in JSON.
+   * When true, the first English clip is `en-first-intro`; when false or omitted,
+   * it is `en-second-intro`. `usePhraseDisplay` sets this false for repeat
+   * in-session presentations when `Phrase.English['first-intro']` is non-empty.
    */
   englishUseFirstIntro?: boolean;
+  /**
+   * When true, append `en-question` after the intro clip (back-to-back). Set when
+   * the active intro text (`first-intro` or `second-intro`) ends with `:` after
+   * `trimEnd()`.
+   */
+  englishAppendQuestion?: boolean;
 };
 
 export type TTSAdapter = {

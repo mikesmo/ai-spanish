@@ -9,10 +9,13 @@ export function segmentsForLanguage(
   options?: TtsAdapterOptions
 ): string[] {
   if (lang === 'en') {
-    if (options?.englishUseFirstIntro) {
-      return ['en-first-intro'];
+    const segs = options?.englishUseFirstIntro
+      ? ['en-first-intro']
+      : ['en-second-intro'];
+    if (options?.englishAppendQuestion) {
+      segs.push('en-question');
     }
-    return ['en-second-intro', 'en-question'];
+    return segs;
   }
   return ['es-question'];
 }
