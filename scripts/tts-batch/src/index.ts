@@ -55,6 +55,7 @@ function parseArgs(argv: string[]): CliOptions {
   let lesson: string | undefined;
   let noAudioPos = false;
   let verifyStt = false;
+  let onlyPhrase: number | undefined;
 
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
@@ -74,6 +75,12 @@ function parseArgs(argv: string[]): CliOptions {
       uploadOnly = true;
     } else if (a === '--verify-stt') {
       verifyStt = true;
+    } else if (a === '--only-phrase') {
+      const raw = (args[++i] ?? '').trim();
+      if (!/^\d+$/.test(raw)) {
+        throw new Error(`--only-phrase requires a non-negative integer (got: ${raw || '(empty)'})`);
+      }
+      onlyPhrase = parseInt(raw, 10);
     } else if (a === '--no-audio-pos') {
       noAudioPos = true;
     } else if (a === '--help' || a === '-h') {
@@ -82,7 +89,18 @@ function parseArgs(argv: string[]): CliOptions {
     }
   }
 
-  return { inputPath, outDir, bucket, force, localOnly, uploadOnly, lesson, noAudioPos, verifyStt };
+  return {
+    inputPath,
+    outDir,
+    bucket,
+    force,
+    localOnly,
+    uploadOnly,
+    lesson,
+    noAudioPos,
+    verifyStt,
+    onlyPhrase,
+  };
 }
 
 /** CLI --lesson overrides S3_LESSON env. */
@@ -107,6 +125,7 @@ Options:
   --local-only    Write audio + manifest to disk only; skip S3 (no AWS credentials needed)
   --upload-only   Upload existing manifest + audio from --out to S3; no Deepgram (no DEEPGRAM_API_KEY)
   --verify-stt    Prerecorded STT (Deepgram) + optional keyword bias from expected text; strict compare; exit 1 on mismatch
+  --only-phrase   Regenerate only this 0-based phrase index (e.g. 11 → 11-en-…); merge into existing manifest; needs prior full run
   --lesson        Optional folder under AUDIO_CONTENT_PREFIX (overrides S3_LESSON), e.g. lesson1
   --no-audio-pos  Skip ffmpeg post-processing (50 ms fade-out + 5 ms tail trim); write raw Deepgram output (requires no ffmpeg)
   --help, -h      Show this help
@@ -114,6 +133,7 @@ Options:
 Examples:
   npm run tts:batch -- --upload-only --bucket my-bucket
   npm run tts:batch -- --upload-only --out ./output --bucket my-bucket --lesson lesson1
+  npm run tts:batch -- --local-only --only-phrase 11 --out ./output --input apps/web/public/lesson1.json
 
 Environment:
   DEEPGRAM_API_KEY        Required unless --upload-only; required for --verify-stt
@@ -200,8 +220,122 @@ async function shouldSkipJob(
   return audioFileExists(outDir, job.id);
 }
 
+async function writeBatchOutputs(
+  opts: CliOptions,
+  outDir: string,
+  results: Array<{ job: TtsJob; entry: ManifestEntry; didGenerate: boolean }>,
+  previousCache: Record<string, string>,
+  region: string,
+  s3Path: S3PathConfig
+): Promise<void> {
+  const nextCache: Record<string, string> = { ...previousCache };
+  for (const r of results) {
+    if (r.didGenerate) {
+      nextCache[r.job.id] = r.entry.hash;
+    }
+  }
+  await writeHashCache(outDir, nextCache);
+
+  const manifestEntries = results.map((r) => r.entry);
+  await writeManifest(outDir, manifestEntries);
+
+  const generated = results.filter((r) => r.didGenerate).length;
+  const skipped = results.length - generated;
+  console.log(`Done. Generated: ${generated}, skipped (cache): ${skipped}`);
+  console.log(`Manifest: ${path.join(outDir, 'manifest.json')}`);
+
+  if (!opts.localOnly && opts.bucket) {
+    const bucketName = opts.bucket.trim();
+    const manifestKey = s3ManifestObjectKey(s3Path);
+    console.log(
+      `Uploading to s3://${bucketName}/${manifestKey} (and audio keys under same prefix) ...`
+    );
+    await uploadToS3({
+      bucket: bucketName,
+      region,
+      outDir,
+      entries: manifestEntries,
+      manifestS3Key: manifestKey,
+    });
+    console.log('Upload complete.');
+  }
+}
+
+/**
+ * Regenerate all jobs for `phraseIndex` (ids `${phraseIndex}-…`) and merge with existing manifest.
+ */
+async function runOnlyPhraseBatch(
+  opts: CliOptions,
+  allJobs: TtsJob[],
+  phraseIndex: number,
+  apiKey: string,
+  region: string,
+  s3Path: S3PathConfig
+): Promise<void> {
+  const prefix = `${phraseIndex}-`;
+  const toRegen = allJobs.filter((j) => j.id.startsWith(prefix));
+  if (toRegen.length === 0) {
+    throw new Error(
+      `Phrase index ${phraseIndex} has no TTS fields (all English/Spanish lines for this phrase are empty).`
+    );
+  }
+
+  const { entries: previous } = await readManifest(opts.outDir);
+  const byId = new Map(previous.map((e) => [e.id, e]));
+
+  await ensureDir(opts.outDir);
+  const cache = await readHashCache(opts.outDir);
+  const limit = createJobQueue();
+
+  console.log(
+    `--only-phrase ${phraseIndex}: regenerating ${toRegen.length} clip(s); keeping ${allJobs.length - toRegen.length} from manifest.`
+  );
+
+  const tasks = allJobs.map((job) =>
+    limit(async (): Promise<{ job: TtsJob; entry: ManifestEntry; didGenerate: boolean }> => {
+      if (!job.id.startsWith(prefix)) {
+        const prev = byId.get(job.id);
+        if (!prev) {
+          throw new Error(
+            `Missing manifest entry for "${job.id}". Run a full tts:batch (without --only-phrase) once, then retry.`
+          );
+        }
+        return { job, entry: prev, didGenerate: false };
+      }
+
+      const hash = computeJobHash(job.text, job.voice, opts.noAudioPos);
+      const buffer = await withRetry(() => synthesizeToBuffer(job.text, job.language, apiKey));
+      const rel = await writeAudioFile(opts.outDir, job, buffer, opts.noAudioPos);
+      const createdAt = new Date().toISOString();
+      console.log(`  OK ${job.id}`);
+      return {
+        job,
+        entry: buildManifestEntry(
+          job,
+          rel,
+          hash,
+          createdAt,
+          !opts.localOnly,
+          opts.localOnly ? undefined : s3Path
+        ),
+        didGenerate: true,
+      };
+    })
+  );
+
+  const results = await Promise.all(tasks);
+  await writeBatchOutputs(opts, opts.outDir, results, cache, region, s3Path);
+}
+
 async function main(): Promise<void> {
   const opts = parseArgs(process.argv);
+
+  if (opts.onlyPhrase !== undefined && opts.uploadOnly) {
+    throw new Error('--only-phrase cannot be used with --upload-only');
+  }
+  if (opts.onlyPhrase !== undefined && opts.verifyStt) {
+    throw new Error('--only-phrase cannot be used with --verify-stt');
+  }
 
   if (opts.verifyStt && opts.uploadOnly) {
     throw new Error('--verify-stt cannot be used with --upload-only');
@@ -234,6 +368,16 @@ async function main(): Promise<void> {
   const phrases = await loadTranscript(opts.inputPath);
   const jobs = buildTtsJobs(phrases);
   console.log(`Built ${jobs.length} TTS job(s)`);
+
+  if (opts.onlyPhrase !== undefined) {
+    if (opts.onlyPhrase >= phrases.length) {
+      throw new Error(
+        `--only-phrase ${opts.onlyPhrase} is out of range (valid: 0..${phrases.length - 1})`
+      );
+    }
+    await runOnlyPhraseBatch(opts, jobs, opts.onlyPhrase, apiKey, region, s3Path);
+    return;
+  }
 
   await ensureDir(opts.outDir);
   const cache = await readHashCache(opts.outDir);
@@ -282,36 +426,7 @@ async function main(): Promise<void> {
   );
 
   const results = await Promise.all(tasks);
-
-  const nextCache: Record<string, string> = { ...cache };
-  for (const r of results) {
-    if (r.didGenerate) {
-      nextCache[r.job.id] = r.entry.hash;
-    }
-  }
-  await writeHashCache(opts.outDir, nextCache);
-
-  const manifestEntries = results.map((r) => r.entry);
-  await writeManifest(opts.outDir, manifestEntries);
-
-  const generated = results.filter((r) => r.didGenerate).length;
-  const skipped = results.length - generated;
-  console.log(`Done. Generated: ${generated}, skipped (cache): ${skipped}`);
-  console.log(`Manifest: ${path.join(opts.outDir, 'manifest.json')}`);
-
-  if (!opts.localOnly && opts.bucket) {
-    const bucketName = opts.bucket.trim();
-    const manifestKey = s3ManifestObjectKey(s3Path);
-    console.log(`Uploading to s3://${bucketName}/${manifestKey} (and audio keys under same prefix) ...`);
-    await uploadToS3({
-      bucket: bucketName,
-      region,
-      outDir: opts.outDir,
-      entries: manifestEntries,
-      manifestS3Key: manifestKey,
-    });
-    console.log('Upload complete.');
-  }
+  await writeBatchOutputs(opts, opts.outDir, results, cache, region, s3Path);
 }
 
 main().catch((err) => {

@@ -42,4 +42,9 @@ export interface CliOptions {
   noAudioPos: boolean;
   /** STT every manifest MP3 and compare to manifest text; no TTS or S3. */
   verifyStt: boolean;
+  /**
+   * If set, regenerate only jobs whose id starts with `{n}-` (0-based phrase
+   * index) and merge into existing manifest. Requires a prior full batch.
+   */
+  onlyPhrase: number | undefined;
 }

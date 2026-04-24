@@ -56,6 +56,7 @@ Secrets belong in `.env` (gitignored). Never commit real keys.
 | `--force` | Regenerate all clips; ignore hash cache |
 | `--local-only` | Write `output/` only; no S3, no AWS keys required |
 | `--upload-only` | Upload existing `output/` to S3; no Deepgram calls |
+| `--only-phrase` | 0-based phrase index (same as the job id prefix, e.g. `11` → all `11-en-…` and `11-es-…` clips). Regenerates only those files, merges new rows into the existing `manifest.json` and hash cache; other clips are left unchanged. **Requires** a previous full `tts:batch` so every other id already exists in the manifest. Incompatible with `--verify-stt` and `--upload-only`. |
 | `--verify-stt` | Prerecorded Deepgram STT for each `manifest.json` entry’s MP3; optional `keywords` from expected `text` (tokenize via `tokenizeForDeepgramKeywords` in `@ai-spanish/logic`, sent as `word:1` and only if there are **3+** tokens, to limit over-biasing; live STT can still use `word:2` on short Spanish targets); **strict** normalized compare to `text`; log mismatches; exit 1 on mismatch or error (requires `DEEPGRAM_API_KEY`) |
 | `--no-audio-pos` | Skip ffmpeg post-processing; write raw Deepgram output (no ffmpeg required) |
 | `--help`, `-h` | Show help |
@@ -65,6 +66,7 @@ Secrets belong in `.env` (gitignored). Never commit real keys.
 - **Default:** synthesize missing/changed clips (with cache), apply audio post-processing, write `manifest.json`, then upload to S3 if credentials and bucket are set.
 - **`--local-only`:** synthesize only; manifest omits `s3Key` until a later upload with the same layout config.
 - **`--upload-only`:** read `output/manifest.json`, recompute S3 keys from current `AUDIO_CONTENT_PREFIX` / `--lesson` / `S3_LESSON`, upload MP3s and manifest. Incompatible with `--local-only` and `--force`.
+- **`--only-phrase`:** re-synthesize all jobs whose id starts with `{index}-` for the current transcript, then rewrite `manifest.json` with a **merged** list: updated entries for that phrase, unchanged `ManifestEntry` objects for all other job ids (read from the existing on-disk manifest). Fails if `manifest.json` is missing an id required by the current `buildTtsJobs` output—run a full batch first. The selected phrase is always fully regenerated (cache is ignored for those ids). Incompatible with `--verify-stt` and `--upload-only`.
 - **`--verify-stt`:** read `output/manifest.json`, transcribe each `localFile` with Deepgram prerecorded STT (model `nova-2`, optional `keywords` from expected `text`), and compare to the entry’s `text` with **strict** equality after the same normalization (whitespace, quotes, all Unicode “Punctuation” stripped, then lowercased by language). If STT and manifest disagree, fix the **lesson / transcript** and regenerate audio—do not loosen the compare step. Incompatible with `--upload-only` (and does not run TTS or S3). Exits with status 1 if any file mismatches, is missing, or the API returns an error. Entries whose expected `text` is a single character (after trim) are **skipped** (warning only; counted in `ok`) because STT is not reliable for them.
 
 ## Audio post-processing
