@@ -3,8 +3,8 @@
     "id": "perdon",
     "type": "new",
     "English": {
-      "explain": "This is how you say 'excuse me' in Spanish:",
-      "intro": "How do you say:",
+      "first-intro": "This is how you say 'excuse me' in Spanish",
+      "second-intro": "How do you say:",
       "question": "Excuse me"
     },
     "Spanish": {
@@ -23,13 +23,13 @@
     "id": "senorita",
     "type": "new",
     "English": {
-      "explain": "This is how you formally address a young woman in Spanish:",
-      "intro": "How would you...",
-      "question": "formally address a young woman?"
+      "first-intro": "This is how you formally address a young woman in Spanish",
+      "second-intro": "How would you...",
+      "question": "Formally address a young woman?"
     },
     "Spanish": {
       "grammar": "",
-      "answer": "señorita",
+      "answer": "Señorita",
       "words": [
         {
           "word": "señorita",
@@ -43,8 +43,8 @@
     "id": "entiende",
     "type": "new",
     "English": {
-      "explain": "This is how you say 'Do you understand?'. Like in English, there is arising intonation at the end because it is a question.",
-      "intro": "How do you ask:",
+      "first-intro": "This is how you say 'Do you understand?'. Like in English, since this is a question, there is arising intonation at the end",
+      "second-intro": "How do you ask:",
       "question": "Do you understand?"
     },
     "Spanish": {
@@ -63,8 +63,8 @@
     "id": "ingles",
     "type": "new",
     "English": {
-      "explain": "Listen and repeat the word:",
-      "intro": "How do you say:",
+      "first-intro": "Listen and repeat the word",
+      "second-intro": "How do you say:",
       "question": "English"
     },
     "Spanish": {
@@ -83,8 +83,8 @@
     "id": "entiende-ingles",
     "type": "combination",
     "English": {
-      "explain": "Now put it together, how would you ask:",
-      "intro": "How would you ask:",
+      "first-intro": "Now put it together, how would you ask:",
+      "second-intro": "How would you ask:",
       "question": "Do you understand English?"
     },
     "Spanish": {
@@ -108,8 +108,8 @@
     "id": "no",
     "type": "new",
     "English": {
-      "explain": "The word 'no' is the same in English.",
-      "intro": "How do you say:",
+      "first-intro": "The word 'no' is the same in English.",
+      "second-intro": "How do you say:",
       "question": "No"
     },
     "Spanish": {
@@ -125,34 +125,11 @@
     }
   },
   {
-    "id": "no-entiendo",
-    "type": "new",
-    "English": {
-      "intro": "How do you say:",
-      "question": "I don’t understand."
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "No entiendo",
-      "words": [
-        {
-          "word": "no",
-          "type": "adverb",
-          "weight": 1.5
-        },
-        {
-          "word": "entiendo",
-          "type": "verb",
-          "weight": 3
-        }
-      ]
-    }
-  },
-  {
     "id": "senor",
     "type": "new",
     "English": {
-      "intro": "How do you say:",
+      "first-intro": "Listen and repeat.",
+      "second-intro": "How do you say:",
       "question": "sir"
     },
     "Spanish": {
@@ -171,7 +148,8 @@
     "id": "no-senor",
     "type": "new",
     "English": {
-      "intro": "She answers:",
+      "first-intro": "",
+      "second-intro": "How do you say:",
       "question": "No, sir."
     },
     "Spanish": {
@@ -195,7 +173,8 @@
     "id": "entiendo",
     "type": "new",
     "English": {
-      "intro": "The word:",
+      "first-intro": "This is how you say:",
+      "second-intro": "How do you say:",
       "question": "I understand."
     },
     "Spanish": {
@@ -211,10 +190,36 @@
     }
   },
   {
+    "id": "no-entiendo",
+    "type": "combination",
+    "English": {
+      "first-intro": "Now try to say:",
+      "second-intro": "How do you say:",
+      "question": "I don’t understand."
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "No entiendo",
+      "words": [
+        {
+          "word": "no",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "entiendo",
+          "type": "verb",
+          "weight": 3
+        }
+      ]
+    }
+  },
+  {
     "id": "hablo",
     "type": "new",
     "English": {
-      "intro": "Say:",
+      "first-intro": "This is how you say:",
+      "second-intro": "Say:",
       "question": "I speak."
     },
     "Spanish": {
@@ -233,8 +238,9 @@
     "id": "un",
     "type": "new",
     "English": {
-      "intro": "A little:",
-      "question": "a (un)"
+      "first-intro": "This is how you say 'a', as in the phrase 'a little.'",
+      "second-intro": "Say 'a' as in 'a little.'",
+      "question": "a"
     },
     "Spanish": {
       "grammar": "",
@@ -252,7 +258,8 @@
     "id": "poco",
     "type": "new",
     "English": {
-      "intro": "A little:",
+      "first-intro": "This is how you say:",
+      "second-intro": "Say:",
       "question": "little"
     },
     "Spanish": {
@@ -269,10 +276,11 @@
   },
   {
     "id": "de",
-    "type": "new",
+    "type": "combination",
     "English": {
-      "intro": "In “a little of …”",
-      "question": "of"
+      "first-intro": "Now put it together, how would you say:",
+      "second-intro": "How would you say:",
+      "question": "A little"
     },
     "Spanish": {
       "grammar": "",

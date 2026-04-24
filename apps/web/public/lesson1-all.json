@@ -3,8 +3,8 @@
     "id": "perdon",
     "type": "new",
     "English": {
-      "explain": "This is how you say 'excuse me' in Spanish:",
-      "intro": "How do you say:",
+      "first-intro": "This is how you say 'excuse me' in Spanish:",
+      "second-intro": "How do you say:",
       "question": "Excuse me"
     },
     "Spanish": {
@@ -23,8 +23,8 @@
     "id": "senorita",
     "type": "new",
     "English": {
-      "explain": "This is how you formally address a young woman in Spanish:",
-      "intro": "How would you formally address a young woman?",
+      "first-intro": "This is how you formally address a young woman in Spanish:",
+      "second-intro": "How would you formally address a young woman?",
       "question": "Miss"
     },
     "Spanish": {
@@ -43,8 +43,8 @@
     "id": "entiende",
     "type": "new",
     "English": {
-      "explain": "This is how you say 'Do you understand?'. Like in English you need to ask a question with rising intonation at the end of the end of the end.",
-      "intro": "How do you ask:",
+      "first-intro": "This is how you say 'Do you understand?'. Like in English you need to ask a question with rising intonation at the end of the end of the end.",
+      "second-intro": "How do you ask:",
       "question": "Do you understand?"
     },
     "Spanish": {
@@ -63,8 +63,8 @@
     "id": "ingles",
     "type": "new",
     "English": {
-      "explain": "Listen and repeat the word:",
-      "intro": "How do you say:",
+      "first-intro": "Listen and repeat the word:",
+      "second-intro": "How do you say:",
       "question": "English"
     },
     "Spanish": {
@@ -83,8 +83,8 @@
     "id": "entiende-ingles",
     "type": "combination",
     "English": {
-      "explain": "Now put it together, how would you ask:",
-      "intro": "How would you ask:",
+      "first-intro": "Now put it together, how would you ask:",
+      "second-intro": "How would you ask:",
       "question": "Do you understand English?"
     },
     "Spanish": {
@@ -108,8 +108,8 @@
     "id": "no",
     "type": "new",
     "English": {
-      "explain": "The word 'no' is the same in English.",
-      "intro": "How do you say:",
+      "first-intro": "The word 'no' is the same in English.",
+      "second-intro": "How do you say:",
       "question": "No"
     },
     "Spanish": {
@@ -128,8 +128,9 @@
     "id": "no-entiendo",
     "type": "new",
     "English": {
-      "intro": "This is how you say:",
-      "question": "I don’t understand."
+      "second-intro": "This is how you say:",
+      "question": "I don’t understand.",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -152,8 +153,9 @@
     "id": "senor",
     "type": "new",
     "English": {
-      "intro": "How do you say:",
-      "question": "sir"
+      "second-intro": "How do you say:",
+      "question": "sir",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -171,8 +173,9 @@
     "id": "no-senor",
     "type": "new",
     "English": {
-      "intro": "She answers:",
-      "question": "No, sir."
+      "second-intro": "She answers:",
+      "question": "No, sir.",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -195,8 +198,9 @@
     "id": "entiendo",
     "type": "new",
     "English": {
-      "intro": "The word:",
-      "question": "I understand."
+      "second-intro": "The word:",
+      "question": "I understand.",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -214,8 +218,9 @@
     "id": "hablo",
     "type": "new",
     "English": {
-      "intro": "Say:",
-      "question": "I speak."
+      "second-intro": "Say:",
+      "question": "I speak.",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -233,8 +238,9 @@
     "id": "un",
     "type": "new",
     "English": {
-      "intro": "A little:",
-      "question": "a (un)"
+      "second-intro": "A little:",
+      "question": "a (un)",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -252,8 +258,9 @@
     "id": "poco",
     "type": "new",
     "English": {
-      "intro": "A little:",
-      "question": "little"
+      "second-intro": "A little:",
+      "question": "little",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -271,8 +278,9 @@
     "id": "de",
     "type": "new",
     "English": {
-      "intro": "In “a little of …”",
-      "question": "of"
+      "second-intro": "In “a little of …”",
+      "question": "of",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -290,8 +298,9 @@
     "id": "espanol",
     "type": "new",
     "English": {
-      "intro": "The language name:",
-      "question": "Spanish (the language)"
+      "second-intro": "The language name:",
+      "question": "Spanish (the language)",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -309,8 +318,9 @@
     "id": "un-poco",
     "type": "new",
     "English": {
-      "intro": "Say:",
-      "question": "a little."
+      "second-intro": "Say:",
+      "question": "a little.",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -333,8 +343,9 @@
     "id": "hablo-un-poco-de-espanol",
     "type": "new",
     "English": {
-      "intro": "Put it together:",
-      "question": "I speak a little Spanish."
+      "second-intro": "Put it together:",
+      "question": "I speak a little Spanish.",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -372,8 +383,9 @@
     "id": "es",
     "type": "new",
     "English": {
-      "intro": "In “you are / are you”",
-      "question": "is / it is (es)"
+      "second-intro": "In “you are / are you”",
+      "question": "is / it is (es)",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -391,8 +403,9 @@
     "id": "usted",
     "type": "new",
     "English": {
-      "intro": "The formal you:",
-      "question": "you (usted)"
+      "second-intro": "The formal you:",
+      "question": "you (usted)",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -410,8 +423,9 @@
     "id": "norteamericano",
     "type": "new",
     "English": {
-      "intro": "Cued in this unit as:",
-      "question": "American (North American)"
+      "second-intro": "Cued in this unit as:",
+      "question": "American (North American)",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -429,8 +443,9 @@
     "id": "si",
     "type": "new",
     "English": {
-      "intro": "The word:",
-      "question": "yes"
+      "second-intro": "The word:",
+      "question": "yes",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -448,8 +463,9 @@
     "id": "es-usted-norteamericano",
     "type": "new",
     "English": {
-      "intro": "Ask:",
-      "question": "Are you American?"
+      "second-intro": "Ask:",
+      "question": "Are you American?",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -477,8 +493,9 @@
     "id": "si-senorita",
     "type": "new",
     "English": {
-      "intro": "Answer:",
-      "question": "Yes, miss."
+      "second-intro": "Answer:",
+      "question": "Yes, miss.",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -501,8 +518,9 @@
     "id": "perdon-entiende",
     "type": "new",
     "English": {
-      "intro": "You say:",
-      "question": "Excuse me, do you understand? (Connect the words)"
+      "second-intro": "You say:",
+      "question": "Excuse me, do you understand? (Connect the words)",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -525,8 +543,9 @@
     "id": "perdon-entiende-ingles",
     "type": "new",
     "English": {
-      "intro": "You say:",
-      "question": "Excuse me, do you understand English?"
+      "second-intro": "You say:",
+      "question": "Excuse me, do you understand English?",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -554,8 +573,9 @@
     "id": "no-senorita",
     "type": "new",
     "English": {
-      "intro": "You say:",
-      "question": "No, miss."
+      "second-intro": "You say:",
+      "question": "No, miss.",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -578,8 +598,9 @@
     "id": "entiendo-ingles",
     "type": "new",
     "English": {
-      "intro": "Say:",
-      "question": "I understand English."
+      "second-intro": "Say:",
+      "question": "I understand English.",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -602,8 +623,9 @@
     "id": "no-entiendo-ingles",
     "type": "new",
     "English": {
-      "intro": "She says:",
-      "question": "I don’t understand English."
+      "second-intro": "She says:",
+      "question": "I don’t understand English.",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -631,8 +653,9 @@
     "id": "entiendo-espanol",
     "type": "new",
     "English": {
-      "intro": "Say:",
-      "question": "I understand Spanish."
+      "second-intro": "Say:",
+      "question": "I understand Spanish.",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -655,8 +678,9 @@
     "id": "perdon-senor",
     "type": "new",
     "English": {
-      "intro": "You say:",
-      "question": "Excuse me, sir."
+      "second-intro": "You say:",
+      "question": "Excuse me, sir.",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -679,8 +703,9 @@
     "id": "entiende-espanol",
     "type": "new",
     "English": {
-      "intro": "Ask:",
-      "question": "Do you understand Spanish?"
+      "second-intro": "Ask:",
+      "question": "Do you understand Spanish?",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -703,8 +728,9 @@
     "id": "si-entiendo",
     "type": "new",
     "English": {
-      "intro": "Yes, I understand:",
-      "question": "Yes, I understand."
+      "second-intro": "Yes, I understand:",
+      "question": "Yes, I understand.",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -727,8 +753,9 @@
     "id": "si-entiendo-espanol",
     "type": "new",
     "English": {
-      "intro": "Yes, I understand:",
-      "question": "Yes, I understand Spanish."
+      "second-intro": "Yes, I understand:",
+      "question": "Yes, I understand Spanish.",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -756,8 +783,9 @@
     "id": "hablo-ingles",
     "type": "new",
     "English": {
-      "intro": "Say:",
-      "question": "I speak English."
+      "second-intro": "Say:",
+      "question": "I speak English.",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -780,8 +808,9 @@
     "id": "hablo-espanol",
     "type": "new",
     "English": {
-      "intro": "Say:",
-      "question": "I speak Spanish."
+      "second-intro": "Say:",
+      "question": "I speak Spanish.",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -804,8 +833,9 @@
     "id": "no-hablo",
     "type": "new",
     "English": {
-      "intro": "Form: I don’t speak:",
-      "question": "I don’t speak."
+      "second-intro": "Form: I don’t speak:",
+      "question": "I don’t speak.",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -828,8 +858,9 @@
     "id": "no-hablo-espanol",
     "type": "new",
     "English": {
-      "intro": "Say:",
-      "question": "I don’t speak Spanish."
+      "second-intro": "Say:",
+      "question": "I don’t speak Spanish.",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -857,8 +888,9 @@
     "id": "habla",
     "type": "new",
     "English": {
-      "intro": "The formal you speak:",
-      "question": "You speak."
+      "second-intro": "The formal you speak:",
+      "question": "You speak.",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -876,8 +908,9 @@
     "id": "habla-ingles",
     "type": "new",
     "English": {
-      "intro": "Ask:",
-      "question": "Do you speak English?"
+      "second-intro": "Ask:",
+      "question": "Do you speak English?",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -900,8 +933,9 @@
     "id": "no-hablo-ingles",
     "type": "new",
     "English": {
-      "intro": "She: I don’t speak English.",
-      "question": "I don’t speak English."
+      "second-intro": "She: I don’t speak English.",
+      "question": "I don’t speak English.",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -929,8 +963,9 @@
     "id": "habla-un-poco",
     "type": "new",
     "English": {
-      "intro": "You speak a little:",
-      "question": "You speak a little."
+      "second-intro": "You speak a little:",
+      "question": "You speak a little.",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -958,8 +993,9 @@
     "id": "hablo-un-poco",
     "type": "new",
     "English": {
-      "intro": "I speak a little:",
-      "question": "I speak a little."
+      "second-intro": "I speak a little:",
+      "question": "I speak a little.",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -987,8 +1023,9 @@
     "id": "entiendo-un-poco",
     "type": "new",
     "English": {
-      "intro": "I understand a little:",
-      "question": "I understand a little."
+      "second-intro": "I understand a little:",
+      "question": "I understand a little.",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -1016,8 +1053,9 @@
     "id": "entiendo-un-poco-de-espanol",
     "type": "new",
     "English": {
-      "intro": "Say:",
-      "question": "I understand a little Spanish."
+      "second-intro": "Say:",
+      "question": "I understand a little Spanish.",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -1055,8 +1093,9 @@
     "id": "entiende-un-poco",
     "type": "new",
     "English": {
-      "intro": "Ask:",
-      "question": "Do you understand a little?"
+      "second-intro": "Ask:",
+      "question": "Do you understand a little?",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -1084,8 +1123,9 @@
     "id": "entiende-un-poco-de-ingles",
     "type": "new",
     "English": {
-      "intro": "Ask:",
-      "question": "Do you understand a little English?"
+      "second-intro": "Ask:",
+      "question": "Do you understand a little English?",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -1123,8 +1163,9 @@
     "id": "entiendo-un-poco-de-ingles",
     "type": "new",
     "English": {
-      "intro": "She would say:",
-      "question": "I understand a little English."
+      "second-intro": "She would say:",
+      "question": "I understand a little English.",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -1162,8 +1203,9 @@
     "id": "entiende-habla",
     "type": "new",
     "English": {
-      "intro": "The two words in sequence, then you say them:",
-      "question": "You understand / you speak (entiende, habla)"
+      "second-intro": "The two words in sequence, then you say them:",
+      "question": "You understand / you speak (entiende, habla)",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -1186,8 +1228,9 @@
     "id": "usted-es",
     "type": "new",
     "English": {
-      "intro": "You are:",
-      "question": "You are. (formal)"
+      "second-intro": "You are:",
+      "question": "You are. (formal)",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -1210,8 +1253,9 @@
     "id": "usted-es-norteamericano",
     "type": "new",
     "English": {
-      "intro": "A statement, not a question:",
-      "question": "You are American."
+      "second-intro": "A statement, not a question:",
+      "question": "You are American.",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -1239,8 +1283,9 @@
     "id": "habla-espanol",
     "type": "new",
     "English": {
-      "intro": "She asks:",
-      "question": "Do you speak Spanish?"
+      "second-intro": "She asks:",
+      "question": "Do you speak Spanish?",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -1263,8 +1308,9 @@
     "id": "si-hablo-espanol",
     "type": "new",
     "English": {
-      "intro": "You answer:",
-      "question": "Yes, I speak Spanish."
+      "second-intro": "You answer:",
+      "question": "Yes, I speak Spanish.",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",

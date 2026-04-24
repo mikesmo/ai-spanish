@@ -18,7 +18,11 @@ export interface Phrase {
    * AISpeaking after the English prompt; revisits skip that phase.
    */
   type?: PhraseLessonType;
-  English: { intro: string; question: string; explain: string };
+  English: {
+    'first-intro': string;
+    'second-intro': string;
+    question: string;
+  };
   Spanish: {
     grammar: string;
     answer: string;
@@ -71,12 +75,12 @@ export type UIStatus =
  */
 export type TtsAdapterOptions = {
   /**
-   * When true, English S3 playback is `en-explain` only (no `en-question` after);
-   * when false or omitted, `en-intro` + `en-question`. `usePhraseDisplay` may
+   * When true, English S3 playback is `en-first-intro` only (no `en-question` after);
+   * when false or omitted, `en-second-intro` + `en-question`. `usePhraseDisplay` may
    * set this false for repeat in-session presentations of a phrase, even when
-   * `Phrase.English.explain` is non-empty in JSON.
+   * `Phrase.English['first-intro']` is non-empty in JSON.
    */
-  englishUseExplain?: boolean;
+  englishUseFirstIntro?: boolean;
 };
 
 export type TTSAdapter = {

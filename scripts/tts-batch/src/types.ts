@@ -17,7 +17,7 @@ export interface ManifestEntry {
   language: Language;
   text: string;
   voice: string;
-  /** Relative path from output dir, e.g. audio/0-en-explain.mp3 */
+  /** Relative path from output dir, e.g. audio/0-en-first-intro.mp3 */
   localFile: string;
   /** S3 object key when uploaded; omitted in --local-only runs. */
   s3Key?: string;

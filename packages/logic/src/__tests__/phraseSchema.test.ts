@@ -4,7 +4,7 @@ import { POS_WEIGHTS } from '../weights';
 
 const minimalPhrase = {
   id: 'a',
-  English: { intro: 'i', question: 'q', explain: '' },
+  English: { 'first-intro': '', 'second-intro': 'i', question: 'q' },
   Spanish: {
     grammar: '',
     answer: 'hola',

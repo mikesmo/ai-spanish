@@ -9,10 +9,10 @@ export function segmentsForLanguage(
   options?: TtsAdapterOptions
 ): string[] {
   if (lang === 'en') {
-    if (options?.englishUseExplain) {
-      return ['en-explain'];
+    if (options?.englishUseFirstIntro) {
+      return ['en-first-intro'];
     }
-    return ['en-intro', 'en-question'];
+    return ['en-second-intro', 'en-question'];
   }
   return ['es-question'];
 }

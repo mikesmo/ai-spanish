@@ -13,20 +13,20 @@ export function buildTtsJobs(phrases: Phrase[]): TtsJob[] {
   const jobs: TtsJob[] = [];
   for (let i = 0; i < phrases.length; i++) {
     const phrase = phrases[i]!;
-    const explain = phrase.English.explain ?? '';
-    if (isNonEmpty(explain)) {
+    const firstIntro = phrase.English['first-intro'] ?? '';
+    if (isNonEmpty(firstIntro)) {
       jobs.push({
-        id: `${i}-en-explain`,
+        id: `${i}-en-first-intro`,
         language: 'en',
-        text: explain,
+        text: firstIntro,
         voice: VOICE_BY_LANGUAGE.en,
       });
     }
-    if (isNonEmpty(phrase.English.intro)) {
+    if (isNonEmpty(phrase.English['second-intro'])) {
       jobs.push({
-        id: `${i}-en-intro`,
+        id: `${i}-en-second-intro`,
         language: 'en',
-        text: phrase.English.intro,
+        text: phrase.English['second-intro'],
         voice: VOICE_BY_LANGUAGE.en,
       });
     }

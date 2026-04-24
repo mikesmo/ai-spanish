@@ -32,9 +32,9 @@ export const phraseSchema = z.object({
   id: z.string().min(1),
   type: z.enum(['new', 'combination']).optional(),
   English: z.object({
-    intro: z.string(),
+    'first-intro': z.string().default(''),
+    'second-intro': z.string(),
     question: z.string(),
-    explain: z.string().default(''),
   }),
   Spanish: z.object({
     grammar: z.string(),

@@ -2,8 +2,9 @@
   {
     "id": "donde-se-pueden-comprar-manzanas",
     "English": {
-      "intro": "How would you ask someone",
-      "question": "Where can apples be bought?"
+      "second-intro": "How would you ask someone",
+      "question": "Where can apples be bought?",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -40,8 +41,9 @@
   {
     "id": "puedes-comprarlas-en-la-tienda-de-comestibles",
     "English": {
-      "intro": "How would they respond",
-      "question": "You can buy them at the grocery store"
+      "second-intro": "How would they respond",
+      "question": "You can buy them at the grocery store",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -88,8 +90,9 @@
   {
     "id": "no-esta-lejos",
     "English": {
-      "intro": "Then, how would they say",
-      "question": "It's not far"
+      "second-intro": "Then, how would they say",
+      "question": "It's not far",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -116,8 +119,9 @@
   {
     "id": "tengo-que-ir-al-banco",
     "English": {
-      "intro": "You now say",
-      "question": "I have to go to the bank"
+      "second-intro": "You now say",
+      "question": "I have to go to the bank",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -154,8 +158,9 @@
   {
     "id": "necesito-enviar-una-carta",
     "English": {
-      "intro": "Say",
-      "question": "I need to send a letter"
+      "second-intro": "Say",
+      "question": "I need to send a letter",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -187,8 +192,9 @@
   {
     "id": "ahora-mismo",
     "English": {
-      "intro": "Say",
-      "question": "Right now"
+      "second-intro": "Say",
+      "question": "Right now",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -210,8 +216,9 @@
   {
     "id": "quieres-algo",
     "English": {
-      "intro": "Now, how do you say",
-      "question": "Do you want anything?"
+      "second-intro": "Now, how do you say",
+      "question": "Do you want anything?",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -233,8 +240,9 @@
   {
     "id": "no-pero-te-recomiendo-que-te-lleves-la-chaqueta",
     "English": {
-      "intro": "How does the person respond",
-      "question": "No, but I recommend you take your jacket"
+      "second-intro": "How does the person respond",
+      "question": "No, but I recommend you take your jacket",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -291,8 +299,9 @@
   {
     "id": "esta-nevando-mucho",
     "English": {
-      "intro": "Then, how do they say",
-      "question": "It's snowing a lot"
+      "second-intro": "Then, how do they say",
+      "question": "It's snowing a lot",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -319,8 +328,9 @@
   {
     "id": "me-viene-bien-porque",
     "English": {
-      "intro": "Say",
-      "question": "That suits me well because…"
+      "second-intro": "Say",
+      "question": "That suits me well because…",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -352,8 +362,9 @@
   {
     "id": "quiero-enviar-una-carta-a-francia",
     "English": {
-      "intro": "Then say",
-      "question": "I want to send a letter to France"
+      "second-intro": "Then say",
+      "question": "I want to send a letter to France",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -395,8 +406,9 @@
   {
     "id": "puedo-venir-contigo",
     "English": {
-      "intro": "Say",
-      "question": "I can come with you"
+      "second-intro": "Say",
+      "question": "I can come with you",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -423,8 +435,9 @@
   {
     "id": "voy-a-la-libreria-a-comprar-una-novela",
     "English": {
-      "intro": "Now say",
-      "question": "I'm going to the bookstore to buy a novel"
+      "second-intro": "Now say",
+      "question": "I'm going to the bookstore to buy a novel",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",
@@ -476,8 +489,9 @@
   {
     "id": "tengo-que-comprar-bebidas",
     "English": {
-      "intro": "Say",
-      "question": "I have to buy drinks"
+      "second-intro": "Say",
+      "question": "I have to buy drinks",
+      "first-intro": ""
     },
     "Spanish": {
       "grammar": "",

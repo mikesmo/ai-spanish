@@ -9,7 +9,8 @@ function fetchPresignedUrl(phraseIndex: number, segment: string): Promise<string
 /**
  * S3-backed TTS adapter for web.
  *
- * - English: en-explain only when options.englishUseExplain, else en-intro +
+ * - English: en-first-intro only when options.englishUseFirstIntro, else
+ *   en-second-intro +
  *   en-question, played back-to-back.
  * - Spanish: fetches and plays es-question (single clip per phrase).
  * - Missing clips (skipped at batch time due to empty text) are silently skipped.

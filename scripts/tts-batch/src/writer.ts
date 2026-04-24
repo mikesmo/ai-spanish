@@ -55,7 +55,7 @@ export function computeJobHash(text: string, voice: string, noAudioPos = false):
   return `sha256:${h.digest('hex')}`;
 }
 
-/** Relative POSIX path from output root, e.g. audio/0-en-explain.mp3 */
+/** Relative POSIX path from output root, e.g. audio/0-en-first-intro.mp3 */
 export function audioRelativePath(jobId: string): string {
   return path.posix.join('audio', `${jobId}.mp3`);
 }

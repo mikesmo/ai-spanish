@@ -43,7 +43,8 @@ async function ensureLocalFile(
 /**
  * S3-backed TTS adapter for React Native (same clips as web).
  *
- * - English: en-explain only when options.englishUseExplain, else en-intro +
+ * - English: en-first-intro only when options.englishUseFirstIntro, else
+ *   en-second-intro +
  *   en-question.
  * - Spanish: es-question only.
  * - Missing clips are skipped silently.

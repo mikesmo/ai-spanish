@@ -220,20 +220,21 @@ export function usePhraseDisplay(
   /**
    * Session-scoped count of how many times each phrase id was presented
    * (incremented only when `shouldNotifyPresentation` is true — same as
-   * `onPresentationStart`). Used to play explain audio only on the first visit.
+   * `onPresentationStart`). Used to play `first-intro` S3 audio only on the first visit.
    */
   const phraseIdPresentationCountRef = useRef<Map<string, number>>(new Map());
   /**
-   * False after Try Again so a future English replay would not use explain
-   * clips; cleared to true on each new presentation notification.
+   * False after Try Again so a future English replay would not use
+   * `en-first-intro` clip mode; cleared to true on each new presentation notification.
    */
   const englishFirstPassOnCardRef = useRef(true);
 
   const currentPhrase = phrases[currentIndex]!;
-  const englishText = currentPhrase.English.intro
-    ? `${currentPhrase.English.intro}: ${currentPhrase.English.question}`
-    : currentPhrase.English.question;
-  const englishUseExplain = (currentPhrase.English.explain ?? '').trim() !== '';
+  const en = currentPhrase.English;
+  const englishText = en['second-intro']
+    ? `${en['second-intro']}: ${en.question}`
+    : en.question;
+  const englishUseFirstIntro = (en['first-intro'] ?? '').trim() !== '';
   const spanishText = currentPhrase.Spanish.answer;
   const caption = stt.caption;
   const sttWords: SpokenWord[] = stt.words;
@@ -495,11 +496,11 @@ export function usePhraseDisplay(
     }
     prevIndexRef.current = currentIndex;
     const isFirstSessionPresentation = isFirstOfCurrentPhraseForBootstrapRef.current;
-    const useExplainClips =
-      englishUseExplain &&
+    const useFirstIntroClips =
+      englishUseFirstIntro &&
       isFirstSessionPresentation &&
       englishFirstPassOnCardRef.current;
-    const enOpts = { englishUseExplain: useExplainClips };
+    const enOpts = { englishUseFirstIntro: useFirstIntroClips };
     const isNewLessonCard = currentPhrase.type === 'new';
     const shouldPronunciationExample =
       isNewLessonCard && isFirstSessionPresentation;
@@ -581,7 +582,7 @@ export function usePhraseDisplay(
     currentPhrase.id,
     currentPhrase.type,
     presentationVersion,
-    englishUseExplain,
+    englishUseFirstIntro,
   ]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Transition to recording once the mic opens. Preserve the 'tryAgain'
