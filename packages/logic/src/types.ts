@@ -8,8 +8,16 @@ export interface WordMeta {
   weight: number;
 }
 
+export type PhraseLessonType = 'new' | 'combination';
+
 export interface Phrase {
   id: string;
+  /**
+   * Lesson card kind from JSON. When `'new'`, the UI shows a Spanish
+   * pronunciation example (audio + text) on AISpeaking after the English
+   * prompt, before the user records.
+   */
+  type?: PhraseLessonType;
   English: { intro: string; question: string; explain: string };
   Spanish: {
     grammar: string;
@@ -45,7 +53,13 @@ export interface SpokenWord {
   confidence?: number;
 }
 
-export type UIStatus = 'loading' | 'idle' | 'recording' | 'answer' | 'tryAgain';
+export type UIStatus =
+  | 'loading'
+  | 'idle'
+  | 'pronunciationExample'
+  | 'recording'
+  | 'answer'
+  | 'tryAgain';
 
 /**
  * Optional hints for TTS. Segment-based adapters (e.g. S3 clip playback) may

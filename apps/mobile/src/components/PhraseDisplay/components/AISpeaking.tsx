@@ -11,6 +11,8 @@ import type { AISpeakingProps } from "../PhraseDisplay.types";
 export const AISpeaking = ({
   isLoading,
   isAudioPlaying,
+  englishQuestion,
+  spanishLine,
 }: AISpeakingProps): JSX.Element => {
   const ring1Scale = useRef(new Animated.Value(1)).current;
   const ring1Opacity = useRef(new Animated.Value(0)).current;
@@ -122,6 +124,16 @@ export const AISpeaking = ({
           )}
         </Animated.View>
       </View>
+      {englishQuestion || spanishLine ? (
+        <View style={styles.revealBlock}>
+          {englishQuestion ? (
+            <Text style={styles.englishQuestion}>{englishQuestion}</Text>
+          ) : null}
+          {spanishLine ? (
+            <Text style={styles.spanishLine}>{spanishLine}</Text>
+          ) : null}
+        </View>
+      ) : null}
     </View>
   );
 };
@@ -165,6 +177,23 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     letterSpacing: 2,
     textTransform: "uppercase",
+  },
+  revealBlock: {
+    marginTop: 40,
+    alignItems: "center",
+    maxWidth: "90%",
+  },
+  englishQuestion: {
+    textAlign: "center",
+    fontSize: 15,
+    color: "#6B7280",
+    marginBottom: 8,
+  },
+  spanishLine: {
+    textAlign: "center",
+    fontSize: 20,
+    fontWeight: "500",
+    color: "#1D1D1D",
   },
 });
 

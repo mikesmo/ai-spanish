@@ -45,10 +45,22 @@ export const PhraseDisplay = ({ phrases }: PhraseDisplayProps): JSX.Element => {
         {session.isComplete ? "session complete" : `${session.remaining} left`}
       </Text>
 
-      {(display.status === "loading" || display.status === "idle") && (
+      {(display.status === "loading" ||
+        display.status === "idle" ||
+        display.status === "pronunciationExample") && (
         <AISpeaking
           isLoading={display.status === "loading"}
           isAudioPlaying={display.isAudioPlaying}
+          englishQuestion={
+            display.status === "pronunciationExample"
+              ? display.currentPhrase.English.question
+              : undefined
+          }
+          spanishLine={
+            display.status === "pronunciationExample"
+              ? display.spanishText
+              : undefined
+          }
         />
       )}
 

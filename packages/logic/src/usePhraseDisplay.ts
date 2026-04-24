@@ -462,6 +462,7 @@ export function usePhraseDisplay(
       isFirstSessionPresentation &&
       englishFirstPassOnCardRef.current;
     const enOpts = { englishUseExplain: useExplainClips };
+    const isNewLessonCard = currentPhrase.type === 'new';
 
     let cancelled = false;
 
@@ -483,6 +484,32 @@ export function usePhraseDisplay(
           enOpts,
         );
         if (cancelled) return;
+
+        if (isNewLessonCard) {
+          if (!cancelled) {
+            setStatus('pronunciationExample');
+            setIsAudioPlaying(true);
+            try {
+              await ttsRef.current.play(
+                spanishText,
+                'es',
+                undefined,
+                ttsPhraseIndexRef.current,
+              );
+            } catch (esError) {
+              console.error(
+                '[usePhraseDisplay] Error playing Spanish (pronunciation example):',
+                esError,
+              );
+            } finally {
+              if (!cancelled) setIsAudioPlaying(false);
+            }
+          }
+        } else if (!cancelled) {
+          setIsAudioPlaying(false);
+        }
+
+        if (cancelled) return;
         sttRef.current.clearTranscription();
         sttRef.current.start({
           keywords: tokenizeTarget(currentPhrase.Spanish.answer),
@@ -491,9 +518,8 @@ export function usePhraseDisplay(
         if (!cancelled) {
           console.error('[usePhraseDisplay] Error loading phrase audio:', error);
           setStatus('idle');
+          setIsAudioPlaying(false);
         }
-      } finally {
-        if (!cancelled) setIsAudioPlaying(false);
       }
     };
 
@@ -508,7 +534,13 @@ export function usePhraseDisplay(
     // at the same index (or a one-element `phrases` array) still triggers a
     // fresh bootstrap. currentPhrase.id is included so queue-driven hosts
     // that swap the in-array identity without changing index also re-run.
-  }, [currentIndex, currentPhrase.id, presentationVersion, englishUseExplain]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [
+    currentIndex,
+    currentPhrase.id,
+    currentPhrase.type,
+    presentationVersion,
+    englishUseExplain,
+  ]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Transition to recording once the mic opens. Preserve the 'tryAgain'
   // status so Try Again passes continue to emit PracticeAttempt events (and

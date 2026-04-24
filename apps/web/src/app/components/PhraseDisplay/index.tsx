@@ -53,10 +53,22 @@ export const PhraseDisplay = ({ phrases }: PhraseDisplayProps): JSX.Element => {
       </p>
 
       <div className="flex-1 flex flex-col min-h-0 w-full">
-      {(display.status === "loading" || display.status === "idle") && (
+      {(display.status === "loading" ||
+        display.status === "idle" ||
+        display.status === "pronunciationExample") && (
         <AISpeaking
           isLoading={display.status === "loading"}
           isAudioPlaying={display.isAudioPlaying}
+          englishQuestion={
+            display.status === "pronunciationExample"
+              ? display.currentPhrase.English.question
+              : undefined
+          }
+          spanishLine={
+            display.status === "pronunciationExample"
+              ? display.spanishText
+              : undefined
+          }
         />
       )}
 

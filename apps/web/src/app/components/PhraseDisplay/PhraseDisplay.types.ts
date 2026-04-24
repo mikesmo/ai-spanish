@@ -7,6 +7,10 @@ export interface PhraseDisplayProps {
 export interface AISpeakingProps {
   isLoading: boolean;
   isAudioPlaying: boolean;
+  /** English prompt in grey above the answer (pronunciation example phase). */
+  englishQuestion?: string | null;
+  /** Spanish line under the English question (e.g. pronunciation example phase). */
+  spanishLine?: string | null;
 }
 
 export interface UserRecordingProps {
