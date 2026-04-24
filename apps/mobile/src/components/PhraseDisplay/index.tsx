@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import {
   runPhraseFeedbackNext,
@@ -31,13 +31,16 @@ export const PhraseDisplay = ({ phrases }: PhraseDisplayProps): JSX.Element => {
   }, [phrases]);
   const ttsPhraseIndex = deckIndexById.get(session.currentPhrase.id) ?? 0;
 
+  const runFeedbackNextRef = useRef<() => void>(() => {});
   const display = usePhraseDisplay(session.phrases, stt, tts, {
     playSuccessChime,
     onPhraseEvent: session.onPhraseEvent,
     onPresentationStart: session.onPresentationStart,
     presentationVersion: session.presentationVersion,
     ttsPhraseIndex,
+    onSkipAnswerScreenAfterSuccess: () => runFeedbackNextRef.current(),
   });
+  runFeedbackNextRef.current = () => runPhraseFeedbackNext(display, session);
 
   return (
     <View style={styles.container}>

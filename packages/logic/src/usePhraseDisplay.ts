@@ -103,6 +103,13 @@ export type UsePhraseDisplayOptions = {
    * Defaults to `true` in development (`NODE_ENV === 'development'` or `__DEV__`).
    */
   debugLearningPipeline?: boolean;
+  /**
+   * When set, correct answers on the first-pass pronunciation-attempt screen
+   * (`new` + first session presentation + no Try Again) invoke this instead
+   * of `playAnswerAudio` / `answer` UI. Host should advance like post-feedback
+   * Next (e.g. `runPhraseFeedbackNext`).
+   */
+  onSkipAnswerScreenAfterSuccess?: () => void;
 };
 
 const splitWords = (s: string): string[] =>
@@ -165,6 +172,12 @@ export function usePhraseDisplay(
 
   const onPresentationStartRef = useRef(options?.onPresentationStart);
   onPresentationStartRef.current = options?.onPresentationStart;
+
+  const onSkipAnswerScreenAfterSuccessRef = useRef(
+    options?.onSkipAnswerScreenAfterSuccess,
+  );
+  onSkipAnswerScreenAfterSuccessRef.current =
+    options?.onSkipAnswerScreenAfterSuccess;
 
   const presentationVersion = options?.presentationVersion;
 
@@ -637,7 +650,17 @@ export function usePhraseDisplay(
             });
           }
         }
-        void playAnswerAudio();
+        const skipAnswerScreen =
+          currentPhrase.type === 'new' &&
+          isFirstSessionPresentationOfCurrentPhrase &&
+          !hasUsedTryAgainOnCurrentCard &&
+          statusRef.current === 'recording' &&
+          onSkipAnswerScreenAfterSuccessRef.current != null;
+        if (skipAnswerScreen) {
+          onSkipAnswerScreenAfterSuccessRef.current?.();
+        } else {
+          void playAnswerAudio();
+        }
       }, POST_SUCCESS_EXTRA_PAUSE_MS);
     })();
 
@@ -645,7 +668,18 @@ export function usePhraseDisplay(
       ac.abort();
       if (postSoundTimer !== null) clearTimeout(postSoundTimer);
     };
-  }, [isCorrect, status, currentIndex, playAnswerAudio, emitAttempt, emitPracticeAttempt, currentPhrase.id]);
+  }, [
+    isCorrect,
+    status,
+    currentIndex,
+    playAnswerAudio,
+    emitAttempt,
+    emitPracticeAttempt,
+    currentPhrase.id,
+    currentPhrase.type,
+    isFirstSessionPresentationOfCurrentPhrase,
+    hasUsedTryAgainOnCurrentCard,
+  ]);
 
   // Final wrong transcript: score synchronously the moment Deepgram closes
   // the utterance (speech_final=true, or UtteranceEnd fallback). The STT

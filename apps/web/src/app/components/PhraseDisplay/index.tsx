@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { runPhraseFeedbackNext, usePhraseDisplay } from "@ai-spanish/logic";
 import { useS3TTS, useSTT } from "@ai-spanish/ai";
 import { playSuccessChime } from "@/lib/playSuccessChime";
@@ -32,13 +32,16 @@ export const PhraseDisplay = ({ phrases }: PhraseDisplayProps): JSX.Element => {
   }, [phrases]);
   const ttsPhraseIndex = deckIndexById.get(session.currentPhrase.id) ?? 0;
 
+  const runFeedbackNextRef = useRef<() => void>(() => {});
   const display = usePhraseDisplay(session.phrases, stt, tts, {
     playSuccessChime,
     onPhraseEvent: session.onPhraseEvent,
     onPresentationStart: session.onPresentationStart,
     presentationVersion: session.presentationVersion,
     ttsPhraseIndex,
+    onSkipAnswerScreenAfterSuccess: () => runFeedbackNextRef.current(),
   });
+  runFeedbackNextRef.current = () => runPhraseFeedbackNext(display, session);
 
   // Keep the session-history phrase pointer in sync with whichever phrase is
   // currently on screen. Ref writes during render are safe — no state updates.
