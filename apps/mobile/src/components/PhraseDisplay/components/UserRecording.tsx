@@ -4,6 +4,8 @@ import { Feather } from "@expo/vector-icons";
 import type { UserRecordingProps } from "../PhraseDisplay.types";
 import { PillButton } from "./PillButton";
 
+type UserRecordingScreenMode = "pronunciationAttempt" | "userTest";
+
 export const UserRecording = ({
   englishText,
   spanishLine,
@@ -14,6 +16,10 @@ export const UserRecording = ({
   onShowAnswer,
 }: UserRecordingProps): JSX.Element => {
   const showRecordingIndicator = isRecording && !isCorrect;
+  const screenMode: UserRecordingScreenMode =
+    spanishLine != null && String(spanishLine).trim() !== ""
+      ? "pronunciationAttempt"
+      : "userTest";
   const blinkOpacity = useRef(new Animated.Value(1)).current;
   const breatheScale = useRef(new Animated.Value(1)).current;
 
@@ -53,6 +59,10 @@ export const UserRecording = ({
             <View style={styles.bienHechoRow}>
               <Feather name="check-circle" size={20} color="#1D9E75" />
               <Text style={styles.bienHechoText}>bien hecho!</Text>
+            </View>
+          ) : screenMode === "pronunciationAttempt" ? (
+            <View style={styles.nowYouTryRow}>
+              <Text style={styles.diffLabel}>Now you try</Text>
             </View>
           ) : null}
 
@@ -126,6 +136,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
     marginBottom: 24,
+  },
+  /** Same slot as bienHecho; matches UserFeedback section labels. */
+  nowYouTryRow: {
+    marginBottom: 24,
+    alignItems: "center",
+    width: "100%",
+  },
+  diffLabel: {
+    fontSize: 11,
+    color: "#9ca3af",
+    letterSpacing: 1,
   },
   bienHechoText: {
     fontSize: 18,

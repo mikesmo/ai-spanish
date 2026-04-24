@@ -5,6 +5,11 @@ import type { UserRecordingProps } from "../PhraseDisplay.types";
 const showAnswerPillClassName =
   "relative w-full overflow-hidden rounded-full bg-white border border-gray-200 h-[54px] flex items-center justify-center shadow-sm";
 
+/** Matches `UserFeedback` section labels (e.g. "You said"). */
+const sectionLabelClassName = "text-[11px] text-gray-400 uppercase tracking-wide";
+
+type UserRecordingScreenMode = "pronunciationAttempt" | "userTest";
+
 export const UserRecording = ({
   englishText,
   spanishLine,
@@ -15,6 +20,10 @@ export const UserRecording = ({
   onShowAnswer,
 }: UserRecordingProps): JSX.Element => {
   const showRecordingIndicator = isRecording && !isCorrect;
+  const screenMode: UserRecordingScreenMode =
+    spanishLine != null && String(spanishLine).trim() !== ""
+      ? "pronunciationAttempt"
+      : "userTest";
 
   return (
   <div className="relative flex-1 flex flex-col items-center justify-between w-full animate-screen-fade-in">
@@ -54,6 +63,10 @@ export const UserRecording = ({
             />
           </svg>
           <p className="text-[18px] text-[#1D9E75]">bien hecho!</p>
+        </div>
+      ) : screenMode === "pronunciationAttempt" ? (
+        <div className="mb-6 flex w-full shrink-0 flex-col items-center">
+          <p className={sectionLabelClassName}>Now you try</p>
         </div>
       ) : null}
 
