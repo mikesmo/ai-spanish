@@ -43,6 +43,11 @@ export interface CliOptions {
   /** STT every manifest MP3 and compare to manifest text; no TTS or S3. */
   verifyStt: boolean;
   /**
+   * ffmpeg volumedetect peak check on every manifest MP3 (standalone, or
+   * implied when `verifyStt` is set — not doubled).
+   */
+  verifyLoudness: boolean;
+  /**
    * If set, regenerate only jobs whose id starts with `{n}-` (0-based phrase
    * index) and merge into existing manifest. Requires a prior full batch.
    */

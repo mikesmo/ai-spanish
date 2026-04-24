@@ -26,6 +26,7 @@ import {
   writeHashCache,
   writeManifest,
 } from './writer.js';
+import { runVerifyLoudness } from './verify-loudness.js';
 import { runVerifyStt } from './stt-verify.js';
 
 import type { Phrase } from '@ai-spanish/logic';
@@ -55,6 +56,7 @@ function parseArgs(argv: string[]): CliOptions {
   let lesson: string | undefined;
   let noAudioPos = false;
   let verifyStt = false;
+  let verifyLoudness = false;
   let onlyPhrase: number | undefined;
 
   for (let i = 0; i < args.length; i++) {
@@ -75,6 +77,8 @@ function parseArgs(argv: string[]): CliOptions {
       uploadOnly = true;
     } else if (a === '--verify-stt') {
       verifyStt = true;
+    } else if (a === '--verify-loudness') {
+      verifyLoudness = true;
     } else if (a === '--only-phrase') {
       const raw = (args[++i] ?? '').trim();
       if (!/^\d+$/.test(raw)) {
@@ -99,6 +103,7 @@ function parseArgs(argv: string[]): CliOptions {
     lesson,
     noAudioPos,
     verifyStt,
+    verifyLoudness,
     onlyPhrase,
   };
 }
@@ -124,7 +129,8 @@ Options:
   --force         Regenerate all audio (ignore cache)
   --local-only    Write audio + manifest to disk only; skip S3 (no AWS credentials needed)
   --upload-only   Upload existing manifest + audio from --out to S3; no Deepgram (no DEEPGRAM_API_KEY)
-  --verify-stt    Prerecorded STT (Deepgram) + optional keyword bias from expected text; strict compare; exit 1 on mismatch
+  --verify-stt     Prerecorded STT (Deepgram) + keyword bias; also runs --verify-loudness first. exit 1 if either fails
+  --verify-loudness  ffmpeg volumedetect: peak + mean floors (use alone or redundant with --verify-stt)
   --only-phrase   Regenerate only this 0-based phrase index (e.g. 11 → 11-en-…); merge into existing manifest; needs prior full run
   --lesson        Optional folder under AUDIO_CONTENT_PREFIX (overrides S3_LESSON), e.g. lesson1
   --no-audio-pos  Skip ffmpeg post-processing (50 ms fade-out + 5 ms tail trim); write raw Deepgram output (requires no ffmpeg)
@@ -136,7 +142,9 @@ Examples:
   npm run tts:batch -- --local-only --only-phrase 11 --out ./output --input apps/web/public/lesson1.json
 
 Environment:
-  DEEPGRAM_API_KEY        Required unless --upload-only; required for --verify-stt
+  DEEPGRAM_API_KEY        Required unless --upload-only; required for --verify-stt (not for --verify-loudness alone)
+  TTS_VERIFY_LOUDNESS_MIN_MAX_DB  Optional; max_volume floor in dB (default -30; peak must be >= this)
+  TTS_VERIFY_LOUDNESS_MIN_MEAN_DB  Optional; mean_volume floor in dB (default -40; mean must be >= this)
   AWS_* / S3_BUCKET_NAME  Required unless --local-only; required for --upload-only
   AUDIO_CONTENT_PREFIX    S3 key prefix (default: audio-content); single segment, e.g. audio-content
   S3_LESSON               Optional lesson segment if --lesson not passed
@@ -336,14 +344,25 @@ async function main(): Promise<void> {
   if (opts.onlyPhrase !== undefined && opts.verifyStt) {
     throw new Error('--only-phrase cannot be used with --verify-stt');
   }
+  if (opts.onlyPhrase !== undefined && opts.verifyLoudness) {
+    throw new Error('--only-phrase cannot be used with --verify-loudness');
+  }
+  if (opts.verifyLoudness && opts.uploadOnly) {
+    throw new Error('--verify-loudness cannot be used with --upload-only');
+  }
 
   if (opts.verifyStt && opts.uploadOnly) {
     throw new Error('--verify-stt cannot be used with --upload-only');
   }
   if (opts.verifyStt) {
+    const cL = await runVerifyLoudness(opts.outDir);
     const apiKey = requireEnv('DEEPGRAM_API_KEY');
-    const code = await runVerifyStt(opts.outDir, apiKey);
-    process.exit(code);
+    const cS = await runVerifyStt(opts.outDir, apiKey);
+    process.exit(cL !== 0 || cS !== 0 ? 1 : 0);
+  }
+  if (opts.verifyLoudness) {
+    const c = await runVerifyLoudness(opts.outDir);
+    process.exit(c);
   }
 
   if (opts.uploadOnly) {
