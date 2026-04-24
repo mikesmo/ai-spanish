@@ -15,10 +15,12 @@ import {
   reduceProgress,
 } from '../mastery';
 import type { Attempt, PracticeAttempt, RevealEvent } from '../events';
+import { SRS_MASTERED_MAX_SESSIONS_OFFSET } from '../srs';
 import type { PhraseProgress } from '../types';
+import type { ReduceProgressContext } from '../mastery';
 
 const NOW = 1_700_000_000_000;
-const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+const CTX: ReduceProgressContext = { completedLessonCount: 0 };
 
 const stubFluency = (fluencyScore: number) => ({
   speedScore: 1,
@@ -121,23 +123,28 @@ describe('classifyState', () => {
 
 describe('reduceProgress — attempt', () => {
   it('seeds progress from null on first attempt', () => {
-    const result = reduceProgress(null, attempt({ accuracyScore: 1, fluencyScore: 1 }));
+    const result = reduceProgress(
+      null,
+      attempt({ accuracyScore: 0.5, fluencyScore: 0.5 }),
+      CTX,
+    );
     // S_0 = 0; S_1 = 0.7 * 0 + 0.3 * 1 = 0.3
     expect(result.stabilityScore).toBeCloseTo(STABILITY_EMA_ALPHA);
     expect(result.masteryScore).toBeGreaterThan(0);
     expect(result.lastSeenAt).toBe(NOW);
-    expect(result.nextReviewAt).toBeGreaterThan(NOW);
+    expect(result.state).toBe('learning');
+    expect(result.dueOnLessonSessionIndex).toBe(CTX.completedLessonCount + 1);
   });
 
   it('applies the EMA on successive successes', () => {
-    const s1 = reduceProgress(null, attempt());
-    const s2 = reduceProgress(s1, attempt({ timestamp: NOW + 1000 }));
+    const s1 = reduceProgress(null, attempt(), CTX);
+    const s2 = reduceProgress(s1, attempt({ timestamp: NOW + 1000 }), CTX);
     // S1 = 0.3; S2 = 0.7*0.3 + 0.3*1 = 0.51
     expect(s2.stabilityScore).toBeCloseTo(0.51);
   });
 
   it('decays stability on a failed accuracy attempt', () => {
-    const s1 = reduceProgress(null, attempt());
+    const s1 = reduceProgress(null, attempt(), CTX);
     const s2 = reduceProgress(
       s1,
       attempt({
@@ -145,6 +152,7 @@ describe('reduceProgress — attempt', () => {
         accuracyScore: 0.3,
         timestamp: NOW + 1000,
       }),
+      CTX,
     );
     // S = 0.7 * 0.3 + 0.3 * 0 = 0.21
     expect(s2.stabilityScore).toBeCloseTo(0.21);
@@ -155,13 +163,13 @@ describe('reduceProgress — attempt', () => {
     const result = reduceProgress(
       null,
       attempt({ fluencyScore: null, accuracyScore: 1 }),
+      CTX,
     );
     // S_1 = 0.3; mastery = 0.6*1 + 0.4*0.3 = 0.72
     expect(result.masteryScore).toBeCloseTo(0.72);
   });
 
-  it('sets nextReviewAt per the SRS bands', () => {
-    // Mastery < 0.6 → +1 day
+  it('sets dueOnLessonSessionIndex per the SRS bands', () => {
     const low = reduceProgress(
       null,
       attempt({
@@ -169,23 +177,37 @@ describe('reduceProgress — attempt', () => {
         fluencyScore: 0.2,
         isAccuracySuccess: false,
       }),
+      CTX,
     );
     expect(low.state).toBe('learning');
-    expect(low.nextReviewAt - low.lastSeenAt).toBe(ONE_DAY_MS);
+    expect(low.dueOnLessonSessionIndex).toBe(CTX.completedLessonCount + 1);
+    expect(low.srsSpacingLessons).toBe(1);
 
-    // Mastery >= 0.8 → +7 days (via many successful attempts)
+    const mid = reduceProgress(
+      null,
+      attempt({ accuracyScore: 0.7, fluencyScore: 0.7 }),
+      CTX,
+    );
+    expect(mid.state).toBe('stabilizing');
+    expect(mid.dueOnLessonSessionIndex).toBe(CTX.completedLessonCount + 2);
+    expect(mid.srsSpacingLessons).toBe(2);
+
     let p: PhraseProgress | null = null;
     for (let i = 0; i < 10; i++) {
-      p = reduceProgress(p, attempt({ timestamp: NOW + i }));
+      p = reduceProgress(p, attempt({ timestamp: NOW + i }), CTX);
     }
     expect(p!.state).toBe('mastered');
-    expect(p!.nextReviewAt - p!.lastSeenAt).toBe(7 * ONE_DAY_MS);
+    // Repeated mastered attempts grow spacing geometrically (capped).
+    expect(p!.srsSpacingLessons).toBe(SRS_MASTERED_MAX_SESSIONS_OFFSET);
+    expect(p!.dueOnLessonSessionIndex).toBe(
+      CTX.completedLessonCount + SRS_MASTERED_MAX_SESSIONS_OFFSET,
+    );
   });
 });
 
 describe('reduceProgress — practice', () => {
   it('returns the previous progress unchanged', () => {
-    const prev = reduceProgress(null, attempt());
+    const prev = reduceProgress(null, attempt(), CTX);
     const practice: PracticeAttempt = {
       eventType: 'practice',
       phraseId: 'p1',
@@ -201,7 +223,7 @@ describe('reduceProgress — practice', () => {
       },
       fluencyBreakdown: stubFluency(1),
     };
-    const next = reduceProgress(prev, practice);
+    const next = reduceProgress(prev, practice, CTX);
     expect(next).toEqual(prev);
   });
 });
@@ -210,7 +232,7 @@ describe('reduceProgress — reveal', () => {
   it('decays mastery and stability and forces learning state', () => {
     let p: PhraseProgress | null = null;
     for (let i = 0; i < 10; i++) {
-      p = reduceProgress(p, attempt({ timestamp: NOW + i }));
+      p = reduceProgress(p, attempt({ timestamp: NOW + i }), CTX);
     }
     const prev = p!;
     const reveal: RevealEvent = {
@@ -219,13 +241,13 @@ describe('reduceProgress — reveal', () => {
       penaltyApplied: true,
       timestamp: NOW + 100_000,
     };
-    const next = reduceProgress(prev, reveal);
+    const next = reduceProgress(prev, reveal, CTX);
     expect(next.masteryScore).toBeCloseTo(prev.masteryScore * REVEAL_MASTERY_DECAY);
     expect(next.stabilityScore).toBeCloseTo(
       prev.stabilityScore * REVEAL_STABILITY_DECAY,
     );
     expect(next.state).toBe('learning');
-    expect(next.nextReviewAt - next.lastSeenAt).toBe(ONE_DAY_MS);
+    expect(next.dueOnLessonSessionIndex).toBe(CTX.completedLessonCount + 1);
   });
 
   it('is safe on a first-ever event', () => {
@@ -235,7 +257,7 @@ describe('reduceProgress — reveal', () => {
       penaltyApplied: true,
       timestamp: NOW,
     };
-    const result = reduceProgress(null, reveal);
+    const result = reduceProgress(null, reveal, CTX);
     expect(result.masteryScore).toBe(0);
     expect(result.stabilityScore).toBe(0);
     expect(result.state).toBe('learning');

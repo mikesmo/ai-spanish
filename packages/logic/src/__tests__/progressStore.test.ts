@@ -8,7 +8,8 @@ const progress = (overrides: Partial<PhraseProgress> = {}): PhraseProgress => ({
   stabilityScore: 0.3,
   state: 'learning',
   lastSeenAt: 0,
-  nextReviewAt: 0,
+  dueOnLessonSessionIndex: 0,
+  srsSpacingLessons: 1,
   ...overrides,
 });
 

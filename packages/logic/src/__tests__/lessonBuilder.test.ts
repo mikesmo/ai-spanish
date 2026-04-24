@@ -5,7 +5,6 @@ import { POS_WEIGHTS } from '../weights';
 import type { Phrase, PhraseProgress } from '../types';
 
 const NOW = 1_700_000_000_000;
-const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
 const phrase = (id: string): Phrase => ({
   id,
@@ -23,11 +22,11 @@ const progress = (overrides: Partial<PhraseProgress>): PhraseProgress => ({
   stabilityScore: 0.3,
   state: 'learning',
   lastSeenAt: NOW,
-  nextReviewAt: NOW + ONE_DAY_MS,
+  dueOnLessonSessionIndex: 99,
+  srsSpacingLessons: 1,
   ...overrides,
 });
 
-// Deterministic pseudo-random for the mastered bucket sampler.
 const seededRandom = (seed: number) => {
   let s = seed;
   return () => {
@@ -36,17 +35,19 @@ const seededRandom = (seed: number) => {
   };
 };
 
+/** Completed-lesson count for deck build: phrases with dueOn <= this are "due". */
+const COMPLETED_LESSONS = 10;
+
 describe('buildLesson', () => {
   it('uses the 70/20/10 mix when all buckets are full', () => {
     const deck = Array.from({ length: 100 }, (_, i) => phrase(`p${i}`));
     const store = createInMemoryProgressStore();
 
-    // 50 due, 30 weak (not due, not mastered), 20 mastered (not due).
     for (let i = 0; i < 50; i++) {
       store.put(
         progress({
           phraseId: `p${i}`,
-          nextReviewAt: NOW - 1,
+          dueOnLessonSessionIndex: 5,
           masteryScore: 0.5,
           state: 'learning',
         }),
@@ -56,7 +57,7 @@ describe('buildLesson', () => {
       store.put(
         progress({
           phraseId: `p${i}`,
-          nextReviewAt: NOW + ONE_DAY_MS * 3,
+          dueOnLessonSessionIndex: 20,
           masteryScore: 0.4,
           state: 'learning',
         }),
@@ -66,14 +67,14 @@ describe('buildLesson', () => {
       store.put(
         progress({
           phraseId: `p${i}`,
-          nextReviewAt: NOW + ONE_DAY_MS * 7,
+          dueOnLessonSessionIndex: 50,
           masteryScore: 0.9,
           state: 'mastered',
         }),
       );
     }
 
-    const built = buildLesson(deck, store, NOW, {
+    const built = buildLesson(deck, store, COMPLETED_LESSONS, {
       deckSize: DEFAULT_DECK_SIZE,
       random: seededRandom(42),
     });
@@ -81,7 +82,6 @@ describe('buildLesson', () => {
     expect(built.length).toBe(DEFAULT_DECK_SIZE);
     expect(new Set(built.map((p) => p.id)).size).toBe(DEFAULT_DECK_SIZE);
 
-    // With deckSize 20 → 14 scheduled / 4 weak / 2 mastered.
     const scheduledIds = built
       .filter((p) => Number(p.id.slice(1)) < 50)
       .map((p) => p.id);
@@ -103,7 +103,7 @@ describe('buildLesson', () => {
   it('treats never-seen phrases as weak', () => {
     const deck = [phrase('a'), phrase('b'), phrase('c')];
     const store = createInMemoryProgressStore();
-    const built = buildLesson(deck, store, NOW, { deckSize: 3 });
+    const built = buildLesson(deck, store, COMPLETED_LESSONS, { deckSize: 3 });
     expect(built.length).toBe(3);
     expect(new Set(built.map((p) => p.id))).toEqual(new Set(['a', 'b', 'c']));
   });
@@ -116,21 +116,17 @@ describe('buildLesson', () => {
       store.put(
         progress({
           phraseId: `p${i}`,
-          nextReviewAt: NOW + ONE_DAY_MS * 3,
+          dueOnLessonSessionIndex: 20,
           masteryScore: m,
           state: 'learning',
         }),
       );
     });
-    const built = buildLesson(deck, store, NOW, {
+    const built = buildLesson(deck, store, COMPLETED_LESSONS, {
       deckSize: 3,
       random: seededRandom(7),
     });
-    // 3-slot deck → 70% scheduled = 2, 20% weak = 1, 10% mastered = 0.
-    // But no scheduled available, so weak fills in. The test checks weak
-    // ordering when ≥1 weak slot is present.
     expect(built.length).toBe(3);
-    // The very first weak pick should be the lowest-mastery phrase, p1.
     expect(built.map((p) => p.id)).toContain('p1');
   });
 
@@ -141,13 +137,13 @@ describe('buildLesson', () => {
       store.put(
         progress({
           phraseId: `p${i}`,
-          nextReviewAt: NOW - 1,
+          dueOnLessonSessionIndex: 3,
           masteryScore: 0.5,
           state: 'learning',
         }),
       );
     }
-    const built = buildLesson(deck, store, NOW, { deckSize: 5 });
+    const built = buildLesson(deck, store, COMPLETED_LESSONS, { deckSize: 5 });
     expect(built.length).toBe(5);
   });
 
@@ -158,13 +154,13 @@ describe('buildLesson', () => {
       store.put(
         progress({
           phraseId: `p${i}`,
-          nextReviewAt: NOW - 1,
+          dueOnLessonSessionIndex: 0,
           masteryScore: 0.5,
           state: 'learning',
         }),
       );
     }
-    const built = buildLesson(deck, store, NOW, { deckSize: 10 });
+    const built = buildLesson(deck, store, COMPLETED_LESSONS, { deckSize: 10 });
     expect(built.length).toBe(10);
   });
 });

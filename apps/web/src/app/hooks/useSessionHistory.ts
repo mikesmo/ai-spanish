@@ -10,6 +10,7 @@ import {
   type PhraseEvent,
   type PhraseEventContext,
   type PhraseProgress,
+  type ReduceProgressContext,
 } from "@ai-spanish/logic";
 
 export interface ScoreSummary {
@@ -45,12 +46,11 @@ export interface HistoryEntry {
    */
   isRepeatedPresentation: boolean;
   /**
-   * Epoch ms when this phrase is next due for SRS review after applying this
-   * event — i.e. `reduceProgress(prev, event).nextReviewAt`. For `practice`
-   * events (which never touch progress) this is the prior schedule carried
-   * forward, matching `reduceProgress` semantics.
+   * Lesson index when this phrase becomes SRS-eligible after this event —
+   * `reduceProgress(prev, event, ctx).dueOnLessonSessionIndex`. For `practice`
+   * events (no progress change) this is the prior value carried forward.
    */
-  nextReviewAt: number;
+  dueOnLessonSessionIndex: number;
   /**
    * Snapshot of the in-session queue position (0-based index into the
    * remaining queue) for this phrase **immediately after** the session engine
@@ -105,8 +105,13 @@ const generateId = (): string => {
  * before and after match — but accuracy/fluency still reflect the retry for
  * display. Each entry carries `stabilityBreakdown` and mastery before/after
  * for the sidebar.
+ *
+ * @param completedLessonCount Lessons fully completed before this lesson run;
+ *   must match the value passed into `useLessonSession` / the session engine.
  */
-export const useSessionHistory = (): UseSessionHistoryResult => {
+export const useSessionHistory = (
+  completedLessonCount: number,
+): UseSessionHistoryResult => {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const phraseRef = useRef<Phrase | undefined>(undefined);
   /**
@@ -119,18 +124,24 @@ export const useSessionHistory = (): UseSessionHistoryResult => {
   const currentIsRepeatRef = useRef(false);
   /**
    * Per-phrase SRS progress, mirroring what a `ProgressStore` would hold.
-   * Updated via `reduceProgress` on each logged event so every HistoryEntry
-   * can surface its post-event `nextReviewAt`.
+   * Updated via `reduceProgress(..., ctx)` on each logged event so every
+   * HistoryEntry can surface its post-event `dueOnLessonSessionIndex`.
    */
   const progressByPhraseRef = useRef<Map<string, PhraseProgress>>(new Map());
+
+  const completedLessonCountRef = useRef(completedLessonCount);
+  completedLessonCountRef.current = completedLessonCount;
 
   const onPhraseEvent = useCallback(
     (event: PhraseEvent, ctx: PhraseEventContext): void => {
     const phrase = phraseRef.current;
     if (!phrase) return;
 
+    const reduceCtx: ReduceProgressContext = {
+      completedLessonCount: completedLessonCountRef.current,
+    };
     const prevProgress = progressByPhraseRef.current.get(phrase.id) ?? null;
-    const nextProgress = reduceProgress(prevProgress, event);
+    const nextProgress = reduceProgress(prevProgress, event, reduceCtx);
     progressByPhraseRef.current.set(phrase.id, nextProgress);
 
     const stabilityBefore = prevProgress?.stabilityScore ?? 0;
@@ -188,7 +199,7 @@ export const useSessionHistory = (): UseSessionHistoryResult => {
         eventType: event.eventType,
         phraseId: phrase.id,
         transcriptPreview: transcriptStr,
-        nextReviewAt: nextProgress.nextReviewAt,
+        dueOnLessonSessionIndex: nextProgress.dueOnLessonSessionIndex,
         slotsSessionLog: ctx.slotsAheadAtEvent,
         slotsSessionNow: ctx.liveSlotsAhead,
       });
@@ -203,7 +214,7 @@ export const useSessionHistory = (): UseSessionHistoryResult => {
       masteryBefore,
       masteryAfter,
       isRepeatedPresentation: currentIsRepeatRef.current,
-      nextReviewAt: nextProgress.nextReviewAt,
+      dueOnLessonSessionIndex: nextProgress.dueOnLessonSessionIndex,
       slotsAheadAtEvent,
     };
 

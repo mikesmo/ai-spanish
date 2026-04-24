@@ -1,44 +1,55 @@
-import { MASTERY_LEARNING_CEIL, MASTERY_STABILIZING_CEIL } from './mastery';
-import type { PhraseProgress } from './types';
+import type { PhraseProgress, PhraseState } from './types';
 
-const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-
-/** Cross-session SRS intervals. */
-export const SRS_LEARNING_INTERVAL_MS = 1 * ONE_DAY_MS;
-export const SRS_STABILIZING_INTERVAL_MS = 2 * ONE_DAY_MS;
-export const SRS_MASTERED_MIN_INTERVAL_MS = 7 * ONE_DAY_MS;
-export const SRS_MASTERED_MAX_INTERVAL_MS = 14 * ONE_DAY_MS;
+/** Lessons until next scheduled review when post-event state is `learning`. */
+export const SRS_LEARNING_SESSIONS_OFFSET = 1;
+/** Lessons until next review when post-event state is `stabilizing`. */
+export const SRS_STABILIZING_SESSIONS_OFFSET = 2;
+/** First interval in the `mastered` band (session analogue of ~7d). */
+export const SRS_MASTERED_MIN_SESSIONS_OFFSET = 3;
+/** Cap for doubled mastered spacing (session analogue of ~14d). */
+export const SRS_MASTERED_MAX_SESSIONS_OFFSET = 8;
+/** Show Answer / give-up path: review next lesson. */
+export const SRS_REVEAL_SESSIONS_OFFSET = 1;
 
 /**
- * Decide when a phrase should next appear. For `learning` and `stabilizing`,
- * the interval is fixed. For `mastered`, we grow the interval geometrically
- * (starting at 7 days, doubling up to 14 days) based on the prior interval.
+ * How many full lessons from *now* (the current `completedLessonCount`) until
+ * this phrase should be scheduled again, based on the post-event mastery band.
  */
-export function scheduleNextReview(
+export function computeSrsLessonOffset(
   prev: PhraseProgress | null,
-  next: PhraseProgress,
-  now: number,
+  newState: PhraseState,
 ): number {
-  if (next.masteryScore < MASTERY_LEARNING_CEIL) {
-    return now + SRS_LEARNING_INTERVAL_MS;
+  if (newState === 'learning') {
+    return SRS_LEARNING_SESSIONS_OFFSET;
   }
-  if (next.masteryScore < MASTERY_STABILIZING_CEIL) {
-    return now + SRS_STABILIZING_INTERVAL_MS;
+  if (newState === 'stabilizing') {
+    return SRS_STABILIZING_SESSIONS_OFFSET;
   }
-
-  // Mastered: grow the interval. If the previous review was also mastered,
-  // double the last successful interval, capped at the max.
-  if (prev && prev.state === 'mastered' && prev.lastSeenAt > 0) {
-    const priorInterval = Math.max(
-      SRS_MASTERED_MIN_INTERVAL_MS,
-      prev.nextReviewAt - prev.lastSeenAt,
+  // mastered
+  if (
+    prev &&
+    prev.state === 'mastered' &&
+    prev.srsSpacingLessons >= SRS_MASTERED_MIN_SESSIONS_OFFSET
+  ) {
+    return Math.min(
+      prev.srsSpacingLessons * 2,
+      SRS_MASTERED_MAX_SESSIONS_OFFSET,
     );
-    const grown = Math.min(priorInterval * 2, SRS_MASTERED_MAX_INTERVAL_MS);
-    return now + grown;
   }
-  return now + SRS_MASTERED_MIN_INTERVAL_MS;
+  return SRS_MASTERED_MIN_SESSIONS_OFFSET;
 }
 
-export function isDueForReview(progress: PhraseProgress, now: number): boolean {
-  return progress.nextReviewAt <= now;
+/** Absolute lesson index when the phrase becomes SRS-due. */
+export function scheduleDueOnLessonSessionIndex(
+  completedLessonCount: number,
+  offset: number,
+): number {
+  return completedLessonCount + offset;
+}
+
+export function isDueForReview(
+  progress: PhraseProgress,
+  completedLessonCount: number,
+): boolean {
+  return progress.dueOnLessonSessionIndex <= completedLessonCount;
 }

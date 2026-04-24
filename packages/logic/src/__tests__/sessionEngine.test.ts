@@ -9,6 +9,8 @@ import {
   createSessionEngine,
 } from '../sessionEngine';
 import { MASTERY_STABILIZING_CEIL, reduceProgress } from '../mastery';
+
+const REDUCE_CTX = { completedLessonCount: 0 } as const;
 import { createInMemoryProgressStore } from '../progressStore';
 import { POS_WEIGHTS } from '../weights';
 import type { Attempt, PracticeAttempt, RevealEvent } from '../events';
@@ -150,7 +152,7 @@ describe('createSessionEngine', () => {
     // Derive the expected slot from the public formula rather than hard-coding
     // it — keeps the test sensitive to *behavior* (weak → low slot) while
     // tracking tuning changes in a single place.
-    const nextProgress = reduceProgress(null, weakAttempt);
+    const nextProgress = reduceProgress(null, weakAttempt, REDUCE_CTX);
     const expectedSlot = computeReinsertSlots(
       nextProgress.masteryScore,
       nextProgress.stabilityScore,
@@ -170,7 +172,7 @@ describe('createSessionEngine', () => {
       fluencyScore: 0.7,
     });
     engine.onEvent(stabilizingAttempt);
-    const nextProgress = reduceProgress(null, stabilizingAttempt);
+    const nextProgress = reduceProgress(null, stabilizingAttempt, REDUCE_CTX);
     const expectedSlot = computeReinsertSlots(
       nextProgress.masteryScore,
       nextProgress.stabilityScore,
@@ -184,6 +186,7 @@ describe('createSessionEngine', () => {
         fluencyScore: 0.2,
         isAccuracySuccess: false,
       }),
+      REDUCE_CTX,
     );
     const weakSlot = computeReinsertSlots(
       weakProgress.masteryScore,
@@ -363,7 +366,7 @@ describe('getQueuePosition', () => {
       isAccuracySuccess: false,
     });
     engine.onEvent(weakAttempt);
-    const nextProgress = reduceProgress(null, weakAttempt);
+    const nextProgress = reduceProgress(null, weakAttempt, REDUCE_CTX);
     const expectedSlot = computeReinsertSlots(
       nextProgress.masteryScore,
       nextProgress.stabilityScore,

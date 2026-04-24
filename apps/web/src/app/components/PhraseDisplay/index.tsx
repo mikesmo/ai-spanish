@@ -99,6 +99,7 @@ export const PhraseDisplay = ({ phrases }: PhraseDisplayProps): JSX.Element => {
         getLiveSlotsAhead={session.getLiveSlotsAhead}
         queueVersion={session.presentationVersion}
         remainingInSession={session.remaining}
+        completedLessonCount={session.completedLessonCount}
       />
     </div>
   );

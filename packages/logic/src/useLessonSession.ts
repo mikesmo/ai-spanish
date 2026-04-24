@@ -41,6 +41,11 @@ export interface UseLessonSessionOptions {
    * destructure separately. Not used by the engine itself.
    */
   onPresentationStart?: (phrase: Phrase) => void;
+  /**
+   * Lessons fully completed *before* this lesson run. Drives session-based SRS
+   * in the progress store. Default 0. Host should bump between runs and persist.
+   */
+  completedLessonCount?: number;
 }
 
 export interface UseLessonSessionResult {
@@ -98,7 +103,10 @@ export const useLessonSession = (
     throw new Error('useLessonSession: deck must contain at least one phrase');
   }
 
-  const { onEvent, onPresentationStart } = options;
+  const { onEvent, onPresentationStart, completedLessonCount = 0 } = options;
+
+  const completedLessonCountRef = useRef(completedLessonCount);
+  completedLessonCountRef.current = completedLessonCount;
 
   // Engine + store are imperative and identity-stable across renders. Built
   // once per mount; we do not rebuild when `deck` identity changes (the
@@ -107,7 +115,9 @@ export const useLessonSession = (
   const engineRef = useRef<SessionEngine | null>(null);
   if (engineRef.current === null) {
     const store = createInMemoryProgressStore();
-    engineRef.current = createSessionEngine(deck, store);
+    engineRef.current = createSessionEngine(deck, store, {
+      getCompletedLessonCount: () => completedLessonCountRef.current,
+    });
   }
 
   /**

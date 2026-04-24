@@ -33,16 +33,19 @@ function drawN<T>(arr: T[], n: number, random: () => number): T[] {
 /**
  * Assemble a daily lesson deck using the spec's 70 / 20 / 10 mix:
  *
- *  - 70% scheduled reviews (phrases whose `nextReviewAt` is due).
+ *  - 70% scheduled reviews (phrases whose session-based SRS slot is due).
  *  - 20% weakest non-scheduled (lowest mastery first).
  *  - 10% mastered reinforcement (sampled).
  *
  * If a bucket runs dry, remaining slots are filled from the other buckets.
+ *
+ * @param completedLessonCount Lessons fully completed before this build
+ *   (`PhraseProgress.dueOnLessonSessionIndex <= completedLessonCount` → due).
  */
 export function buildLesson(
   phrases: Phrase[],
   store: ProgressStore,
-  now: number,
+  completedLessonCount: number,
   options: LessonBuilderOptions = {},
 ): Phrase[] {
   const deckSize = options.deckSize ?? DEFAULT_DECK_SIZE;
@@ -62,7 +65,7 @@ export function buildLesson(
       weakPhrases.push({ phrase, mastery: 0 });
       continue;
     }
-    if (isDueForReview(progress, now)) {
+    if (isDueForReview(progress, completedLessonCount)) {
       scheduledPhrases.push(phrase);
     } else if (progress.state === 'mastered') {
       masteredPhrases.push(phrase);

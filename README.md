@@ -107,6 +107,12 @@ cd apps/mobile && npx expo start
 
 > **Note:** Audio playback (`expo-av`) requires the development build above. It will not work in standard [Expo Go](https://expo.dev/go).
 
+## Spaced repetition (SRS)
+
+Cross-session scheduling is **lesson-based**, not wall-clock. Each `PhraseProgress` stores `dueOnLessonSessionIndex`: the phrase is eligible for the “scheduled review” slice of a built deck when the host’s **`completedLessonCount`** (number of fully finished lesson runs) is at least that index. After each scored attempt or reveal, the reducer sets that index from the current count plus a banded offset (e.g. next lesson while learning, two lessons ahead while stabilizing, growing spacing in the mastered band).
+
+The web lesson host bumps `completedLessonCount` when the session queue drains. For real persistence, store that counter (and phrase progress) in local storage or a backend between visits; remounting the lesson UI without restoring it resets the counter to zero.
+
 ### Local build (requires Android Studio / Xcode)
 
 ```bash

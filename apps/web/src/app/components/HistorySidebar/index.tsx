@@ -56,6 +56,11 @@ interface HistorySidebarProps {
   queueVersion: number;
   /** Cards still in the session queue (excludes the currently-shown card). */
   remainingInSession: number;
+  /**
+   * Lessons fully completed before this run (host state). Used to label SRS
+   * “next” relative to the current lesson index.
+   */
+  completedLessonCount: number;
 }
 
 interface SessionStats {
@@ -111,45 +116,22 @@ const formatTime = (ts: number): string =>
     second: "2-digit",
   });
 
-const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-
-const isSameDay = (a: Date, b: Date): boolean =>
-  a.getFullYear() === b.getFullYear() &&
-  a.getMonth() === b.getMonth() &&
-  a.getDate() === b.getDate();
-
 /**
- * Compact relative label for the SRS `nextReviewAt`. The reducer bands are
- * coarse (≈1d / 2d / 7d), so a day-level rendering is enough signal. Fall back
- * to a short locale date for anything further out.
+ * Compact label for session-based SRS: compares stored `dueOnLessonSessionIndex`
+ * to the host’s current completed-lesson count.
  */
-const formatNextReview = (ts: number, now: number): string => {
-  const diff = ts - now;
-  if (diff <= 0) return "now";
-  const future = new Date(ts);
-  const today = new Date(now);
-  if (isSameDay(future, today)) {
-    return `today ${future.toLocaleTimeString(undefined, {
-      hour: "2-digit",
-      minute: "2-digit",
-    })}`;
-  }
-  const days = Math.round(diff / ONE_DAY_MS);
-  if (days <= 1) return "tomorrow";
-  if (days <= 13) return `in ${days}d`;
-  return future.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-  });
+const formatSrsSessionLabel = (
+  dueOnLessonSessionIndex: number,
+  completedLessonCount: number,
+): string => {
+  const delta = dueOnLessonSessionIndex - completedLessonCount;
+  if (delta <= 0) return "due now";
+  if (delta === 1) return "next lesson";
+  return `in ${delta} lessons`;
 };
 
-const formatNextReviewTitle = (ts: number): string =>
-  new Date(ts).toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+const formatSrsSessionTitle = (dueOnLessonSessionIndex: number): string =>
+  `SRS: phrase eligible when completed-lesson count ≥ ${dueOnLessonSessionIndex}`;
 
 /**
  * Render the in-session distance. `null` → em-dash (phrase isn't in the
@@ -639,9 +621,15 @@ interface RowProps {
   index: number;
   entry: HistoryEntry;
   liveSlotsAhead: number | null;
+  completedLessonCount: number;
 }
 
-const HistoryRow = ({ index, entry, liveSlotsAhead }: RowProps): JSX.Element => {
+const HistoryRow = ({
+  index,
+  entry,
+  liveSlotsAhead,
+  completedLessonCount,
+}: RowProps): JSX.Element => {
   const [expanded, setExpanded] = useState(false);
   const { event, phrase, scoreSummary } = entry;
   const badge = getResultBadge(entry);
@@ -714,10 +702,14 @@ const HistoryRow = ({ index, entry, liveSlotsAhead }: RowProps): JSX.Element => 
               </span>
             )}
             <span
-              title={`Next SRS review: ${formatNextReviewTitle(entry.nextReviewAt)}`}
+              title={`${formatSrsSessionTitle(entry.dueOnLessonSessionIndex)} (current completed-lesson count: ${completedLessonCount})`}
               className="text-[10px] text-gray-500 tabular-nums"
             >
-              next: {formatNextReview(entry.nextReviewAt, event.timestamp)}
+              next:{" "}
+              {formatSrsSessionLabel(
+                entry.dueOnLessonSessionIndex,
+                completedLessonCount,
+              )}
             </span>
             <span
               title="In-session distance captured at the moment this event was logged. Mirrors the session engine's Pimsleur requeue: REPEAT_SOON for weak attempts/reveals, REPEAT_LATER for stabilizing attempts, '—' for mastered (dropped) or practice."
@@ -835,7 +827,7 @@ const EVENT_LEGEND: LegendItem[] = [
   {
     term: "next",
     description:
-      "When this phrase is due for its next SRS review after the event, per the mastery reducer: ~1 day while learning, ~2 days while stabilizing, ~7 days once mastered; a reveal resets to the next day. Retry (practice) rows carry the prior schedule forward unchanged.",
+      "Cross-session SRS is lesson-based (not wall-clock): after the event, the phrase stores a due-on lesson index. Learning-band results schedule the next lesson; stabilizing schedules two lessons ahead; mastered uses a growing spacing (capped); reveal schedules the next lesson. “next” compares that index to your completed-lesson count. Retry (practice) rows carry the prior schedule forward unchanged.",
   },
   {
     term: "session (log)",
@@ -980,9 +972,9 @@ const Legend = (): JSX.Element => (
         Phrases graduate through{" "}
         <span className="font-mono">learning</span> →{" "}
         <span className="font-mono">stabilizing</span> →{" "}
-        <span className="font-mono">mastered</span> bands, and the spaced-
-        repetition scheduler uses that band to decide when to show them to
-        you again.
+        <span className="font-mono">mastered</span> bands, and the         spaced-repetition scheduler uses that band to decide how many
+        full lesson runs to skip before showing them again (session-based,
+        not calendar time).
       </p>
     </div>
 
@@ -1079,6 +1071,7 @@ export const HistorySidebar = ({
   getLiveSlotsAhead,
   queueVersion,
   remainingInSession,
+  completedLessonCount,
 }: HistorySidebarProps): JSX.Element => {
   const stats = useMemo(() => computeStats(history), [history]);
   const reversed = useMemo(() => [...history].reverse(), [history]);
@@ -1290,6 +1283,7 @@ export const HistorySidebar = ({
                     liveSlotsAhead={
                       liveSlotsByPhraseId.get(entry.phrase.id) ?? null
                     }
+                    completedLessonCount={completedLessonCount}
                   />
                 ))}
               </tbody>

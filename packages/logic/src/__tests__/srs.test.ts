@@ -1,82 +1,87 @@
 import { describe, expect, it } from 'vitest';
 import {
-  SRS_LEARNING_INTERVAL_MS,
-  SRS_MASTERED_MAX_INTERVAL_MS,
-  SRS_MASTERED_MIN_INTERVAL_MS,
-  SRS_STABILIZING_INTERVAL_MS,
+  SRS_LEARNING_SESSIONS_OFFSET,
+  SRS_MASTERED_MAX_SESSIONS_OFFSET,
+  SRS_MASTERED_MIN_SESSIONS_OFFSET,
+  SRS_STABILIZING_SESSIONS_OFFSET,
+  computeSrsLessonOffset,
   isDueForReview,
-  scheduleNextReview,
+  scheduleDueOnLessonSessionIndex,
 } from '../srs';
 import type { PhraseProgress } from '../types';
-
-const NOW = 1_700_000_000_000;
-const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
 const progress = (overrides: Partial<PhraseProgress> = {}): PhraseProgress => ({
   phraseId: 'p1',
   masteryScore: 0.5,
   stabilityScore: 0.3,
   state: 'learning',
-  lastSeenAt: NOW,
-  nextReviewAt: NOW + ONE_DAY_MS,
+  lastSeenAt: 0,
+  dueOnLessonSessionIndex: 1,
+  srsSpacingLessons: 1,
   ...overrides,
 });
 
-describe('scheduleNextReview', () => {
-  it('uses the learning interval when mastery < 0.6', () => {
-    const next = progress({ masteryScore: 0.4 });
-    expect(scheduleNextReview(null, next, NOW) - NOW).toBe(
-      SRS_LEARNING_INTERVAL_MS,
+describe('computeSrsLessonOffset', () => {
+  it('uses learning offset for learning state', () => {
+    expect(computeSrsLessonOffset(null, 'learning')).toBe(
+      SRS_LEARNING_SESSIONS_OFFSET,
     );
   });
 
-  it('uses the stabilizing interval when 0.6 <= mastery < 0.8', () => {
-    const next = progress({ masteryScore: 0.7 });
-    expect(scheduleNextReview(null, next, NOW) - NOW).toBe(
-      SRS_STABILIZING_INTERVAL_MS,
+  it('uses stabilizing offset for stabilizing state', () => {
+    expect(computeSrsLessonOffset(null, 'stabilizing')).toBe(
+      SRS_STABILIZING_SESSIONS_OFFSET,
     );
   });
 
-  it('starts at 7 days when first mastered', () => {
-    const next = progress({ masteryScore: 0.9, state: 'mastered' });
-    expect(scheduleNextReview(null, next, NOW) - NOW).toBe(
-      SRS_MASTERED_MIN_INTERVAL_MS,
+  it('starts at min mastered offset when not previously mastered', () => {
+    expect(computeSrsLessonOffset(progress(), 'mastered')).toBe(
+      SRS_MASTERED_MIN_SESSIONS_OFFSET,
     );
   });
 
-  it('doubles the interval on repeated mastery, capped at 14 days', () => {
-    const prev: PhraseProgress = progress({
-      masteryScore: 0.9,
+  it('doubles spacing when previously mastered, capped', () => {
+    const prev = progress({
       state: 'mastered',
-      lastSeenAt: NOW - 7 * ONE_DAY_MS,
-      nextReviewAt: NOW,
+      srsSpacingLessons: SRS_MASTERED_MIN_SESSIONS_OFFSET,
     });
-    const next: PhraseProgress = progress({ masteryScore: 0.9, state: 'mastered' });
-    const delta = scheduleNextReview(prev, next, NOW) - NOW;
-    expect(delta).toBe(14 * ONE_DAY_MS);
+    expect(computeSrsLessonOffset(prev, 'mastered')).toBe(
+      Math.min(
+        SRS_MASTERED_MIN_SESSIONS_OFFSET * 2,
+        SRS_MASTERED_MAX_SESSIONS_OFFSET,
+      ),
+    );
   });
 
-  it('does not exceed the max mastered interval', () => {
-    const prev: PhraseProgress = progress({
-      masteryScore: 0.95,
+  it('does not exceed max mastered spacing', () => {
+    const prev = progress({
       state: 'mastered',
-      lastSeenAt: NOW - 30 * ONE_DAY_MS,
-      nextReviewAt: NOW,
+      srsSpacingLessons: SRS_MASTERED_MAX_SESSIONS_OFFSET,
     });
-    const next: PhraseProgress = progress({ masteryScore: 0.95, state: 'mastered' });
-    const delta = scheduleNextReview(prev, next, NOW) - NOW;
-    expect(delta).toBeLessThanOrEqual(SRS_MASTERED_MAX_INTERVAL_MS);
+    expect(computeSrsLessonOffset(prev, 'mastered')).toBe(
+      SRS_MASTERED_MAX_SESSIONS_OFFSET,
+    );
+  });
+});
+
+describe('scheduleDueOnLessonSessionIndex', () => {
+  it('adds offset to completed lesson count', () => {
+    expect(scheduleDueOnLessonSessionIndex(3, 2)).toBe(5);
   });
 });
 
 describe('isDueForReview', () => {
-  it('is true when nextReviewAt is in the past', () => {
-    expect(isDueForReview(progress({ nextReviewAt: NOW - 1 }), NOW)).toBe(true);
+  it('is true when due index is at or before completed count', () => {
+    expect(isDueForReview(progress({ dueOnLessonSessionIndex: 2 }), 3)).toBe(
+      true,
+    );
+    expect(isDueForReview(progress({ dueOnLessonSessionIndex: 3 }), 3)).toBe(
+      true,
+    );
   });
-  it('is true when nextReviewAt equals now', () => {
-    expect(isDueForReview(progress({ nextReviewAt: NOW }), NOW)).toBe(true);
-  });
-  it('is false when nextReviewAt is in the future', () => {
-    expect(isDueForReview(progress({ nextReviewAt: NOW + 1 }), NOW)).toBe(false);
+  it('is false when due index is after completed count', () => {
+    expect(isDueForReview(progress({ dueOnLessonSessionIndex: 4 }), 3)).toBe(
+      false,
+    );
   });
 });

@@ -1,4 +1,5 @@
 import { MASTERY_STABILIZING_CEIL, reduceProgress } from './mastery';
+import type { ReduceProgressContext } from './mastery';
 import type { PhraseEvent } from './events';
 import type { Phrase } from './types';
 import type { ProgressStore } from './progressStore';
@@ -76,6 +77,14 @@ function insertAt<T>(arr: T[], index: number, item: T): T[] {
   return [...arr.slice(0, clamped), item, ...arr.slice(clamped)];
 }
 
+export interface CreateSessionEngineOptions {
+  /**
+   * Lessons fully completed *before* this lesson run. Drives session-based SRS
+   * in `reduceProgress`. Defaults to always `0` when omitted.
+   */
+  getCompletedLessonCount?: () => number;
+}
+
 /**
  * In-session Pimsleur-style loop. The queue is a simple list of remaining
  * phrases. After each attempt, the just-presented phrase may be reinserted K
@@ -84,7 +93,10 @@ function insertAt<T>(arr: T[], index: number, item: T): T[] {
 export function createSessionEngine(
   deck: Phrase[],
   store: ProgressStore,
+  options: CreateSessionEngineOptions = {},
 ): SessionEngine {
+  const getCompletedLessonCount =
+    options.getCompletedLessonCount ?? (() => 0);
   let queue: Phrase[] = [...deck];
   let currentPhraseId: string | null = null;
   const reinsertCount = new Map<string, number>();
@@ -115,7 +127,10 @@ export function createSessionEngine(
       }
 
       const prev = store.get(event.phraseId);
-      const next = reduceProgress(prev, event);
+      const reduceCtx: ReduceProgressContext = {
+        completedLessonCount: getCompletedLessonCount(),
+      };
+      const next = reduceProgress(prev, event, reduceCtx);
       store.put(next);
 
       if (event.phraseId !== currentPhraseId) return;

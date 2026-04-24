@@ -1,5 +1,10 @@
 import type { PhraseEvent } from './events';
 import type { PhraseProgress, PhraseState } from './types';
+import {
+  computeSrsLessonOffset,
+  scheduleDueOnLessonSessionIndex,
+  SRS_REVEAL_SESSIONS_OFFSET,
+} from './srs';
 
 /** Stability EMA coefficient. `S' = (1 - alpha) * prev + alpha * current`. */
 export const STABILITY_EMA_ALPHA = 0.3;
@@ -20,10 +25,6 @@ export const MASTERY_W_STABILITY_NO_FLUENCY = 0.4;
 /** Reveal decay multipliers. */
 export const REVEAL_MASTERY_DECAY = 0.6;
 export const REVEAL_STABILITY_DECAY = 0.7;
-
-const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-const TWO_DAYS_MS = 2 * ONE_DAY_MS;
-const SEVEN_DAYS_MS = 7 * ONE_DAY_MS;
 
 const clamp01 = (n: number): number => (n < 0 ? 0 : n > 1 ? 1 : n);
 
@@ -56,13 +57,9 @@ export function computeMastery(
   );
 }
 
-/**
- * Canonical SRS schedule.
- */
-export function scheduleNextReview(mastery: number, now: number): number {
-  if (mastery < MASTERY_LEARNING_CEIL) return now + ONE_DAY_MS;
-  if (mastery < MASTERY_STABILIZING_CEIL) return now + TWO_DAYS_MS;
-  return now + SEVEN_DAYS_MS;
+/** Context for cross-session SRS: lessons fully completed before this lesson run. */
+export interface ReduceProgressContext {
+  completedLessonCount: number;
 }
 
 function newProgress(phraseId: string, now: number): PhraseProgress {
@@ -72,7 +69,8 @@ function newProgress(phraseId: string, now: number): PhraseProgress {
     stabilityScore: 0,
     state: 'new',
     lastSeenAt: now,
-    nextReviewAt: now,
+    dueOnLessonSessionIndex: 0,
+    srsSpacingLessons: 1,
   };
 }
 
@@ -83,6 +81,7 @@ function newProgress(phraseId: string, now: number): PhraseProgress {
 export function reduceProgress(
   prev: PhraseProgress | null,
   event: PhraseEvent,
+  ctx: ReduceProgressContext,
 ): PhraseProgress {
   const base = prev ?? newProgress(event.phraseId, event.timestamp);
 
@@ -97,13 +96,19 @@ export function reduceProgress(
         event.fluencyScore,
         stabilityScore,
       );
+      const state = classifyState(masteryScore);
+      const offset = computeSrsLessonOffset(base, state);
       return {
         phraseId: event.phraseId,
         masteryScore,
         stabilityScore,
-        state: classifyState(masteryScore),
+        state,
         lastSeenAt: event.timestamp,
-        nextReviewAt: scheduleNextReview(masteryScore, event.timestamp),
+        dueOnLessonSessionIndex: scheduleDueOnLessonSessionIndex(
+          ctx.completedLessonCount,
+          offset,
+        ),
+        srsSpacingLessons: offset,
       };
     }
 
@@ -118,14 +123,18 @@ export function reduceProgress(
       const stabilityScore = clamp01(
         base.stabilityScore * REVEAL_STABILITY_DECAY,
       );
+      const offset = SRS_REVEAL_SESSIONS_OFFSET;
       return {
         phraseId: event.phraseId,
         masteryScore,
         stabilityScore,
         state: 'learning',
         lastSeenAt: event.timestamp,
-        // "review next lesson" — scheduled for tomorrow at the earliest.
-        nextReviewAt: event.timestamp + ONE_DAY_MS,
+        dueOnLessonSessionIndex: scheduleDueOnLessonSessionIndex(
+          ctx.completedLessonCount,
+          offset,
+        ),
+        srsSpacingLessons: offset,
       };
     }
   }
