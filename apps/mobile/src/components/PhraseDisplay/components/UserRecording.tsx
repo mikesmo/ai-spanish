@@ -7,6 +7,7 @@ import { PillButton } from "./PillButton";
 export const UserRecording = ({
   englishText,
   spanishLine,
+  showEnglishInHint = true,
   transcription,
   isRecording,
   isCorrect,
@@ -67,8 +68,10 @@ export const UserRecording = ({
 
           {spanishLine ? (
             <View style={styles.hintBlock}>
-              <Text style={styles.englishLine}>{englishText}</Text>
-              <Text style={styles.spanishLine}>{spanishLine}</Text>
+              {showEnglishInHint ? (
+                <Text style={styles.englishLine}>{englishText}</Text>
+              ) : null}
+              <Text style={styles.spanishTarget}>{spanishLine}</Text>
             </View>
           ) : (
             <Text style={styles.englishText}>{englishText}</Text>
@@ -151,7 +154,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 22,
   },
-  spanishLine: {
+  spanishTarget: {
     fontSize: 18,
     fontWeight: "500",
     color: "#1D1D1D",

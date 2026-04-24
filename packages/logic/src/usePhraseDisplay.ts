@@ -1,6 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useCallback,
+  useRef,
+} from 'react';
 import { alignWords } from './alignment';
 import {
   ACCURACY_SUCCESS_THRESHOLD,
@@ -133,6 +139,9 @@ export function usePhraseDisplay(
     useState<ScoreBreakdown | null>(null);
   const [hasUsedTryAgainOnCurrentCard, setHasUsedTryAgainOnCurrentCard] =
     useState(false);
+  const [isFirstSessionPresentationOfCurrentPhrase, setIsFirstOfCurrentPhrase] =
+    useState(true);
+  const isFirstOfCurrentPhraseForBootstrapRef = useRef(true);
 
   /**
    * S3 phrase-index hint passed to the TTS adapter. Falls back to
@@ -425,6 +434,31 @@ export function usePhraseDisplay(
     playAnswerAudio,
   ]);
 
+  // Presentation count + onPresentationStart (once per notify key). Runs in
+  // useLayoutEffect so the async bootstrap and UI can read a stable
+  // first/m repeat flag before paint and without duplicating this block.
+  useLayoutEffect(() => {
+    const notifyKey = `${currentIndex}|${currentPhrase.id}|${presentationVersion ?? ''}`;
+    const shouldNotifyPresentation =
+      lastPresentationNotifyKeyRef.current !== notifyKey;
+    const phraseId = currentPhrase.id;
+    let isFirstSessionPresentation = false;
+    if (shouldNotifyPresentation) {
+      lastPresentationNotifyKeyRef.current = notifyKey;
+      onPresentationStartRef.current?.(currentPhrase);
+      const c =
+        (phraseIdPresentationCountRef.current.get(phraseId) ?? 0) + 1;
+      phraseIdPresentationCountRef.current.set(phraseId, c);
+      isFirstSessionPresentation = c === 1;
+      englishFirstPassOnCardRef.current = true;
+    } else {
+      const c = phraseIdPresentationCountRef.current.get(phraseId) ?? 0;
+      isFirstSessionPresentation = c === 1;
+    }
+    isFirstOfCurrentPhraseForBootstrapRef.current = isFirstSessionPresentation;
+    setIsFirstOfCurrentPhrase(isFirstSessionPresentation);
+  }, [currentIndex, currentPhrase.id, presentationVersion]);
+
   // On phrase change: prefetch both audios, play English prompt, then auto-start recording.
   useEffect(() => {
     setStatus('loading');
@@ -443,23 +477,7 @@ export function usePhraseDisplay(
       });
     }
     prevIndexRef.current = currentIndex;
-    const notifyKey = `${currentIndex}|${currentPhrase.id}|${presentationVersion ?? ''}`;
-    const shouldNotifyPresentation =
-      lastPresentationNotifyKeyRef.current !== notifyKey;
-    const phraseId = currentPhrase.id;
-    let isFirstSessionPresentation = false;
-    if (shouldNotifyPresentation) {
-      lastPresentationNotifyKeyRef.current = notifyKey;
-      onPresentationStartRef.current?.(currentPhrase);
-      const c =
-        (phraseIdPresentationCountRef.current.get(phraseId) ?? 0) + 1;
-      phraseIdPresentationCountRef.current.set(phraseId, c);
-      isFirstSessionPresentation = c === 1;
-      englishFirstPassOnCardRef.current = true;
-    } else {
-      const c = phraseIdPresentationCountRef.current.get(phraseId) ?? 0;
-      isFirstSessionPresentation = c === 1;
-    }
+    const isFirstSessionPresentation = isFirstOfCurrentPhraseForBootstrapRef.current;
     const useExplainClips =
       englishUseExplain &&
       isFirstSessionPresentation &&
@@ -739,6 +757,7 @@ export function usePhraseDisplay(
     handleNext,
     handleReplay,
     hasUsedTryAgainOnCurrentCard,
+    isFirstSessionPresentationOfCurrentPhrase,
     lastScoreBreakdown,
   };
 }

@@ -52,7 +52,8 @@ export const PhraseDisplay = ({ phrases }: PhraseDisplayProps): JSX.Element => {
           isLoading={display.status === "loading"}
           isAudioPlaying={display.isAudioPlaying}
           englishQuestion={
-            display.status === "pronunciationExample"
+            display.status === "pronunciationExample" &&
+            display.isFirstSessionPresentationOfCurrentPhrase
               ? display.currentPhrase.English.question
               : undefined
           }
@@ -73,6 +74,7 @@ export const PhraseDisplay = ({ phrases }: PhraseDisplayProps): JSX.Element => {
               ? display.spanishText
               : undefined
           }
+          showEnglishInHint={display.isFirstSessionPresentationOfCurrentPhrase}
           transcription={display.caption}
           isRecording={stt.isRecording}
           isCorrect={display.isCorrect}

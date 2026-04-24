@@ -156,6 +156,11 @@ export type PhraseDisplayAPI = {
    */
   hasUsedTryAgainOnCurrentCard: boolean;
   /**
+   * True the first time this phrase id is presented in the current session
+   * (requeues / revisits are false). Drives on-screen English prompt hints.
+   */
+  isFirstSessionPresentationOfCurrentPhrase: boolean;
+  /**
    * Score breakdown for the most recent first-attempt; null until the first
    * attempt of the current phrase completes.
    */

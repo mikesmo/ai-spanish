@@ -19,6 +19,10 @@ export interface UserRecordingProps {
    * When set, show `englishText` in grey and this line below (new-phrase, first pass).
    */
   spanishLine?: string | null;
+  /**
+   * When `spanishLine` is set, whether to show the English line; false on revisits.
+   */
+  showEnglishInHint?: boolean;
   transcription: string;
   isRecording: boolean;
   isCorrect: boolean;

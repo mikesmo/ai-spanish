@@ -8,6 +8,7 @@ const showAnswerPillClassName =
 export const UserRecording = ({
   englishText,
   spanishLine,
+  showEnglishInHint = true,
   transcription,
   isRecording,
   isCorrect,
@@ -81,7 +82,9 @@ export const UserRecording = ({
 
       {spanishLine ? (
         <div className="mt-6 flex max-w-[280px] flex-col items-center gap-1">
-          <p className="text-center text-[15px] leading-snug text-gray-500">{englishText}</p>
+          {showEnglishInHint ? (
+            <p className="text-center text-[15px] leading-snug text-gray-500">{englishText}</p>
+          ) : null}
           <p className="text-center text-[18px] font-medium leading-relaxed text-[#1D1D1D]">
             {spanishLine}
           </p>
