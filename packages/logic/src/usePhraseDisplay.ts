@@ -180,6 +180,8 @@ export function usePhraseDisplay(
    * first finalized segment and the moment we actually emit the Attempt
    * (≈0 ms for speech-final, success-chime duration for success-path-timer). */
   const firstIsFinalAtRef = useRef<number | null>(null);
+  /** Suppress overlapping calls when e.g. Show Answer and speech-final both fire. */
+  const answerAudioInFlightRef = useRef(false);
   const prevIndexRef = useRef<number | null>(null);
   /**
    * Suppress duplicate `onPresentationStart` when React Strict Mode (or any
@@ -329,20 +331,26 @@ export function usePhraseDisplay(
   /** Plays the Spanish answer audio and transitions to the `answer` status.
    * Used both for auto-advance after an attempt and for user-initiated reveal. */
   const playAnswerAudio = useCallback(async () => {
-    sttRef.current.stop();
-    setStatus('answer');
+    if (answerAudioInFlightRef.current) return;
+    answerAudioInFlightRef.current = true;
     try {
-      setIsAudioPlaying(true);
-      await ttsRef.current.play(
-        spanishText,
-        'es',
-        undefined,
-        ttsPhraseIndexRef.current,
-      );
-    } catch (error) {
-      console.error('[usePhraseDisplay] Error playing Spanish:', error);
+      sttRef.current.stop();
+      setStatus('answer');
+      try {
+        setIsAudioPlaying(true);
+        await ttsRef.current.play(
+          spanishText,
+          'es',
+          undefined,
+          ttsPhraseIndexRef.current,
+        );
+      } catch (error) {
+        console.error('[usePhraseDisplay] Error playing Spanish:', error);
+      } finally {
+        setIsAudioPlaying(false);
+      }
     } finally {
-      setIsAudioPlaying(false);
+      answerAudioInFlightRef.current = false;
     }
   }, [spanishText]);
 
@@ -407,6 +415,7 @@ export function usePhraseDisplay(
     setIsAudioPlaying(false);
     setLastScoreBreakdown(null);
     attemptEmittedRef.current = false;
+    answerAudioInFlightRef.current = false;
     firstIsFinalAtRef.current = null;
     if (debugLearningPipelineRef.current) {
       logPhraseBoundary({
