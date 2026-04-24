@@ -5,7 +5,6 @@ import type { AISpeakingProps } from "../PhraseDisplay.types";
 export const AISpeaking = ({
   isLoading,
   isAudioPlaying,
-  englishQuestion,
   spanishLine,
 }: AISpeakingProps): JSX.Element => (
   <div className="flex-1 flex flex-col items-center justify-center animate-screen-fade-in">
@@ -52,18 +51,11 @@ export const AISpeaking = ({
         )}
       </div>
     </div>
-    {englishQuestion || spanishLine ? (
+    {spanishLine ? (
       <div className="mt-10 flex flex-col items-center gap-2 max-w-[90%]">
-        {englishQuestion ? (
-          <p className="text-center text-[15px] text-gray-500 leading-snug">
-            {englishQuestion}
-          </p>
-        ) : null}
-        {spanishLine ? (
-          <p className="text-center text-[20px] font-medium text-[#1D1D1D] leading-snug">
-            {spanishLine}
-          </p>
-        ) : null}
+        <p className="text-center text-[20px] font-medium text-[#1D1D1D] leading-snug">
+          {spanishLine}
+        </p>
       </div>
     ) : null}
   </div>

@@ -59,12 +59,6 @@ export const PhraseDisplay = ({ phrases }: PhraseDisplayProps): JSX.Element => {
         <AISpeaking
           isLoading={display.status === "loading"}
           isAudioPlaying={display.isAudioPlaying}
-          englishQuestion={
-            display.status === "pronunciationExample" &&
-            display.isFirstSessionPresentationOfCurrentPhrase
-              ? display.currentPhrase.English.question
-              : undefined
-          }
           spanishLine={
             display.status === "pronunciationExample" &&
             display.isFirstSessionPresentationOfCurrentPhrase &&
