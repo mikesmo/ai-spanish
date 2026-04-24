@@ -26,7 +26,16 @@ export interface PhraseProgress {
   stabilityScore: number;
   state: PhraseState;
   lastSeenAt: number;
-  nextReviewAt: number;
+  /**
+   * Phrase is eligible for the scheduled-review bucket when the host’s
+   * `completedLessonCount` (fully finished lesson runs) is >= this index.
+   */
+  dueOnLessonSessionIndex: number;
+  /**
+   * Last cross-session spacing in whole lessons (drives geometric growth in
+   * the mastered band).
+   */
+  srsSpacingLessons: number;
 }
 
 export interface SpokenWord {

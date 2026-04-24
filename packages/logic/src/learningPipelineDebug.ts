@@ -383,8 +383,8 @@ export function logSessionHistoryAppend(ctx: {
   eventType: string;
   phraseId: string;
   transcriptPreview: string;
-  /** Epoch ms from `reduceProgress` (SRS) — matches sidebar `next`. */
-  nextReviewAt?: number;
+  /** Session-based SRS from `reduceProgress` — matches sidebar `next`. */
+  dueOnLessonSessionIndex?: number;
   /** 0-based slot in remaining queue, or `null` — matches sidebar `session (log)`. */
   slotsSessionLog?: number | null;
   /** Same engine lookup reread; matches sidebar `session (now)` at append time. */
@@ -395,8 +395,8 @@ export function logSessionHistoryAppend(ctx: {
     'phrase=' + ctx.phraseId,
     'transcriptPreview=' + JSON.stringify(ctx.transcriptPreview.slice(0, 200)),
   ];
-  if (ctx.nextReviewAt !== undefined) {
-    parts.push('next=' + String(ctx.nextReviewAt));
+  if (ctx.dueOnLessonSessionIndex !== undefined) {
+    parts.push('dueOnLesson=' + String(ctx.dueOnLessonSessionIndex));
   }
   if (ctx.slotsSessionLog !== undefined) {
     parts.push('session(log)=' + String(ctx.slotsSessionLog));

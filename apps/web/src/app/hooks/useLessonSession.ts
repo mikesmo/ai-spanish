@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   useLessonSession as useCoreLessonSession,
   type Phrase,
@@ -19,6 +19,12 @@ export interface UseLessonSessionResult extends CoreUseLessonSessionResult {
   history: HistoryEntry[];
   clearHistory: UseSessionHistoryResult["clearHistory"];
   bindCurrentPhrase: UseSessionHistoryResult["bindCurrentPhrase"];
+  /**
+   * Lessons fully completed before this run. Bumps once when the queue drains;
+   * pass to session history / sidebar for SRS copy. Persist between visits in
+   * production.
+   */
+  completedLessonCount: number;
 }
 
 /**
@@ -30,26 +36,45 @@ export interface UseLessonSessionResult extends CoreUseLessonSessionResult {
 export const useLessonSession = (
   deck: Phrase[],
 ): UseLessonSessionResult => {
-  const history = useSessionHistory();
+  const [completedLessonCount, setCompletedLessonCount] = useState(0);
+  const lessonCompletionHandledRef = useRef(false);
+  const {
+    history: historyEntries,
+    onPhraseEvent,
+    onPresentationStart,
+    clearHistory,
+    bindCurrentPhrase,
+  } = useSessionHistory(completedLessonCount);
 
-  // `onEvent` runs in the same turn as `engine.onEvent` and receives
-  // `PhraseEventContext` with `getQueuePosition` from the live engine.
   const onEvent = useCallback(
     (event: PhraseEvent, ctx: PhraseEventContext) => {
-      history.onPhraseEvent(event, ctx);
+      onPhraseEvent(event, ctx);
     },
-    [history],
+    [onPhraseEvent],
   );
 
   const core = useCoreLessonSession(deck, {
     onEvent,
-    onPresentationStart: history.onPresentationStart,
+    onPresentationStart,
+    completedLessonCount,
   });
+
+  useEffect(() => {
+    if (core.isComplete) {
+      if (!lessonCompletionHandledRef.current) {
+        lessonCompletionHandledRef.current = true;
+        setCompletedLessonCount((c) => c + 1);
+      }
+    } else {
+      lessonCompletionHandledRef.current = false;
+    }
+  }, [core.isComplete]);
 
   return {
     ...core,
-    history: history.history,
-    clearHistory: history.clearHistory,
-    bindCurrentPhrase: history.bindCurrentPhrase,
+    completedLessonCount,
+    history: historyEntries,
+    clearHistory,
+    bindCurrentPhrase,
   };
 };
