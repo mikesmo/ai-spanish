@@ -277,7 +277,7 @@ async function main(): Promise<void> {
   }
   await writeHashCache(opts.outDir, nextCache);
 
-  const manifestEntries = results.map((r) => r.entry).sort((a, b) => a.id.localeCompare(b.id));
+  const manifestEntries = results.map((r) => r.entry);
   await writeManifest(opts.outDir, manifestEntries);
 
   const generated = results.filter((r) => r.didGenerate).length;

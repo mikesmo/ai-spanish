@@ -8,7 +8,7 @@ const NOW = 1_700_000_000_000;
 
 const phrase = (id: string): Phrase => ({
   id,
-  English: { intro: '', question: id },
+  English: { intro: '', question: id, explain: '' },
   Spanish: {
     grammar: '',
     answer: id,

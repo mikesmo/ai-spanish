@@ -9,8 +9,8 @@ function fetchPresignedUrl(phraseIndex: number, segment: string): Promise<string
 /**
  * S3-backed TTS adapter for web.
  *
- * - English: fetches and plays en-intro then en-question back-to-back so the
- *   two synthesized segments feel like one continuous utterance.
+ * - English: fetches and plays en-explain, en-intro, then en-question back-to-back
+ *   so the segments feel like one continuous utterance.
  * - Spanish: fetches and plays es-question (single clip per phrase).
  * - Missing clips (skipped at batch time due to empty text) are silently skipped.
  * - Requires a valid phraseIndex; calls without one are no-ops so the adapter

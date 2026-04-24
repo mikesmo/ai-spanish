@@ -55,7 +55,7 @@ export function computeJobHash(text: string, voice: string, noAudioPos = false):
   return `sha256:${h.digest('hex')}`;
 }
 
-/** Relative POSIX path from output root, e.g. audio/0-en-intro.mp3 */
+/** Relative POSIX path from output root, e.g. audio/0-en-explain.mp3 */
 export function audioRelativePath(jobId: string): string {
   return path.posix.join('audio', `${jobId}.mp3`);
 }
@@ -250,10 +250,9 @@ export async function readManifest(outDir: string): Promise<{
 }
 
 export async function writeManifest(outDir: string, entries: ManifestEntry[]): Promise<void> {
-  const sorted = [...entries].sort((a, b) => a.id.localeCompare(b.id));
   const payload = {
     generatedAt: new Date().toISOString(),
-    entries: sorted,
+    entries,
   };
   await fs.writeFile(
     path.join(outDir, MANIFEST_FILE),

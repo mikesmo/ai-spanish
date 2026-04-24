@@ -33,6 +33,7 @@ export const phraseSchema = z.object({
   English: z.object({
     intro: z.string(),
     question: z.string(),
+    explain: z.string().default(''),
   }),
   Spanish: z.object({
     grammar: z.string(),

@@ -10,7 +10,7 @@ export interface WordMeta {
 
 export interface Phrase {
   id: string;
-  English: { intro: string; question: string };
+  English: { intro: string; question: string; explain: string };
   Spanish: {
     grammar: string;
     answer: string;

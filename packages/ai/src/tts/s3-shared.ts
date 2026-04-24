@@ -5,7 +5,7 @@ export interface AudioUrlResponse {
 }
 
 export function segmentsForLanguage(lang: Language): string[] {
-  return lang === 'en' ? ['en-intro', 'en-question'] : ['es-question'];
+  return lang === 'en' ? ['en-explain', 'en-intro', 'en-question'] : ['es-question'];
 }
 
 /**

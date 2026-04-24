@@ -13,6 +13,15 @@ export function buildTtsJobs(phrases: Phrase[]): TtsJob[] {
   const jobs: TtsJob[] = [];
   for (let i = 0; i < phrases.length; i++) {
     const phrase = phrases[i]!;
+    const explain = phrase.English.explain ?? '';
+    if (isNonEmpty(explain)) {
+      jobs.push({
+        id: `${i}-en-explain`,
+        language: 'en',
+        text: explain,
+        voice: VOICE_BY_LANGUAGE.en,
+      });
+    }
     if (isNonEmpty(phrase.English.intro)) {
       jobs.push({
         id: `${i}-en-intro`,

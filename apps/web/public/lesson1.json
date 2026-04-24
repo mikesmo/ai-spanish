@@ -1,36 +1,18 @@
 [
   {
-    "id": "donde-se-pueden-comprar-manzanas",
+    "id": "perdon",
+    "type": "new",
     "English": {
-      "intro": "How would you ask someone",
-      "question": "Where can apples be bought?"
+      "explain": "This is how you say 'excuse me' in Spanish:",
+      "intro": "How do you say:",
+      "question": "Excuse me"
     },
     "Spanish": {
       "grammar": "",
-      "answer": "¿Dónde se pueden comprar manzanas?",
+      "answer": "Perdón",
       "words": [
         {
-          "word": "dónde",
-          "type": "adverb",
-          "weight": 1.5
-        },
-        {
-          "word": "se",
-          "type": "pronoun",
-          "weight": 1.5
-        },
-        {
-          "word": "pueden",
-          "type": "verb",
-          "weight": 3
-        },
-        {
-          "word": "comprar",
-          "type": "verb",
-          "weight": 3
-        },
-        {
-          "word": "manzanas",
+          "word": "perdón",
           "type": "noun",
           "weight": 2.5
         }
@@ -38,470 +20,268 @@
     }
   },
   {
-    "id": "puedes-comprarlas-en-la-tienda-de-comestibles",
+    "id": "senorita",
+    "type": "new",
     "English": {
-      "intro": "How would they respond",
-      "question": "You can buy them at the grocery store"
+      "explain": "This is how you formally address a young woman in Spanish:",
+      "intro": "How would you formally address a young woman?",
+      "question": "Miss"
     },
     "Spanish": {
       "grammar": "",
-      "answer": "Puedes comprarlas en la tienda de comestibles",
+      "answer": "señorita",
       "words": [
         {
-          "word": "puedes",
-          "type": "verb",
-          "weight": 3
-        },
-        {
-          "word": "comprarlas",
-          "type": "verb",
-          "weight": 3
-        },
-        {
-          "word": "en",
-          "type": "preposition",
-          "weight": 1
-        },
-        {
-          "word": "la",
-          "type": "article",
-          "weight": 0.5
-        },
-        {
-          "word": "tienda",
+          "word": "señorita",
           "type": "noun",
           "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "id": "entiende",
+    "type": "new",
+    "English": {
+      "explain": "This is how you say 'Do you understand?'. Like in English you need to ask a question with rising intonation at the end of the end of the end.",
+      "intro": "How do you ask:",
+      "question": "Do you understand?"
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "¿Entiende?",
+      "words": [
+        {
+          "word": "entiende",
+          "type": "verb",
+          "weight": 3
+        }
+      ]
+    }
+  },
+  {
+    "id": "ingles",
+    "type": "new",
+    "English": {
+      "explain": "Listen and repeat the word:",
+      "intro": "How do you say:",
+      "question": "English"
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "inglés",
+      "words": [
+        {
+          "word": "inglés",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "id": "entiende-ingles",
+    "type": "combination",
+    "English": {
+      "explain": "Now put it together, how would you ask:",
+      "intro": "How would you ask:",
+      "question": "Do you understand English?"
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "¿Entiende inglés?",
+      "words": [
+        {
+          "word": "entiende",
+          "type": "verb",
+          "weight": 3
         },
+        {
+          "word": "inglés",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "id": "no",
+    "type": "new",
+    "English": {
+      "explain": "The word 'no' is the same in English.",
+      "intro": "How do you say:",
+      "question": "No"
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "No",
+      "words": [
+        {
+          "word": "no",
+          "type": "adverb",
+          "weight": 1.5
+        }
+      ]
+    }
+  },
+  {
+    "id": "no-entiendo",
+    "type": "new",
+    "English": {
+      "intro": "This is how you say:",
+      "question": "I don’t understand."
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "No entiendo",
+      "words": [
+        {
+          "word": "no",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "entiendo",
+          "type": "verb",
+          "weight": 3
+        }
+      ]
+    }
+  },
+  {
+    "id": "senor",
+    "type": "new",
+    "English": {
+      "intro": "How do you say:",
+      "question": "sir"
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "señor",
+      "words": [
+        {
+          "word": "señor",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "id": "no-senor",
+    "type": "new",
+    "English": {
+      "intro": "She answers:",
+      "question": "No, sir."
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "No señor",
+      "words": [
+        {
+          "word": "no",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "señor",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "id": "entiendo",
+    "type": "new",
+    "English": {
+      "intro": "The word:",
+      "question": "I understand."
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "Entiendo",
+      "words": [
+        {
+          "word": "entiendo",
+          "type": "verb",
+          "weight": 3
+        }
+      ]
+    }
+  },
+  {
+    "id": "hablo",
+    "type": "new",
+    "English": {
+      "intro": "Say:",
+      "question": "I speak."
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "Hablo",
+      "words": [
+        {
+          "word": "hablo",
+          "type": "verb",
+          "weight": 3
+        }
+      ]
+    }
+  },
+  {
+    "id": "un",
+    "type": "new",
+    "English": {
+      "intro": "A little:",
+      "question": "a (un)"
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "un",
+      "words": [
+        {
+          "word": "un",
+          "type": "article",
+          "weight": 0.5
+        }
+      ]
+    }
+  },
+  {
+    "id": "poco",
+    "type": "new",
+    "English": {
+      "intro": "A little:",
+      "question": "little"
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "poco",
+      "words": [
+        {
+          "word": "poco",
+          "type": "adverb",
+          "weight": 1.5
+        }
+      ]
+    }
+  },
+  {
+    "id": "de",
+    "type": "new",
+    "English": {
+      "intro": "In “a little of …”",
+      "question": "of"
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "de",
+      "words": [
         {
           "word": "de",
           "type": "preposition",
           "weight": 1
-        },
-        {
-          "word": "comestibles",
-          "type": "noun",
-          "weight": 2.5
-        }
-      ]
-    }
-  },
-  {
-    "id": "no-esta-lejos",
-    "English": {
-      "intro": "Then, how would they say",
-      "question": "It's not far"
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "No está lejos",
-      "words": [
-        {
-          "word": "no",
-          "type": "adverb",
-          "weight": 1.5
-        },
-        {
-          "word": "está",
-          "type": "verb",
-          "weight": 3
-        },
-        {
-          "word": "lejos",
-          "type": "adverb",
-          "weight": 1.5
-        }
-      ]
-    }
-  },
-  {
-    "id": "tengo-que-ir-al-banco",
-    "English": {
-      "intro": "You now say",
-      "question": "I have to go to the bank"
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "Tengo que ir al banco",
-      "words": [
-        {
-          "word": "tengo",
-          "type": "verb",
-          "weight": 3
-        },
-        {
-          "word": "que",
-          "type": "conjunction",
-          "weight": 1
-        },
-        {
-          "word": "ir",
-          "type": "verb",
-          "weight": 3
-        },
-        {
-          "word": "al",
-          "type": "article",
-          "weight": 0.5
-        },
-        {
-          "word": "banco",
-          "type": "noun",
-          "weight": 2.5
-        }
-      ]
-    }
-  },
-  {
-    "id": "necesito-enviar-una-carta",
-    "English": {
-      "intro": "Say",
-      "question": "I need to send a letter"
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "Necesito enviar una carta",
-      "words": [
-        {
-          "word": "necesito",
-          "type": "verb",
-          "weight": 3
-        },
-        {
-          "word": "enviar",
-          "type": "verb",
-          "weight": 3
-        },
-        {
-          "word": "una",
-          "type": "article",
-          "weight": 0.5
-        },
-        {
-          "word": "carta",
-          "type": "noun",
-          "weight": 2.5
-        }
-      ]
-    }
-  },
-  {
-    "id": "ahora-mismo",
-    "English": {
-      "intro": "Say",
-      "question": "Right now"
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "Ahora mismo",
-      "words": [
-        {
-          "word": "ahora",
-          "type": "adverb",
-          "weight": 1.5
-        },
-        {
-          "word": "mismo",
-          "type": "adjective",
-          "weight": 2
-        }
-      ]
-    }
-  },
-  {
-    "id": "quieres-algo",
-    "English": {
-      "intro": "Now, how do you say",
-      "question": "Do you want anything?"
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "¿Quieres algo?",
-      "words": [
-        {
-          "word": "quieres",
-          "type": "verb",
-          "weight": 3
-        },
-        {
-          "word": "algo",
-          "type": "pronoun",
-          "weight": 1.5
-        }
-      ]
-    }
-  },
-  {
-    "id": "no-pero-te-recomiendo-que-te-lleves-la-chaqueta",
-    "English": {
-      "intro": "How does the person respond",
-      "question": "No, but I recommend you take your jacket"
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "No, pero te recomiendo que te lleves la chaqueta",
-      "words": [
-        {
-          "word": "no",
-          "type": "adverb",
-          "weight": 1.5
-        },
-        {
-          "word": "pero",
-          "type": "conjunction",
-          "weight": 1
-        },
-        {
-          "word": "te",
-          "type": "pronoun",
-          "weight": 1.5
-        },
-        {
-          "word": "recomiendo",
-          "type": "verb",
-          "weight": 3
-        },
-        {
-          "word": "que",
-          "type": "conjunction",
-          "weight": 1
-        },
-        {
-          "word": "te",
-          "type": "pronoun",
-          "weight": 1.5
-        },
-        {
-          "word": "lleves",
-          "type": "verb",
-          "weight": 3
-        },
-        {
-          "word": "la",
-          "type": "article",
-          "weight": 0.5
-        },
-        {
-          "word": "chaqueta",
-          "type": "noun",
-          "weight": 2.5
-        }
-      ]
-    }
-  },
-  {
-    "id": "esta-nevando-mucho",
-    "English": {
-      "intro": "Then, how do they say",
-      "question": "It's snowing a lot"
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "Está nevando mucho",
-      "words": [
-        {
-          "word": "está",
-          "type": "verb",
-          "weight": 3
-        },
-        {
-          "word": "nevando",
-          "type": "verb",
-          "weight": 3
-        },
-        {
-          "word": "mucho",
-          "type": "adverb",
-          "weight": 1.5
-        }
-      ]
-    }
-  },
-  {
-    "id": "me-viene-bien-porque",
-    "English": {
-      "intro": "Say",
-      "question": "That suits me well because…"
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "Me viene bien porque…",
-      "words": [
-        {
-          "word": "me",
-          "type": "pronoun",
-          "weight": 1.5
-        },
-        {
-          "word": "viene",
-          "type": "verb",
-          "weight": 3
-        },
-        {
-          "word": "bien",
-          "type": "adverb",
-          "weight": 1.5
-        },
-        {
-          "word": "porque",
-          "type": "conjunction",
-          "weight": 1
-        }
-      ]
-    }
-  },
-  {
-    "id": "quiero-enviar-una-carta-a-francia",
-    "English": {
-      "intro": "Then say",
-      "question": "I want to send a letter to France"
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "Quiero enviar una carta a Francia",
-      "words": [
-        {
-          "word": "quiero",
-          "type": "verb",
-          "weight": 3
-        },
-        {
-          "word": "enviar",
-          "type": "verb",
-          "weight": 3
-        },
-        {
-          "word": "una",
-          "type": "article",
-          "weight": 0.5
-        },
-        {
-          "word": "carta",
-          "type": "noun",
-          "weight": 2.5
-        },
-        {
-          "word": "a",
-          "type": "preposition",
-          "weight": 1
-        },
-        {
-          "word": "francia",
-          "type": "noun",
-          "weight": 2.5
-        }
-      ]
-    }
-  },
-  {
-    "id": "puedo-venir-contigo",
-    "English": {
-      "intro": "Say",
-      "question": "I can come with you"
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "Puedo venir contigo",
-      "words": [
-        {
-          "word": "puedo",
-          "type": "verb",
-          "weight": 3
-        },
-        {
-          "word": "venir",
-          "type": "verb",
-          "weight": 3
-        },
-        {
-          "word": "contigo",
-          "type": "pronoun",
-          "weight": 1.5
-        }
-      ]
-    }
-  },
-  {
-    "id": "voy-a-la-libreria-a-comprar-una-novela",
-    "English": {
-      "intro": "Now say",
-      "question": "I'm going to the bookstore to buy a novel"
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "Voy a la librería a comprar una novela",
-      "words": [
-        {
-          "word": "voy",
-          "type": "verb",
-          "weight": 3
-        },
-        {
-          "word": "a",
-          "type": "preposition",
-          "weight": 1
-        },
-        {
-          "word": "la",
-          "type": "article",
-          "weight": 0.5
-        },
-        {
-          "word": "librería",
-          "type": "noun",
-          "weight": 2.5
-        },
-        {
-          "word": "a",
-          "type": "preposition",
-          "weight": 1
-        },
-        {
-          "word": "comprar",
-          "type": "verb",
-          "weight": 3
-        },
-        {
-          "word": "una",
-          "type": "article",
-          "weight": 0.5
-        },
-        {
-          "word": "novela",
-          "type": "noun",
-          "weight": 2.5
-        }
-      ]
-    }
-  },
-  {
-    "id": "tengo-que-comprar-bebidas",
-    "English": {
-      "intro": "Say",
-      "question": "I have to buy drinks"
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "Tengo que comprar bebidas",
-      "words": [
-        {
-          "word": "tengo",
-          "type": "verb",
-          "weight": 3
-        },
-        {
-          "word": "que",
-          "type": "conjunction",
-          "weight": 1
-        },
-        {
-          "word": "comprar",
-          "type": "verb",
-          "weight": 3
-        },
-        {
-          "word": "bebidas",
-          "type": "noun",
-          "weight": 2.5
         }
       ]
     }

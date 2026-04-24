@@ -23,7 +23,7 @@ import {
 type LegacyWord = { word: string; type: string; weight?: number };
 type LegacyPhrase = {
   id?: string;
-  English: { intro: string; question: string };
+  English: { intro: string; question: string; explain?: string };
   Spanish: { grammar: string; answer: string; words: LegacyWord[] };
 };
 
