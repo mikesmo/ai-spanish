@@ -134,6 +134,16 @@ export function usePhraseDisplay(
   const [isFirstSessionPresentationOfCurrentPhrase, setIsFirstOfCurrentPhrase] =
     useState(true);
   const isFirstOfCurrentPhraseForBootstrapRef = useRef(true);
+  /**
+   * Set only in useLayout (presentation) after map + isFirst is computed, so
+   * phrase bootstrap TTS never races Strict double-effects vs reading the map
+   * in useEffect (first init could see count 0 and play en-second-intro).
+   */
+  const introTtsForBootstrapRef = useRef<{
+    notifyKey: string;
+    useFirstIntroClips: boolean;
+    isFirstSessionPresentation: boolean;
+  } | null>(null);
 
   /**
    * S3 phrase-index hint passed to the TTS adapter. Falls back to
@@ -199,9 +209,16 @@ export function usePhraseDisplay(
    */
   const lastPresentationNotifyKeyRef = useRef<string | null>(null);
   /**
-   * Session-scoped count of how many times each phrase id was presented
-   * (incremented only when `shouldNotifyPresentation` is true — same as
-   * `onPresentationStart`). Used to play `first-intro` S3 audio only on the first visit.
+   * Last `${ttsPhraseIndex|currentIndex}|${phraseId}` for which we bumped the
+   * per-`phraseId` session count. A `notifyKey` also includes
+   * `presentationVersion` (re-bootstrap / requeue); that must NOT count as
+   * another "visit" or first-intro becomes en-second on the first paint.
+   */
+  const lastSessionCountKeyRef = useRef<string | null>(null);
+  /**
+   * Session-scoped count of how many times each phrase id was presented.
+   * Incremented when the stable display position changes (index + id), not
+   * when only `presentationVersion` bumps. Used for `first-intro` vs `second-intro` S3.
    */
   const phraseIdPresentationCountRef = useRef<Map<string, number>>(new Map());
   /**
@@ -215,7 +232,6 @@ export function usePhraseDisplay(
   const englishText = en['second-intro']
     ? `${en['second-intro']}: ${en.question}`
     : en.question;
-  const englishUseFirstIntro = (en['first-intro'] ?? '').trim() !== '';
   const spanishText = currentPhrase.Spanish.answer;
   const caption = stt.caption;
   const sttWords: SpokenWord[] = stt.words;
@@ -448,23 +464,42 @@ export function usePhraseDisplay(
     const notifyKey = `${currentIndex}|${currentPhrase.id}|${presentationVersion ?? ''}`;
     const shouldNotifyPresentation =
       lastPresentationNotifyKeyRef.current !== notifyKey;
+    const countStableKey = `${ttsPhraseIndex}|${currentPhrase.id}`;
+    const isNewLogicalPosition =
+      lastSessionCountKeyRef.current !== countStableKey;
     const phraseId = currentPhrase.id;
     let isFirstSessionPresentation = false;
     if (shouldNotifyPresentation) {
       lastPresentationNotifyKeyRef.current = notifyKey;
-      onPresentationStartRef.current?.(currentPhrase);
-      const c =
-        (phraseIdPresentationCountRef.current.get(phraseId) ?? 0) + 1;
-      phraseIdPresentationCountRef.current.set(phraseId, c);
-      isFirstSessionPresentation = c === 1;
+      if (isNewLogicalPosition) {
+        onPresentationStartRef.current?.(currentPhrase);
+        const c =
+          (phraseIdPresentationCountRef.current.get(phraseId) ?? 0) + 1;
+        phraseIdPresentationCountRef.current.set(phraseId, c);
+        lastSessionCountKeyRef.current = countStableKey;
+      }
       englishFirstPassOnCardRef.current = true;
-    } else {
+    }
+    {
       const c = phraseIdPresentationCountRef.current.get(phraseId) ?? 0;
       isFirstSessionPresentation = c === 1;
     }
     isFirstOfCurrentPhraseForBootstrapRef.current = isFirstSessionPresentation;
     setIsFirstOfCurrentPhrase(isFirstSessionPresentation);
-  }, [currentIndex, currentPhrase.id, presentationVersion]);
+    {
+      const enL = currentPhrase.English;
+      const hasFirstIntro = (enL['first-intro'] ?? '').trim() !== '';
+      const useFirstClips =
+        hasFirstIntro &&
+        isFirstSessionPresentation &&
+        englishFirstPassOnCardRef.current;
+      introTtsForBootstrapRef.current = {
+        notifyKey,
+        useFirstIntroClips: useFirstClips,
+        isFirstSessionPresentation,
+      };
+    }
+  }, [currentIndex, currentPhrase.id, presentationVersion, ttsPhraseIndex]);
 
   // On phrase change: prefetch both audios, play English prompt, then auto-start recording.
   useEffect(() => {
@@ -484,14 +519,33 @@ export function usePhraseDisplay(
       });
     }
     prevIndexRef.current = currentIndex;
-    const isFirstSessionPresentation = isFirstOfCurrentPhraseForBootstrapRef.current;
-    const useFirstIntroClips =
-      englishUseFirstIntro &&
-      isFirstSessionPresentation &&
-      englishFirstPassOnCardRef.current;
+    // Prefer intro bit written in useLayout (same notifyKey) so the first of two
+    // strict-mode effect runs does not recompute from the map before it matches
+    // layout and pick en-second-intro; fallback if keys drift (HMR, bug).
+    const enB = currentPhrase.English;
+    const notifyKey = `${currentIndex}|${currentPhrase.id}|${
+      presentationVersion ?? ''
+    }`;
+    const fromLayout = introTtsForBootstrapRef.current;
+    let isFirstSessionPresentation: boolean;
+    let useFirstIntroClips: boolean;
+    if (fromLayout && fromLayout.notifyKey === notifyKey) {
+      useFirstIntroClips = fromLayout.useFirstIntroClips;
+      isFirstSessionPresentation = fromLayout.isFirstSessionPresentation;
+    } else {
+      const englishUseFirstIntroLocal =
+        (enB['first-intro'] ?? '').trim() !== '';
+      const n =
+        phraseIdPresentationCountRef.current.get(currentPhrase.id) ?? 0;
+      isFirstSessionPresentation = n === 1;
+      useFirstIntroClips =
+        englishUseFirstIntroLocal &&
+        isFirstSessionPresentation &&
+        englishFirstPassOnCardRef.current;
+    }
     const introTextForClips = useFirstIntroClips
-      ? (en['first-intro'] ?? '')
-      : (en['second-intro'] ?? '');
+      ? (enB['first-intro'] ?? '')
+      : (enB['second-intro'] ?? '');
     const englishAppendQuestion = introTextForClips.trimEnd().endsWith(':');
     const enOpts = {
       englishUseFirstIntro: useFirstIntroClips,
@@ -573,15 +627,9 @@ export function usePhraseDisplay(
     // at the same index (or a one-element `phrases` array) still triggers a
     // fresh bootstrap. currentPhrase.id is included so queue-driven hosts
     // that swap the in-array identity without changing index also re-run.
-  }, [
-    currentIndex,
-    currentPhrase.id,
-    currentPhrase.type,
-    presentationVersion,
-    englishUseFirstIntro,
-    en['first-intro'],
-    en['second-intro'],
-  ]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentIndex, currentPhrase.id, currentPhrase.type, presentationVersion]);
+  // `currentPhrase.English` strings are *not* deps: hot edits without id change
+  // are rare; listing them re-ran bootstrap and could pick the wrong S3 intro.
 
   // Transition to recording once the mic opens. Preserve the 'tryAgain'
   // status so Try Again passes continue to emit PracticeAttempt events (and
