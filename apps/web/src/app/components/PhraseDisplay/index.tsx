@@ -1,7 +1,12 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
-import { runPhraseFeedbackNext, usePhraseDisplay } from "@ai-spanish/logic";
+import { useState } from "react";
+import {
+  getAisSpeakingViewModel,
+  getUserRecordingViewModel,
+  runPhraseFeedbackNext,
+  usePhraseDisplayWithDeck,
+} from "@ai-spanish/logic";
 import { useS3TTS, useSTT } from "@ai-spanish/ai";
 import { playSuccessChime } from "@/lib/playSuccessChime";
 import { useLessonSession } from "@/app/hooks/useLessonSession";
@@ -17,35 +22,28 @@ export const PhraseDisplay = ({ phrases }: PhraseDisplayProps): JSX.Element => {
   const session = useLessonSession(phrases);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
-  /**
-   * Map each phrase id to its original deck index so we can tell
-   * `usePhraseDisplay` (and therefore the S3 TTS adapter) which audio clips
-   * to request. Without this, the queue-driven 1-element `session.phrases`
-   * array always resolves to `currentIndex === 0` and every prompt would
-   * replay the first phrase's audio. See `ttsPhraseIndex` in
-   * `UsePhraseDisplayOptions`.
-   */
-  const deckIndexById = useMemo(() => {
-    const m = new Map<string, number>();
-    phrases.forEach((p, i) => m.set(p.id, i));
-    return m;
-  }, [phrases]);
-  const ttsPhraseIndex = deckIndexById.get(session.currentPhrase.id) ?? 0;
-
-  const runFeedbackNextRef = useRef<() => void>(() => {});
-  const display = usePhraseDisplay(session.phrases, stt, tts, {
+  const { display } = usePhraseDisplayWithDeck(phrases, session, stt, tts, {
     playSuccessChime,
-    onPhraseEvent: session.onPhraseEvent,
-    onPresentationStart: session.onPresentationStart,
-    presentationVersion: session.presentationVersion,
-    ttsPhraseIndex,
-    onSkipAnswerScreenAfterSuccess: () => runFeedbackNextRef.current(),
   });
-  runFeedbackNextRef.current = () => runPhraseFeedbackNext(display, session);
 
-  // Keep the session-history phrase pointer in sync with whichever phrase is
-  // currently on screen. Ref writes during render are safe — no state updates.
   session.bindCurrentPhrase(display.currentPhrase);
+
+  const ais = getAisSpeakingViewModel({
+    status: display.status,
+    isAudioPlaying: display.isAudioPlaying,
+    currentPhrase: display.currentPhrase,
+    spanishText: display.spanishText,
+    isFirstSessionPresentationOfCurrentPhrase:
+      display.isFirstSessionPresentationOfCurrentPhrase,
+  });
+
+  const recording = getUserRecordingViewModel({
+    currentPhrase: display.currentPhrase,
+    spanishText: display.spanishText,
+    isFirstSessionPresentationOfCurrentPhrase:
+      display.isFirstSessionPresentationOfCurrentPhrase,
+    hasUsedTryAgainOnCurrentCard: display.hasUsedTryAgainOnCurrentCard,
+  });
 
   return (
     <div className="w-full max-w-[390px] mx-auto bg-white flex flex-col min-h-[100dvh] py-16 px-8">
@@ -60,29 +58,18 @@ export const PhraseDisplay = ({ phrases }: PhraseDisplayProps): JSX.Element => {
         display.status === "idle" ||
         display.status === "pronunciationExample") && (
         <AISpeaking
-          isLoading={display.status === "loading"}
-          isAudioPlaying={display.isAudioPlaying}
-          spanishLine={
-            display.status === "pronunciationExample" &&
-            display.isFirstSessionPresentationOfCurrentPhrase &&
-            display.currentPhrase.type === "new"
-              ? display.spanishText
-              : undefined
-          }
+          isLoading={ais.isLoading}
+          isAudioPlaying={ais.isAudioPlaying}
+          englishQuestion={ais.englishQuestion}
+          spanishLine={ais.spanishLine}
         />
       )}
 
       {(display.status === "recording" || display.status === "tryAgain") && (
         <UserRecording
-          englishText={display.currentPhrase.English.question}
-          spanishLine={
-            display.currentPhrase.type === "new" &&
-            display.isFirstSessionPresentationOfCurrentPhrase &&
-            !display.hasUsedTryAgainOnCurrentCard
-              ? display.spanishText
-              : undefined
-          }
-          showEnglishInHint={display.isFirstSessionPresentationOfCurrentPhrase}
+          englishText={recording.englishText}
+          spanishLine={recording.spanishLine}
+          showEnglishInHint={recording.showEnglishInHint}
           transcription={display.caption}
           isRecording={stt.isRecording}
           isCorrect={display.isCorrect}

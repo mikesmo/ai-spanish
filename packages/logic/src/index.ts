@@ -64,3 +64,17 @@ export {
   POST_SUCCESS_EXTRA_PAUSE_MS,
   FEEDBACK_AUTO_ADVANCE_MS,
 } from './phraseDisplayTiming';
+export {
+  TRANSCRIPT_QUERY_KEY,
+  createTranscriptQueryOptions,
+} from './transcriptQuery';
+export {
+  getAisSpeakingViewModel,
+  getUserRecordingViewModel,
+  type AisSpeakingViewModel,
+  type PhraseDisplayHostProps,
+  type UserFeedbackViewProps,
+  type UserRecordingViewModel,
+  type UserRecordingViewProps,
+} from './phraseDisplayView';
+export { usePhraseDisplayWithDeck } from './usePhraseDisplayWithDeck';

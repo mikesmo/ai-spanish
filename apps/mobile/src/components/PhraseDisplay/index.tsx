@@ -1,9 +1,10 @@
-import { useMemo, useRef } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import {
+  getAisSpeakingViewModel,
+  getUserRecordingViewModel,
   runPhraseFeedbackNext,
   useLessonSession,
-  usePhraseDisplay,
+  usePhraseDisplayWithDeck,
 } from "@ai-spanish/logic";
 import { useSTT, useS3TTS } from "@ai-spanish/ai";
 import { playSuccessChime } from "../../lib/playSuccessChime";
@@ -17,30 +18,26 @@ export const PhraseDisplay = ({ phrases }: PhraseDisplayProps): JSX.Element => {
   const stt = useSTT();
   const session = useLessonSession(phrases);
 
-  /**
-   * Map each phrase id to its original deck index so `usePhraseDisplay`
-   * (and therefore the S3 TTS adapter) requests the right audio clip.
-   * Without this, the queue-driven 1-element `session.phrases` array
-   * always resolves to `currentIndex === 0` and every prompt would replay
-   * the first phrase's audio.
-   */
-  const deckIndexById = useMemo(() => {
-    const m = new Map<string, number>();
-    phrases.forEach((p, i) => m.set(p.id, i));
-    return m;
-  }, [phrases]);
-  const ttsPhraseIndex = deckIndexById.get(session.currentPhrase.id) ?? 0;
-
-  const runFeedbackNextRef = useRef<() => void>(() => {});
-  const display = usePhraseDisplay(session.phrases, stt, tts, {
+  const { display } = usePhraseDisplayWithDeck(phrases, session, stt, tts, {
     playSuccessChime,
-    onPhraseEvent: session.onPhraseEvent,
-    onPresentationStart: session.onPresentationStart,
-    presentationVersion: session.presentationVersion,
-    ttsPhraseIndex,
-    onSkipAnswerScreenAfterSuccess: () => runFeedbackNextRef.current(),
   });
-  runFeedbackNextRef.current = () => runPhraseFeedbackNext(display, session);
+
+  const ais = getAisSpeakingViewModel({
+    status: display.status,
+    isAudioPlaying: display.isAudioPlaying,
+    currentPhrase: display.currentPhrase,
+    spanishText: display.spanishText,
+    isFirstSessionPresentationOfCurrentPhrase:
+      display.isFirstSessionPresentationOfCurrentPhrase,
+  });
+
+  const recording = getUserRecordingViewModel({
+    currentPhrase: display.currentPhrase,
+    spanishText: display.spanishText,
+    isFirstSessionPresentationOfCurrentPhrase:
+      display.isFirstSessionPresentationOfCurrentPhrase,
+    hasUsedTryAgainOnCurrentCard: display.hasUsedTryAgainOnCurrentCard,
+  });
 
   return (
     <View style={styles.container}>
@@ -52,35 +49,18 @@ export const PhraseDisplay = ({ phrases }: PhraseDisplayProps): JSX.Element => {
         display.status === "idle" ||
         display.status === "pronunciationExample") && (
         <AISpeaking
-          isLoading={display.status === "loading"}
-          isAudioPlaying={display.isAudioPlaying}
-          englishQuestion={
-            display.status === "pronunciationExample" &&
-            display.isFirstSessionPresentationOfCurrentPhrase
-              ? display.currentPhrase.English.question
-              : undefined
-          }
-          spanishLine={
-            display.status === "pronunciationExample" &&
-            display.isFirstSessionPresentationOfCurrentPhrase &&
-            display.currentPhrase.type === "new"
-              ? display.spanishText
-              : undefined
-          }
+          isLoading={ais.isLoading}
+          isAudioPlaying={ais.isAudioPlaying}
+          englishQuestion={ais.englishQuestion}
+          spanishLine={ais.spanishLine}
         />
       )}
 
       {(display.status === "recording" || display.status === "tryAgain") && (
         <UserRecording
-          englishText={display.currentPhrase.English.question}
-          spanishLine={
-            display.currentPhrase.type === "new" &&
-            display.isFirstSessionPresentationOfCurrentPhrase &&
-            !display.hasUsedTryAgainOnCurrentCard
-              ? display.spanishText
-              : undefined
-          }
-          showEnglishInHint={display.isFirstSessionPresentationOfCurrentPhrase}
+          englishText={recording.englishText}
+          spanishLine={recording.spanishLine}
+          showEnglishInHint={recording.showEnglishInHint}
           transcription={display.caption}
           isRecording={stt.isRecording}
           isCorrect={display.isCorrect}

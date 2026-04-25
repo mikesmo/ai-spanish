@@ -112,11 +112,19 @@ function captionAndGradableFromStt(
   return { finalCaption, hasGradableSpeech };
 }
 
-// UI flows through these states in order:
+// UIStatus flow (see `UIStatus` in types.ts):
 //
-//   loading → idle → recording → answer
-//               ↑                   ↓ (Try Again)
-//            tryAgain ←←←←←←←←←←←←←
+//   loading — initial phrase bootstrap (prefetch + English TTS starting).
+//   idle — brief pre-mic; often skipped perceptually.
+//   pronunciationExample — only for `Phrase.type === 'new'` on the first
+//     in-session presentation of that phrase id; then Spanish TTS.
+//   recording — STT is active; learner speaks the answer.
+//   tryAgain — same card after “Try again”; still records PracticeAttempt.
+//   answer — feedback, replay, next.
+//
+//   loading → … → answer → (next phrase → loading) or (Try again → tryAgain
+//   → recording → answer). `idle` and `pronunciationExample` are optional
+//   branches after `loading` before `recording` depending on card type.
 export function usePhraseDisplay(
   phrases: Phrase[],
   stt: SpeechToTextHandle,
