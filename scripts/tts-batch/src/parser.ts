@@ -1,6 +1,6 @@
 import type { Phrase } from '@ai-spanish/logic';
 import type { TtsJob } from './types.js';
-import { VOICE_BY_LANGUAGE } from './tts-client.js';
+import { getVoiceForLanguage } from './tts-client.js';
 
 function isNonEmpty(text: string): boolean {
   return text.trim() !== '';
@@ -19,7 +19,7 @@ export function buildTtsJobs(phrases: Phrase[]): TtsJob[] {
         id: `${i}-en-first-intro`,
         language: 'en',
         text: firstIntro,
-        voice: VOICE_BY_LANGUAGE.en,
+        voice: getVoiceForLanguage('en'),
       });
     }
     if (isNonEmpty(phrase.English['second-intro'])) {
@@ -27,7 +27,7 @@ export function buildTtsJobs(phrases: Phrase[]): TtsJob[] {
         id: `${i}-en-second-intro`,
         language: 'en',
         text: phrase.English['second-intro'],
-        voice: VOICE_BY_LANGUAGE.en,
+        voice: getVoiceForLanguage('en'),
       });
     }
     if (isNonEmpty(phrase.English.question)) {
@@ -35,7 +35,7 @@ export function buildTtsJobs(phrases: Phrase[]): TtsJob[] {
         id: `${i}-en-question`,
         language: 'en',
         text: phrase.English.question,
-        voice: VOICE_BY_LANGUAGE.en,
+        voice: getVoiceForLanguage('en'),
       });
     }
     if (isNonEmpty(phrase.Spanish.answer)) {
@@ -43,7 +43,7 @@ export function buildTtsJobs(phrases: Phrase[]): TtsJob[] {
         id: `${i}-es-question`,
         language: 'es',
         text: phrase.Spanish.answer,
-        voice: VOICE_BY_LANGUAGE.es,
+        voice: getVoiceForLanguage('es'),
       });
     }
   }

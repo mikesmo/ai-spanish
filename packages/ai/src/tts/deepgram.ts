@@ -8,10 +8,11 @@ const DEEPGRAM_MODELS: Record<Language, string> = {
 export async function fetchTTSAudio(
   text: string,
   language: Language,
-  apiKey: string
+  apiKey: string,
+  model?: string,
 ): Promise<ArrayBuffer> {
-  const model = DEEPGRAM_MODELS[language];
-  const response = await fetch(`https://api.deepgram.com/v1/speak?model=${model}`, {
+  const modelId = model?.trim() || DEEPGRAM_MODELS[language];
+  const response = await fetch(`https://api.deepgram.com/v1/speak?model=${modelId}`, {
     method: 'POST',
     headers: {
       Authorization: `Token ${apiKey}`,
