@@ -355,7 +355,15 @@ export function usePhraseDisplay(
   /** Plays the Spanish answer audio and transitions to the `answer` status.
    * Used both for auto-advance after an attempt and for user-initiated reveal. */
   const playAnswerAudio = useCallback(async () => {
-    if (answerAudioInFlightRef.current) return;
+    // Second entry while a reveal is still awaiting TTS (e.g. double tap, or
+    // show answer after a race). Without this we no-op and the UI can stay on
+    // UserRecording even though the first call already set 'answer' then lost
+    // it, or the first call never got to setStatus in edge races.
+    if (answerAudioInFlightRef.current) {
+      sttRef.current.stop();
+      setStatus('answer');
+      return;
+    }
     answerAudioInFlightRef.current = true;
     try {
       sttRef.current.stop();
@@ -580,9 +588,16 @@ export function usePhraseDisplay(
   // get rendered as retry rows in session history) rather than being
   // reclassified as scored Attempt events when the mic reopens.
   useEffect(() => {
-    if (stt.isRecording && statusRef.current !== 'tryAgain') {
-      setStatus('recording');
+    if (!stt.isRecording) return;
+    if (statusRef.current === 'tryAgain') return;
+    // Do not clobber the feedback/loading flow: after `playAnswerAudio` stops
+    // STT, native/Deepgram can briefly report `listening` again; without this
+    // guard we setStatus('recording') and trap the user back on UserRecording
+    // while `playAnswerAudio` is still in flight (show answer no-ops).
+    if (statusRef.current === 'answer' || statusRef.current === 'loading') {
+      return;
     }
+    setStatus('recording');
   }, [stt.isRecording]);
 
   // Record the timestamp of the first is_final=true for this phrase
