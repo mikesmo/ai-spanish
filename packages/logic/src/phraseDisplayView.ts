@@ -75,6 +75,8 @@ export type UserRecordingViewProps = {
   isRecording: boolean;
   isCorrect: boolean;
   onShowAnswer: () => void;
+  /** When false, hide mic circle and recording affordances (e.g. recordingPriming). */
+  showMicChrome?: boolean;
 };
 
 export type UserFeedbackViewProps = {

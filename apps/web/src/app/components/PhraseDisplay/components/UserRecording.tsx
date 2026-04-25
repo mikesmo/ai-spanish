@@ -18,8 +18,9 @@ export const UserRecording = ({
   isRecording,
   isCorrect,
   onShowAnswer,
+  showMicChrome = true,
 }: UserRecordingProps): JSX.Element => {
-  const showRecordingIndicator = isRecording && !isCorrect;
+  const showRecordingIndicator = showMicChrome && isRecording && !isCorrect;
   const screenMode: UserRecordingScreenMode =
     spanishLine != null && String(spanishLine).trim() !== ""
       ? "pronunciationAttempt"
@@ -70,28 +71,32 @@ export const UserRecording = ({
         </div>
       ) : null}
 
-      <div
-        className={`w-[120px] h-[120px] rounded-full flex items-center justify-center animate-breathe-fast shrink-0 ${
-          isCorrect ? "bg-[#1D9E75]/70" : "bg-[#1D9E75]"
-        }`}
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="28"
-          height="28"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="white"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
+      {showMicChrome ? (
+        <div
+          className={`w-[120px] h-[120px] rounded-full flex items-center justify-center animate-breathe-fast shrink-0 ${
+            isCorrect ? "bg-[#1D9E75]/70" : "bg-[#1D9E75]"
+          }`}
         >
-          <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
-          <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-          <line x1="12" y1="19" x2="12" y2="22" />
-          <line x1="8" y1="22" x2="16" y2="22" />
-        </svg>
-      </div>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="28"
+            height="28"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="white"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+            <line x1="12" y1="19" x2="12" y2="22" />
+            <line x1="8" y1="22" x2="16" y2="22" />
+          </svg>
+        </div>
+      ) : (
+        <div className="h-[120px] w-[120px] shrink-0" aria-hidden />
+      )}
 
       {spanishLine ? (
         <div className="mt-6 flex max-w-[280px] flex-col items-center gap-1">

@@ -60,11 +60,15 @@ export interface SpokenWord {
 /**
  * `pronunciationExample` is used only for `Phrase.type === 'new'` on the
  * first presentation of that phrase id in the current session.
+ *
+ * `recordingPriming` — after bootstrap TTS, optional first-phrase clip before
+ * the mic opens (only when the host passes `playRecordingPrimingAudio`).
  */
 export type UIStatus =
   | 'loading'
   | 'idle'
   | 'pronunciationExample'
+  | 'recordingPriming'
   | 'recording'
   | 'answer'
   | 'tryAgain';

@@ -7,6 +7,7 @@ import {
   usePhraseDisplayWithDeck,
 } from "@ai-spanish/logic";
 import { useSTT, useS3TTS } from "@ai-spanish/ai";
+import { playRecordingPrimingAudio } from "../../lib/playRecordingPrimingAudio";
 import { playSuccessChime } from "../../lib/playSuccessChime";
 import type { PhraseDisplayProps } from "./PhraseDisplay.types";
 import { AISpeaking } from "./components/AISpeaking";
@@ -20,6 +21,7 @@ export const PhraseDisplay = ({ phrases }: PhraseDisplayProps): JSX.Element => {
 
   const { display } = usePhraseDisplayWithDeck(phrases, session, stt, tts, {
     playSuccessChime,
+    playRecordingPrimingAudio,
   });
 
   const ais = getAisSpeakingViewModel({
@@ -56,7 +58,9 @@ export const PhraseDisplay = ({ phrases }: PhraseDisplayProps): JSX.Element => {
         />
       )}
 
-      {(display.status === "recording" || display.status === "tryAgain") && (
+      {(display.status === "recording" ||
+        display.status === "recordingPriming" ||
+        display.status === "tryAgain") && (
         <UserRecording
           englishText={recording.englishText}
           spanishLine={recording.spanishLine}
@@ -65,6 +69,7 @@ export const PhraseDisplay = ({ phrases }: PhraseDisplayProps): JSX.Element => {
           isRecording={stt.isRecording}
           isCorrect={display.isCorrect}
           onShowAnswer={display.handleShowAnswer}
+          showMicChrome={display.status !== "recordingPriming"}
         />
       )}
 

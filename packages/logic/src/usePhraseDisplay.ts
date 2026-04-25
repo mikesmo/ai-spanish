@@ -52,6 +52,12 @@ export type UsePhraseDisplayOptions = {
   /** Web: play a short success sound; must resolve when finished or reject on abort. */
   playSuccessChime?: (signal: AbortSignal) => Promise<void>;
   /**
+   * First phrase in the deck (`ttsPhraseIndex ?? currentIndex === 0`): play
+   * after bootstrap TTS and before `stt.start`. Must resolve when finished or
+   * reject on abort.
+   */
+  playRecordingPrimingAudio?: (signal: AbortSignal) => Promise<void>;
+  /**
    * Called once per attempt / practice-attempt / reveal. Host apps wire this
    * up to a ProgressStore + SessionEngine to drive mastery and SRS.
    */
@@ -118,13 +124,15 @@ function captionAndGradableFromStt(
 //   idle — brief pre-mic; often skipped perceptually.
 //   pronunciationExample — only for `Phrase.type === 'new'` on the first
 //     in-session presentation of that phrase id; then Spanish TTS.
+//   recordingPriming — optional first-phrase clip before mic (host callback).
 //   recording — STT is active; learner speaks the answer.
 //   tryAgain — same card after “Try again”; still records PracticeAttempt.
 //   answer — feedback, replay, next.
 //
 //   loading → … → answer → (next phrase → loading) or (Try again → tryAgain
-//   → recording → answer). `idle` and `pronunciationExample` are optional
-//   branches after `loading` before `recording` depending on card type.
+//   → recording → answer). `idle`, `pronunciationExample`, and `recordingPriming`
+//   are optional branches after `loading` before `recording` depending on card
+//   type and host options.
 export function usePhraseDisplay(
   phrases: Phrase[],
   stt: SpeechToTextHandle,
@@ -169,6 +177,10 @@ export function usePhraseDisplay(
   const playSuccessChime = options?.playSuccessChime ?? noopSuccessChime;
   const playSuccessChimeRef = useRef(playSuccessChime);
   playSuccessChimeRef.current = playSuccessChime;
+
+  const playRecordingPrimingAudio = options?.playRecordingPrimingAudio;
+  const playRecordingPrimingAudioRef = useRef(playRecordingPrimingAudio);
+  playRecordingPrimingAudioRef.current = playRecordingPrimingAudio;
 
   const onPhraseEventRef = useRef(options?.onPhraseEvent);
   onPhraseEventRef.current = options?.onPhraseEvent;
@@ -564,6 +576,7 @@ export function usePhraseDisplay(
       isNewLessonCard && isFirstSessionPresentation;
 
     let cancelled = false;
+    const primingAbort = new AbortController();
 
     const init = async () => {
       try {
@@ -609,6 +622,28 @@ export function usePhraseDisplay(
         }
 
         if (cancelled) return;
+
+        const playPrime = playRecordingPrimingAudioRef.current;
+        if (ttsPhraseIndexRef.current === 0 && playPrime) {
+          setStatus('recordingPriming');
+          try {
+            await playPrime(primingAbort.signal);
+          } catch (primError: unknown) {
+            const aborted =
+              cancelled ||
+              primingAbort.signal.aborted ||
+              (primError instanceof DOMException &&
+                primError.name === 'AbortError') ||
+              (primError instanceof Error && primError.name === 'AbortError');
+            if (aborted) return;
+            console.error(
+              '[usePhraseDisplay] Recording priming audio:',
+              primError,
+            );
+          }
+          if (cancelled || primingAbort.signal.aborted) return;
+        }
+
         sttRef.current.clearTranscription();
         sttRef.current.start({
           keywords: isSingleWordAnswer(currentPhrase.Spanish.answer)
@@ -628,6 +663,7 @@ export function usePhraseDisplay(
 
     return () => {
       cancelled = true;
+      primingAbort.abort();
       ttsRef.current.stop();
     };
     // Re-run on currentIndex change (linear navigation) AND on

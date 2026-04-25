@@ -14,8 +14,9 @@ export const UserRecording = ({
   isRecording,
   isCorrect,
   onShowAnswer,
+  showMicChrome = true,
 }: UserRecordingProps): JSX.Element => {
-  const showRecordingIndicator = isRecording && !isCorrect;
+  const showRecordingIndicator = showMicChrome && isRecording && !isCorrect;
   const screenMode: UserRecordingScreenMode =
     spanishLine != null && String(spanishLine).trim() !== ""
       ? "pronunciationAttempt"
@@ -66,15 +67,19 @@ export const UserRecording = ({
             </View>
           ) : null}
 
-          <Animated.View
-            style={[
-              styles.micCircle,
-              isCorrect && styles.micCircleCorrect,
-              { transform: [{ scale: breatheScale }] },
-            ]}
-          >
-            <Feather name="mic" size={28} color="white" />
-          </Animated.View>
+          {showMicChrome ? (
+            <Animated.View
+              style={[
+                styles.micCircle,
+                isCorrect && styles.micCircleCorrect,
+                { transform: [{ scale: breatheScale }] },
+              ]}
+            >
+              <Feather name="mic" size={28} color="white" />
+            </Animated.View>
+          ) : (
+            <View style={styles.micCirclePlaceholder} />
+          )}
 
           {spanishLine ? (
             <View style={styles.hintBlock}>
@@ -159,6 +164,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#1D9E75",
     alignItems: "center",
     justifyContent: "center",
+  },
+  micCirclePlaceholder: {
+    width: CIRCLE_SIZE,
+    height: CIRCLE_SIZE,
   },
   micCircleCorrect: {
     backgroundColor: "rgba(29, 158, 117, 0.7)",
