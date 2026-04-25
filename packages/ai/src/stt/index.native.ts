@@ -7,6 +7,7 @@ import {
   logSttClear,
   logSttSegment,
   logSttUtteranceEnd,
+  toDeepgramLiveKeywordParams,
   type SpeechToTextHandle,
   type SpokenWord,
   type SttStartOptions,
@@ -225,11 +226,8 @@ export function useSTT(): SpeechToTextHandle {
   const words: SpokenWord[] = [];
 
   return {
-    // TODO(native-stt-keywords): `react-native-deepgram` doesn't expose the
-    // underlying WebSocket query params, so we can't forward options.keywords
-    // to Deepgram's `keywords` biasing on native today. Accept the arg for
-    // API parity with the web adapter; revisit when the underlying SDK
-    // gains a keywords knob.
+    // Per-attempt `keywords` for Deepgram are passed through
+    // `useDeepgramSpeechToText` `startListening(override)` (merges with `live`).
     start: (options?: SttStartOptions) => {
       if (debugRef.current) {
         logSttAdapterStart({
@@ -256,7 +254,12 @@ export function useSTT(): SpeechToTextHandle {
           });
         }
       }, INITIAL_SILENCE_TIMEOUT_MS);
-      startListening();
+      const kws = options?.keywords;
+      if (kws && kws.length > 0) {
+        void startListening({ keywords: toDeepgramLiveKeywordParams(kws) });
+      } else {
+        void startListening();
+      }
     },
     stop: () => {
       if (debugRef.current) {

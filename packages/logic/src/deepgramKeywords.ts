@@ -7,8 +7,27 @@
 export const DEEPGRAM_KEYWORD_MAX = 100;
 
 /**
+ * Boost for Deepgram live `keywords` (Nova-2). Moderate enough to nudge
+ * short words without the hallucination risk of very high values.
+ * @see {@link toDeepgramLiveKeywordParams}
+ */
+export const DEEPGRAM_KEYWORD_LIVE_BOOST = 2 as const;
+
+/**
+ * Maps tokenized keywords to Deepgram’s live `keywords` param (`word:boost` per value).
+ * Call with tokens from {@link tokenizeForDeepgramKeywords} (or the same pipeline).
+ */
+export function toDeepgramLiveKeywordParams(
+  tokens: string[],
+  boost: number = DEEPGRAM_KEYWORD_LIVE_BOOST,
+): string[] {
+  return tokens.map((w) => `${w}:${boost}`);
+}
+
+/**
  * @returns Unique keyword tokens, capped at {@link DEEPGRAM_KEYWORD_MAX}.
- * Live STT and `--verify-stt` both map these to `word:2` boosts (see `packages/ai` STT web).
+ * For live STT, map with {@link toDeepgramLiveKeywordParams} before sending to the adapter;
+ * prerecorded `--verify-stt` may use a different boost.
  */
 export function tokenizeForDeepgramKeywords(s: string): string[] {
   return Array.from(

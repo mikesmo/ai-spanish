@@ -29,7 +29,9 @@ export {
 } from './s3-keys';
 export type { S3PathConfig } from './s3-keys';
 export {
+  DEEPGRAM_KEYWORD_LIVE_BOOST,
   DEEPGRAM_KEYWORD_MAX,
+  toDeepgramLiveKeywordParams,
   tokenizeForDeepgramKeywords,
 } from './deepgramKeywords';
 export { usePhraseDisplay } from './usePhraseDisplay';

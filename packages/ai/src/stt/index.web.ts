@@ -13,6 +13,7 @@ import {
   logSttClear,
   logSttSegment,
   logSttUtteranceEnd,
+  toDeepgramLiveKeywordParams,
 } from '@ai-spanish/logic';
 
 const DEEPGRAM_OPTIONS = {
@@ -84,31 +85,6 @@ const INACTIVITY_WATCHDOG_MS = 3000;
  * hanging — the user can retry immediately.
  */
 const INITIAL_SILENCE_TIMEOUT_MS = 6000;
-
-/**
- * Feature flag: forward per-phrase `keywords` to Deepgram's live transcription
- * for ASR biasing. Driven by the public env var `NEXT_PUBLIC_STT_KEYWORDS_ENABLED`
- * so the flag is readable from the client bundle. Defaults to ENABLED so a
- * deployment without the variable set continues to get keyword biasing (which
- * we added to fix the "algo"→"agol" family of mis-transcriptions); set to
- * `false` / `0` / `off` / `no` to turn it off for A/B comparison or to rule
- * out biasing as a cause when debugging a new ASR regression.
- *
- * Computed once at module init rather than on every buildConnectOptions() call
- * because the value can't change without a page reload (env vars are baked into
- * the Next.js bundle at build time for NEXT_PUBLIC_*).
- */
-const KEYWORDS_FEATURE_ENABLED: boolean = (() => {
-  const v = process.env.NEXT_PUBLIC_STT_KEYWORDS_ENABLED;
-  if (v === undefined || v === '') return true;
-  const normalized = v.trim().toLowerCase();
-  return (
-    normalized !== 'false' &&
-    normalized !== '0' &&
-    normalized !== 'off' &&
-    normalized !== 'no'
-  );
-})();
 
 export function useSTT(): SpeechToTextHandle {
   const {
@@ -391,34 +367,21 @@ export function useSTT(): SpeechToTextHandle {
   onUtteranceEndRef.current = handleUtteranceEnd;
 
   // Merge the current phrase's target words (if any) into Deepgram's connect
-  // options. The `:2` intensifier is a moderate boost — high enough to
-  // recover short trailing Spanish words like "algo" that the LM otherwise
-  // discounts without right-context, but below the `:3+` range where
-  // Deepgram's docs warn about hallucinated matches. Must be called at
-  // every connectToDeepgram site (initial, unexpected-close reconnect, and
-  // backoff retry) so the next WebSocket inherits the currently-armed bias.
-  //
-  // Gated on KEYWORDS_FEATURE_ENABLED so we can flip the feature off via
-  // `NEXT_PUBLIC_STT_KEYWORDS_ENABLED=false` for A/B comparison without
-  // touching the call sites (all four adapter paths go through here).
+  // options. Boost level is defined in @ai-spanish/logic
+  // (`toDeepgramLiveKeywordParams`). Must be called at every
+  // connectToDeepgram site (initial, unexpected-close reconnect, and backoff
+  // retry) so the next WebSocket inherits the currently-armed bias.
   const buildConnectOptions = () => {
-    if (!KEYWORDS_FEATURE_ENABLED) return DEEPGRAM_OPTIONS;
     const kws = nextKeywordsRef.current;
     return kws.length > 0
-      ? { ...DEEPGRAM_OPTIONS, keywords: kws.map((w) => `${w}:2`) }
+      ? { ...DEEPGRAM_OPTIONS, keywords: toDeepgramLiveKeywordParams(kws) }
       : DEEPGRAM_OPTIONS;
   };
 
   const start = (options?: SttStartOptions) => {
     isIntentionalStop.current = false;
     isUserStarted.current = true;
-    // When the feature flag is OFF, zero out the ref so every downstream
-    // consumer (adapter-start console log, buildConnectOptions()) reports a
-    // consistent "no keywords" state rather than misleadingly showing the
-    // tokens that WOULD have been sent.
-    nextKeywordsRef.current = KEYWORDS_FEATURE_ENABLED
-      ? (options?.keywords ?? [])
-      : [];
+    nextKeywordsRef.current = options?.keywords ?? [];
 
     // Three-way branch over the current (mic, conn) state:
     //   - conn OPEN                → startMic-direct (fast path; pre-warm was on)
