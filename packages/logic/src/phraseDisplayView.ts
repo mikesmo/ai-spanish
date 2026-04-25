@@ -7,9 +7,9 @@ import type { Phrase, UIStatus } from './types';
 export type AisSpeakingViewModel = {
   isLoading: boolean;
   isAudioPlaying: boolean;
-  /** Grey English prompt; shown during pronunciation example when applicable. */
+  /** Reserved for future AISpeaking copy; currently always null. */
   englishQuestion: string | null;
-  /** Emphasized line (Spanish target) during new-phrase pronunciation example. */
+  /** Reserved for future AISpeaking copy; currently always null. */
   spanishLine: string | null;
 };
 
@@ -20,22 +20,12 @@ export function getAisSpeakingViewModel(input: {
   spanishText: string;
   isFirstSessionPresentationOfCurrentPhrase: boolean;
 }): AisSpeakingViewModel {
-  const {
-    status,
-    isAudioPlaying,
-    currentPhrase,
-    spanishText,
-    isFirstSessionPresentationOfCurrentPhrase,
-  } = input;
-  const inPronunciation =
-    status === 'pronunciationExample' &&
-    isFirstSessionPresentationOfCurrentPhrase;
+  const { status, isAudioPlaying } = input;
   return {
     isLoading: status === 'loading',
     isAudioPlaying,
-    englishQuestion: inPronunciation ? currentPhrase.English.question : null,
-    spanishLine:
-      inPronunciation && currentPhrase.type === 'new' ? spanishText : null,
+    englishQuestion: null,
+    spanishLine: null,
   };
 }
 

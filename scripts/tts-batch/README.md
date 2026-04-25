@@ -31,6 +31,57 @@ Run commands from the **monorepo root** so default paths resolve (`apps/web/publ
    npm run start --workspace=@ai-spanish/tts-batch -- --help
    ```
 
+## Three-step workflow (audio only → validate → upload)
+
+Run from the **monorepo root** so defaults apply (`apps/web/public/lesson1.json`, `./output`). Configure `scripts/tts-batch/.env` (copy from `.env.example`) for API keys and optional S3 settings.
+
+### 1. Generate audio from the transcript (no S3)
+
+Synthesizes MP3s under `output/audio/`, writes `output/manifest.json` and the hash cache. Does **not** upload; AWS credentials are not required.
+
+```bash
+cd /path/to/ai-spanish
+npm run tts:batch -- --input apps/web/public/lesson1.json --local-only
+```
+
+- Omit `--input` if `TRANSCRIPT_INPUT` in `.env` already points at this file (the default is `apps/web/public/lesson1.json`).
+- Add `--force` to regenerate every clip (ignores the hash cache).
+- Use `--out <dir>` if you want something other than `./output`.
+
+### 2. Validate all generated audio
+
+Run after step 1 so `./output/manifest.json` and `./output/audio/*.mp3` exist (use the same `--out` if you overrode it).
+
+**Loudness only** (ffmpeg `volumedetect`; no Deepgram API):
+
+```bash
+npm run tts:batch -- --verify-loudness
+```
+
+**Loudness + STT** (matches each file’s expected text; requires `DEEPGRAM_API_KEY` — this step includes the loudness pass, so you do not need to run `--verify-loudness` separately):
+
+```bash
+npm run tts:batch -- --verify-stt
+```
+
+Tweak thresholds with `TTS_VERIFY_LOUDNESS_MIN_MAX_DB` and `TTS_VERIFY_LOUDNESS_MIN_MEAN_DB` if needed (see the table below).
+
+### 3. Upload to S3
+
+Uploads the existing `output/` tree (MP3s + manifest) without calling TTS. Requires `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `S3_BUCKET_NAME` (and optional `AWS_REGION`, `AUDIO_CONTENT_PREFIX`, `S3_LESSON` / `--lesson`).
+
+```bash
+npm run tts:batch -- --upload-only
+```
+
+To upload under a lesson segment (e.g. `audio-content/lesson1/...` when `AUDIO_CONTENT_PREFIX=audio-content`):
+
+```bash
+npm run tts:batch -- --upload-only --lesson lesson1
+```
+
+Use the same `--lesson` and prefix you intend for production so keys stay consistent. See [S3 object keys](#s3-object-keys) below.
+
 ## Environment variables
 
 | Variable | When |

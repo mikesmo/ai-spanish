@@ -4,7 +4,7 @@
     "type": "new",
     "English": {
       "first-intro": "This is how you say 'excuse me' in Spanish",
-      "second-intro": "How do you say:",
+      "second-intro": "How do you say 'excuse me'",
       "question": "Excuse me"
     },
     "Spanish": {
@@ -24,7 +24,7 @@
     "type": "new",
     "English": {
       "first-intro": "This is how you formally address a young woman in Spanish",
-      "second-intro": "How would you:",
+      "second-intro": "How would you formally address a young woman",
       "question": "Formally address a young woman"
     },
     "Spanish": {
@@ -44,7 +44,7 @@
     "type": "new",
     "English": {
       "first-intro": "This is how you say 'Do you understand?'",
-      "second-intro": "How do you ask:",
+      "second-intro": "How do you ask 'Do you understand?'",
       "question": "Do you understand?"
     },
     "Spanish": {
@@ -64,7 +64,7 @@
     "type": "new",
     "English": {
       "first-intro": "Listen and repeat the word",
-      "second-intro": "How do you say:",
+      "second-intro": "How do you say English",
       "question": "English"
     },
     "Spanish": {
@@ -83,8 +83,8 @@
     "id": "entiende-ingles",
     "type": "combination",
     "English": {
-      "first-intro": "Now put it together, how would you ask:",
-      "second-intro": "How would you ask:",
+      "first-intro": "Now put it together, how would you ask 'Do you understand English?'",
+      "second-intro": "How would you ask 'Do you understand English?'",
       "question": "Do you understand English?"
     },
     "Spanish": {
@@ -109,7 +109,7 @@
     "type": "new",
     "English": {
       "first-intro": "The word 'no' is the same in English.",
-      "second-intro": "How do you say:",
+      "second-intro": "How do you say 'No'",
       "question": "No"
     },
     "Spanish": {
@@ -128,12 +128,12 @@
     "id": "senor",
     "type": "new",
     "English": {
-      "first-intro": "Listen and repeat.",
-      "second-intro": "How do you say:",
-      "question": "sir"
+      "first-intro": "This is how you say 'sir'",
+      "second-intro": "How do you say 'sir'",
+      "question": "Sir"
     },
     "Spanish": {
-      "grammar": "This is how you say:",
+      "grammar": "",
       "answer": "Señor",
       "words": [
         {
@@ -146,9 +146,9 @@
   },
   {
     "id": "no-senor",
-    "type": "new",
+    "type": "combination",
     "English": {
-      "first-intro": "This is how you say:",
+      "first-intro": "How would you then say 'No sir'",
       "second-intro": "How do you say:",
       "question": "No sir"
     },
@@ -173,9 +173,9 @@
     "id": "entiendo",
     "type": "new",
     "English": {
-      "first-intro": "This is how you say:",
-      "second-intro": "How do you say:",
-      "question": "I understand."
+      "first-intro": "This is how you say 'I understand'",
+      "second-intro": "How do you say 'I understand'?",
+      "question": "I understand"
     },
     "Spanish": {
       "grammar": "",
@@ -193,8 +193,8 @@
     "id": "no-entiendo",
     "type": "combination",
     "English": {
-      "first-intro": "Now, try to say:",
-      "second-intro": "How do you say:",
+      "first-intro": "Now, try to say 'I don't understand'",
+      "second-intro": "How do you say 'I don't understand'?",
       "question": "I don’t understand."
     },
     "Spanish": {
@@ -218,8 +218,8 @@
     "id": "hablo",
     "type": "new",
     "English": {
-      "first-intro": "This is how you say:",
-      "second-intro": "Now say:",
+      "first-intro": "This is how you say 'I speak'",
+      "second-intro": "Now say 'I speak'",
       "question": "I speak."
     },
     "Spanish": {
@@ -238,8 +238,8 @@
     "id": "poco",
     "type": "new",
     "English": {
-      "first-intro": "This is how you say:",
-      "second-intro": "Say:",
+      "first-intro": "This is how you say 'a little'",
+      "second-intro": "Say 'a little'",
       "question": "A little"
     },
     "Spanish": {
