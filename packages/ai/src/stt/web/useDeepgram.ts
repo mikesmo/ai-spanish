@@ -72,7 +72,8 @@ export function useDeepgramConnection() {
     try {
       let key: string;
       const cached = nextApiKeyRef.current;
-      if (cached && Date.now() - cached.fetchedAt < 45_000) {
+      // Stay below server `time_to_live_in_seconds` (30s) with margin
+      if (cached && Date.now() - cached.fetchedAt < 20_000) {
         key = cached.key;
         nextApiKeyRef.current = null;
       } else {

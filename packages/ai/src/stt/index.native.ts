@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
-import { useDeepgramSpeechToText } from 'react-native-deepgram';
+import { configure, useDeepgramSpeechToText } from 'react-native-deepgram';
+import { prefetchListenKey, resolveKeyForListen } from './deepgramAuthKey.native';
 import {
   getDefaultLearningPipelineDebug,
   logSttAdapterStart,
@@ -123,6 +124,9 @@ export function useSTT(): SpeechToTextHandle {
 
   const { startListening, stopListening, state } = useDeepgramSpeechToText({
     trackState: true,
+    onStart: () => {
+      prefetchListenKey();
+    },
     onTranscript: (text: string, event?: TranscriptEvent) => {
       if (text !== '') clearInitialSilenceTimer();
 
@@ -276,6 +280,30 @@ export function useSTT(): SpeechToTextHandle {
           return;
         }
         await new Promise<void>((r) => setTimeout(r, NATIVE_STOP_SETTLE_MS));
+        if (startEpochRef.current !== myEpoch) {
+          try { stopListeningRef.current(); } catch { /* empty */ }
+          return;
+        }
+        if (options?.signal?.aborted) {
+          try { stopListeningRef.current(); } catch { /* empty */ }
+          return;
+        }
+        let apiKey: string;
+        try {
+          apiKey = await resolveKeyForListen();
+        } catch (err) {
+          console.error('[Deepgram STT] auth key', err);
+          return;
+        }
+        if (startEpochRef.current !== myEpoch) {
+          try { stopListeningRef.current(); } catch { /* empty */ }
+          return;
+        }
+        if (options?.signal?.aborted) {
+          try { stopListeningRef.current(); } catch { /* empty */ }
+          return;
+        }
+        configure({ apiKey });
         if (startEpochRef.current !== myEpoch) {
           try { stopListeningRef.current(); } catch { /* empty */ }
           return;

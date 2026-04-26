@@ -1,8 +1,36 @@
 import { useCallback } from 'react';
 import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system';
-import { fetchTTSAudio } from './deepgram';
 import type { TTSAdapter, Language, TtsAdapterOptions } from '@ai-spanish/logic';
+
+function getWebOrigin(): string {
+  return (process.env.EXPO_PUBLIC_WEB_ORIGIN ?? '').replace(/\/$/, '');
+}
+
+async function fetchTtsAudioFromWeb(
+  text: string,
+  language: Language,
+  signal?: AbortSignal,
+): Promise<ArrayBuffer> {
+  const origin = getWebOrigin();
+  if (!origin) {
+    throw new Error(
+      'EXPO_PUBLIC_WEB_ORIGIN is not set. Required for text-to-speech.',
+    );
+  }
+  const response = await fetch(`${origin}/api/text-to-speech`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text, provider: 'deepgram', language }),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(
+      `TTS request failed: ${response.status} ${response.statusText}`,
+    );
+  }
+  return response.arrayBuffer();
+}
 
 const audioCache = new Map<string, string>(); // cacheKey → file URI
 let currentSound: Audio.Sound | null = null;
@@ -43,11 +71,10 @@ async function fetchAndCacheAudio(
     audioCache.delete(key);
   }
 
-  const apiKey = process.env.EXPO_PUBLIC_DEEPGRAM_API_KEY!;
   if (signal?.aborted) {
     throw new DOMException('Aborted', 'AbortError');
   }
-  const buffer = await fetchTTSAudio(text, language, apiKey, undefined, signal);
+  const buffer = await fetchTtsAudioFromWeb(text, language, signal);
   const base64 = arrayBufferToBase64(buffer);
   const fileUri = `${FileSystem.cacheDirectory}tts-${Date.now()}-${Math.random().toString(36).slice(2)}.mp3`;
 

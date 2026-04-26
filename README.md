@@ -40,19 +40,15 @@ npm install
 
 ### Environment variables
 
-Both apps use the same Deepgram API key. Copy the example files and fill in your key:
+Copy the example files and fill in the values:
 
 ```bash
 cp apps/web/.env.example apps/web/.env.local
 cp apps/mobile/.env.example apps/mobile/.env.local
 ```
 
-Then open each file and set your key (get one at [console.deepgram.com](https://console.deepgram.com)):
-
-- `apps/web/.env.local` → `DEEPGRAM_API_KEY`
-- `apps/mobile/.env.local` → `EXPO_PUBLIC_DEEPGRAM_API_KEY`
-
-> The `EXPO_PUBLIC_` prefix is required by Expo to include the value in the client bundle.
+- **`apps/web/.env.local`** — set `DEEPGRAM_API_KEY` (get one at [console.deepgram.com](https://console.deepgram.com)). The web app uses it server-side for TTS, minting short-lived STT keys, and (in development) the authenticate endpoint.
+- **`apps/mobile/.env.local`** — set `EXPO_PUBLIC_WEB_ORIGIN` to your Next.js base URL (LAN IP or production URL). The mobile app does **not** embed a Deepgram key; it uses the web APIs above for transcript, STT auth, and TTS.
 
 ---
 

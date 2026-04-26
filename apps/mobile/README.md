@@ -21,12 +21,11 @@
 
 | Variable | Description |
 |----------|-------------|
-| `EXPO_PUBLIC_DEEPGRAM_API_KEY` | Deepgram API key for speech-to-text |
-| `EXPO_PUBLIC_WEB_ORIGIN` | Base URL of the web app that serves `/api/transcript` (see below) |
+| `EXPO_PUBLIC_WEB_ORIGIN` | Base URL of the Next.js app (see below). The web server must have `DEEPGRAM_API_KEY` set for speech features. |
 
 ## Setting EXPO_PUBLIC_WEB_ORIGIN
 
-The mobile app fetches the lesson transcript from the web app's `/api/transcript` endpoint. `localhost` does **not** work on physical devices or the Android emulator — you must use your machine's LAN IP address.
+The mobile app calls the web app for the lesson transcript (`/api/transcript`), short-lived Deepgram keys for speech-to-text (`/api/authenticate`), and TTS audio (`/api/text-to-speech`). `localhost` does **not** work on physical devices or the Android emulator — you must use your machine's LAN IP address (or your deployed site URL in production).
 
 **Find your LAN IP:**
 ```bash
