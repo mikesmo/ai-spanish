@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Animated, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Animated, StyleSheet, Text, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import type { UserRecordingProps } from "../PhraseDisplay.types";
 import { PillButton } from "./PillButton";
@@ -78,7 +78,9 @@ export const UserRecording = ({
               <Feather name="mic" size={28} color="white" />
             </Animated.View>
           ) : (
-            <View style={styles.micCirclePlaceholder} />
+            <View style={styles.primingCircle} accessibilityRole="progressbar" accessibilityLabel="Loading">
+              <ActivityIndicator size="large" color="#ffffff" />
+            </View>
           )}
 
           {spanishLine ? (
@@ -165,9 +167,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  micCirclePlaceholder: {
+  primingCircle: {
     width: CIRCLE_SIZE,
     height: CIRCLE_SIZE,
+    borderRadius: CIRCLE_SIZE / 2,
+    backgroundColor: "#A8DDD0",
+    alignItems: "center",
+    justifyContent: "center",
   },
   micCircleCorrect: {
     backgroundColor: "rgba(29, 158, 117, 0.7)",

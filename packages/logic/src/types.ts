@@ -61,8 +61,9 @@ export interface SpokenWord {
  * `pronunciationExample` is used only for `Phrase.type === 'new'` on the
  * first presentation of that phrase id in the current session.
  *
- * `recordingPriming` — after bootstrap TTS, optional first-phrase clip before
- * the mic opens (only when the host passes `playRecordingPrimingAudio`).
+ * `recordingPriming` — after bootstrap TTS, optional clip before the mic opens
+ * for the first three phrases in the deck on first presentation only (not on
+ * revisits; only when the host passes `playRecordingPrimingAudio`).
  */
 export type UIStatus =
   | 'loading'

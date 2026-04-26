@@ -95,7 +95,33 @@ export const UserRecording = ({
           </svg>
         </div>
       ) : (
-        <div className="h-[120px] w-[120px] shrink-0" aria-hidden />
+        <div
+          className="w-[120px] h-[120px] rounded-full flex items-center justify-center shrink-0 bg-[#A8DDD0]"
+          role="status"
+          aria-label="Loading"
+        >
+          <svg
+            className="animate-spin h-6 w-6 text-white/80"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            aria-hidden
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+            />
+          </svg>
+        </div>
       )}
 
       {spanishLine ? (

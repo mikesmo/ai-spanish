@@ -48,13 +48,17 @@ const PLAYBACK_RATES: Record<'1x' | 'slow', number> = { '1x': 1.0, slow: 0.5 };
 
 const noopSuccessChime = async (_signal: AbortSignal): Promise<void> => {};
 
+/** First N logical deck positions (0-based) get recording priming audio before the mic. */
+const RECORDING_PRIMING_PHRASE_COUNT = 3;
+
 export type UsePhraseDisplayOptions = {
   /** Web: play a short success sound; must resolve when finished or reject on abort. */
   playSuccessChime?: (signal: AbortSignal) => Promise<void>;
   /**
-   * First phrase in the deck (`ttsPhraseIndex ?? currentIndex === 0`): play
-   * after bootstrap TTS and before `stt.start`. Must resolve when finished or
-   * reject on abort.
+   * First three phrases in the deck (by `ttsPhraseIndex ?? currentIndex`,
+   * indices 0–2), only on the **first** in-session presentation of that phrase
+   * id (skipped on revisits). Play after bootstrap TTS and before `stt.start`.
+   * Must resolve when finished or reject on abort.
    */
   playRecordingPrimingAudio?: (signal: AbortSignal) => Promise<void>;
   /**
@@ -124,7 +128,8 @@ function captionAndGradableFromStt(
 //   idle — brief pre-mic; often skipped perceptually.
 //   pronunciationExample — only for `Phrase.type === 'new'` on the first
 //     in-session presentation of that phrase id; then Spanish TTS.
-//   recordingPriming — optional first-phrase clip before mic (host callback).
+//   recordingPriming — optional clip before mic for the first three phrases,
+//     first presentation only (skipped on session revisits; host callback).
 //   recording — STT is active; learner speaks the answer.
 //   tryAgain — same card after “Try again”; still records PracticeAttempt.
 //   answer — feedback, replay, next.
@@ -624,7 +629,11 @@ export function usePhraseDisplay(
         if (cancelled) return;
 
         const playPrime = playRecordingPrimingAudioRef.current;
-        if (ttsPhraseIndexRef.current === 0 && playPrime) {
+        if (
+          ttsPhraseIndexRef.current < RECORDING_PRIMING_PHRASE_COUNT &&
+          isFirstSessionPresentation &&
+          playPrime
+        ) {
           setStatus('recordingPriming');
           try {
             await playPrime(primingAbort.signal);
