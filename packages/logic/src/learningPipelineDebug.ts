@@ -340,6 +340,11 @@ export function logSttMicStart(ctx: {
   );
 }
 
+/** Mic could not start (e.g. no stream ref while WS already open). */
+export function logSttMicStartSkipped(ctx: { reason: string }): void {
+  console.log(`${STT_PREFIX} microphone · start skipped`, 'reason=' + ctx.reason);
+}
+
 export function logSttMicStop(ctx: { recorderState: string | null }): void {
   console.log(
     `${STT_PREFIX} microphone · stop`,

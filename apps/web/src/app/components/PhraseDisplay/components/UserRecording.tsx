@@ -36,117 +36,121 @@ export const UserRecording = ({
     ) : null}
 
     <div className="relative flex-1 w-full min-h-0">
-      <div className="absolute left-1/2 top-1/2 w-full -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
       {isCorrect ? (
-        <div className="flex items-center justify-center gap-2 mb-6 shrink-0">
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <circle
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="#1D9E75"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <polyline
-              points="7.5 12 10.5 15.5 16.5 8.5"
-              stroke="#1D9E75"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          <p className="text-[18px] text-[#1D9E75]">bien hecho!</p>
+        <div className="pointer-events-none absolute left-1/2 top-[calc(50%-60px-1.5rem)] z-0 flex w-full -translate-x-1/2 -translate-y-full flex-col items-center">
+          <div className="flex shrink-0 items-center justify-center gap-2">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <circle
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="#1D9E75"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <polyline
+                points="7.5 12 10.5 15.5 16.5 8.5"
+                stroke="#1D9E75"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            <p className="text-[18px] text-[#1D9E75]">Bien hecho!</p>
+          </div>
         </div>
       ) : screenMode === "pronunciationAttempt" ? (
-        <div className="mb-6 flex w-full shrink-0 flex-col items-center">
+        <div className="pointer-events-none absolute left-1/2 top-[calc(50%-60px-1.5rem)] z-0 flex w-full -translate-x-1/2 -translate-y-full flex-col items-center">
           <p className={sectionLabelClassName}>Now you try</p>
         </div>
       ) : null}
 
-      {showMicChrome ? (
-        <div
-          className={`w-[120px] h-[120px] rounded-full flex items-center justify-center animate-breathe-fast shrink-0 ${
-            isCorrect ? "bg-[#1D9E75]/70" : "bg-[#1D9E75]"
-          }`}
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="28"
-            height="28"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="white"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+      <div className="absolute left-1/2 top-1/2 z-[1] -translate-x-1/2 -translate-y-1/2">
+        {showMicChrome ? (
+          <div
+            className={`flex h-[120px] w-[120px] shrink-0 items-center justify-center rounded-full animate-breathe-fast ${
+              isCorrect ? "bg-[#1D9E75]/70" : "bg-[#1D9E75]"
+            }`}
           >
-            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
-            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-            <line x1="12" y1="19" x2="12" y2="22" />
-            <line x1="8" y1="22" x2="16" y2="22" />
-          </svg>
-        </div>
-      ) : (
-        <div
-          className="w-[120px] h-[120px] rounded-full flex items-center justify-center shrink-0 bg-[#A8DDD0]"
-          role="status"
-          aria-label="Loading"
-        >
-          <svg
-            className="animate-spin h-6 w-6 text-white/80"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            aria-hidden
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="28"
+              height="28"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="white"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+              <line x1="12" y1="19" x2="12" y2="22" />
+              <line x1="8" y1="22" x2="16" y2="22" />
+            </svg>
+          </div>
+        ) : (
+          <div
+            className="flex h-[120px] w-[120px] shrink-0 items-center justify-center rounded-full bg-[#A8DDD0]"
+            role="status"
+            aria-label="Loading"
           >
-            <circle
-              className="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              strokeWidth="4"
-            />
-            <path
-              className="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-            />
-          </svg>
-        </div>
-      )}
+            <svg
+              className="h-6 w-6 animate-spin text-white/80"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              aria-hidden
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+              />
+            </svg>
+          </div>
+        )}
+      </div>
 
-      {spanishLine ? (
-        <div className="mt-6 flex max-w-[280px] flex-col items-center gap-1">
-          {showEnglishInHint ? (
-            <p className="text-center text-[15px] leading-snug text-gray-500">{englishText}</p>
-          ) : null}
-          <p className="text-center text-[18px] font-medium leading-relaxed text-[#1D1D1D]">
-            {spanishLine}
+      <div className="absolute left-1/2 top-[calc(50%+60px+1.5rem)] z-0 flex w-full -translate-x-1/2 flex-col items-center px-0">
+        {spanishLine ? (
+          <div className="flex max-w-[280px] flex-col items-center gap-1">
+            {showEnglishInHint ? (
+              <p className="text-center text-[15px] leading-snug text-gray-500">{englishText}</p>
+            ) : null}
+            <p className="text-center text-[18px] font-medium leading-relaxed text-[#1D1D1D]">
+              {spanishLine}
+            </p>
+          </div>
+        ) : (
+          <p
+            className="max-w-[280px] text-center text-[15px] text-gray-400"
+            style={{ opacity: 0.45 }}
+          >
+            {englishText}
+          </p>
+        )}
+
+        <div className="mt-6 flex min-h-[28px] items-center justify-center px-4">
+          <p className={`text-[18px] text-center ${isCorrect ? "text-[#1D9E75]" : "text-gray-500"}`}>
+            {transcription}
           </p>
         </div>
-      ) : (
-        <p
-          className="mt-6 max-w-[280px] text-center text-[15px] text-gray-400"
-          style={{ opacity: 0.45 }}
-        >
-          {englishText}
-        </p>
-      )}
-
-      <div className="mt-6 min-h-[28px] flex items-center justify-center px-4">
-        <p className={`text-[18px] text-center ${isCorrect ? "text-[#1D9E75]" : "text-gray-500"}`}>
-          {transcription}
-        </p>
-      </div>
       </div>
     </div>
 

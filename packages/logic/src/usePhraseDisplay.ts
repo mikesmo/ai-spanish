@@ -653,6 +653,13 @@ export function usePhraseDisplay(
           if (cancelled || primingAbort.signal.aborted) return;
         }
 
+        // Serialize with phrase-bootstrap cleanup: cleanup calls `stop()` without
+        // awaiting; `start()` can open Deepgram and run `startMicrophone()` while
+        // the prior MediaRecorder is still "recording", which bails without setting
+        // mic state to Open — UI stays on `recordingPriming` forever.
+        await Promise.resolve(sttRef.current.stop());
+        if (cancelled) return;
+
         sttRef.current.clearTranscription();
         sttRef.current.start({
           keywords: isSingleWordAnswer(currentPhrase.Spanish.answer)

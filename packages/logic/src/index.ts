@@ -56,6 +56,7 @@ export {
   logSttMicSetupDone,
   logSttMicSetupStart,
   logSttMicStart,
+  logSttMicStartSkipped,
   logSttMicStop,
   logSttSegment,
   logSttUtteranceEnd,

@@ -104,6 +104,7 @@ export function useSTT(): SpeechToTextHandle {
     startMicrophone,
     stopMicrophone,
     teardownMicrophone,
+    isStreamReady,
   } = useMicrophone(sendVoiceData);
 
   const prevConnectionState = useRef<LiveConnectionState>(LiveConnectionState.CLOSED);
@@ -392,7 +393,7 @@ export function useSTT(): SpeechToTextHandle {
     const path: 'startMic-direct' | 'connect-direct' | 'setupMic-async' =
       connectionStateRef.current === LiveConnectionState.OPEN
         ? 'startMic-direct'
-        : microphoneState === MicrophoneState.Ready
+        : microphoneState === MicrophoneState.Ready && isStreamReady()
           ? 'connect-direct'
           : 'setupMic-async';
 
@@ -498,7 +499,7 @@ export function useSTT(): SpeechToTextHandle {
       startMicrophone();
       armWatchdog(INITIAL_SILENCE_TIMEOUT_MS);
     }
-  }, [connectionState]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [connectionState, microphoneState]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fast reconnect on unexpected disconnect
   useEffect(() => {

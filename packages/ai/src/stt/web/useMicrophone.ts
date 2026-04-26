@@ -4,6 +4,7 @@ import {
   logSttMicSetupDone,
   logSttMicSetupStart,
   logSttMicStart,
+  logSttMicStartSkipped,
   logSttMicStop,
 } from '@ai-spanish/logic';
 
@@ -32,6 +33,9 @@ export function useMicrophone(onVoiceData: (ev: BlobEvent) => void) {
   const onReceiveData = useCallback((ev: BlobEvent) => {
     onVoiceData(ev);
   }, [onVoiceData]);
+
+  /** False while `teardownMicrophone` has nulled the stream but React may still show `Ready`. */
+  const isStreamReady = useCallback(() => energyStreamRef.current != null, []);
 
   // Idempotent. On first call: opens the mic via getUserMedia and builds the
   // audio-energy analyser graph. On subsequent calls (e.g. after stop→start):
@@ -93,13 +97,24 @@ export function useMicrophone(onVoiceData: (ev: BlobEvent) => void) {
 
   const startMicrophone = () => {
     let mic = microphone.current;
-    if (mic?.state === 'recording') return;
+    // Duplicate OPEN callbacks (or a race with stop) can call start while the
+    // recorder is already active. Still sync React to Open so `isRecording`
+    // flips and the phrase UI leaves `recordingPriming`.
+    if (mic?.state === 'recording') {
+      setMicrophoneState(MicrophoneState.Open);
+      return;
+    }
     // Fresh MediaRecorder per attempt (see setupMicrophone rationale). The
     // previous recorder was disposed in stopMicrophone once its 'stop' event
     // fired and its final dataavailable was flushed to the old WS.
     if (!mic) {
       const stream = energyStreamRef.current;
-      if (!stream) return;
+      if (!stream) {
+        if (getDefaultLearningPipelineDebug()) {
+          logSttMicStartSkipped({ reason: 'no-stream' });
+        }
+        return;
+      }
       mic = new MediaRecorder(stream);
       microphone.current = mic;
     }
@@ -191,10 +206,13 @@ export function useMicrophone(onVoiceData: (ev: BlobEvent) => void) {
     energyCtxRef.current = null;
     energyAnalyserRef.current = null;
     energyBufRef.current = null;
+    // Must not leave `Ready` while the stream ref is null: `await ctx.close()`
+    // can take a long time; `start()` could otherwise pick connect-direct and
+    // open Deepgram before a MediaRecorder can be created (no-stream).
+    setMicrophoneState(MicrophoneState.Stopped);
     if (ctx) {
       try { await ctx.close(); } catch {}
     }
-    setMicrophoneState(MicrophoneState.Stopped);
   };
 
   return {
@@ -203,5 +221,6 @@ export function useMicrophone(onVoiceData: (ev: BlobEvent) => void) {
     startMicrophone,
     stopMicrophone,
     teardownMicrophone,
+    isStreamReady,
   };
 }
