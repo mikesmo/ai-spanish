@@ -30,6 +30,7 @@ export function getDefaultLearningPipelineDebug(): boolean {
 
 export function logLearningAttempt(ctx: {
   phraseId: string;
+  order: number;
   spanishTarget: string;
   targetWords: WordMeta[];
   transcript: string;
@@ -55,7 +56,7 @@ export function logLearningAttempt(ctx: {
 }): void {
   const totalTargetWeight = ctx.targetWords.reduce((s, w) => s + w.weight, 0);
   console.groupCollapsed(
-    `${PREFIX} Attempt · ${ctx.phraseId} · accuracy ${ctx.accuracy.accuracy.toFixed(3)} · ${ctx.trigger}`,
+    `${PREFIX} Attempt · order=${ctx.order} id=${ctx.phraseId} · accuracy ${ctx.accuracy.accuracy.toFixed(3)} · ${ctx.trigger}`,
   );
   console.log('Spanish target:', ctx.spanishTarget);
   console.log('Final caption:', ctx.transcript || '(empty)');
@@ -146,6 +147,7 @@ export function logLearningAttempt(ctx: {
 /** Practice: same diagnostics as attempt for debugging; does not affect SRS. */
 export function logLearningPractice(ctx: {
   phraseId: string;
+  order: number;
   spanishTarget: string;
   transcript: string;
   spokenWords: SpokenWord[];
@@ -154,7 +156,7 @@ export function logLearningPractice(ctx: {
   fluency: FluencyBreakdown | null;
 }): void {
   console.groupCollapsed(
-    `${PREFIX} Practice (SRS ignored) · ${ctx.phraseId} · acc ${ctx.accuracy.accuracy.toFixed(3)}`,
+    `${PREFIX} Practice (SRS ignored) · order=${ctx.order} id=${ctx.phraseId} · acc ${ctx.accuracy.accuracy.toFixed(3)}`,
   );
   console.log('Spanish target:', ctx.spanishTarget);
   console.log('Caption:', ctx.transcript || '(empty)');
@@ -186,23 +188,23 @@ export function logLearningPractice(ctx: {
   console.groupEnd();
 }
 
-export function logRevealEmitted(phraseId: string): void {
+export function logRevealEmitted(phraseId: string, order: number): void {
   console.log(
-    `${PREFIX} RevealEvent · ${phraseId}`,
+    `${PREFIX} RevealEvent · order=${order} id=${phraseId}`,
     '(reducer: mastery ×0.6, stability ×0.7, state → learning)',
   );
 }
 
-export function logRevealSkipped(phraseId: string): void {
+export function logRevealSkipped(phraseId: string, order: number): void {
   console.log(
-    `${PREFIX} Show Answer · ${phraseId}`,
+    `${PREFIX} Show Answer · order=${order} id=${phraseId}`,
     '— no RevealEvent (attempt or practice already recorded for this card)',
   );
 }
 
-export function logShowAnswerTryAgainNoProgress(phraseId: string): void {
+export function logShowAnswerTryAgainNoProgress(phraseId: string, order: number): void {
   console.log(
-    `${PREFIX} Show Answer · ${phraseId}`,
+    `${PREFIX} Show Answer · order=${order} id=${phraseId}`,
     '(Try Again, no gradable speech) — no PhraseEvent; mastery unchanged',
   );
 }
@@ -210,18 +212,20 @@ export function logShowAnswerTryAgainNoProgress(phraseId: string): void {
 export function logPhraseBoundary(ctx: {
   fromIndex: number | null;
   toIndex: number;
+  order: number;
   phraseId: string;
   reason: 'init' | 'next';
 }): void {
   const bar = '═'.repeat(60);
   const arrow = ctx.fromIndex === null ? `init → #${ctx.toIndex}` : `#${ctx.fromIndex} → #${ctx.toIndex}`;
   console.log(
-    `\n${bar}\n${PREFIX} PHRASE ${arrow}  id=${ctx.phraseId}  reason=${ctx.reason}\n${bar}`,
+    `\n${bar}\n${PREFIX} PHRASE ${arrow}  order=${ctx.order} id=${ctx.phraseId}  reason=${ctx.reason}\n${bar}`,
   );
 }
 
 export function logAttemptFireSource(ctx: {
   phraseId: string;
+  order: number;
   trigger: 'speech-final' | 'success-path-timer' | 'practice';
   captionAtFire: string;
   wordCountAtFire: number;
@@ -230,6 +234,7 @@ export function logAttemptFireSource(ctx: {
 }): void {
   console.log(
     `${PREFIX} fire · ${ctx.trigger}`,
+    'order=' + ctx.order,
     'phrase=' + ctx.phraseId,
     'isFinal=' + ctx.isFinalAtFire,
     'words=' + ctx.wordCountAtFire,

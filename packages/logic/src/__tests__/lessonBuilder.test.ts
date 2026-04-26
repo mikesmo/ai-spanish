@@ -6,8 +6,9 @@ import type { Phrase, PhraseProgress } from '../types';
 
 const NOW = 1_700_000_000_000;
 
-const phrase = (id: string): Phrase => ({
+const phrase = (id: string, order = 0): Phrase => ({
   id,
+  order,
   English: { 'first-intro': '', 'second-intro': '', question: id },
   Spanish: {
     grammar: '',
@@ -40,7 +41,7 @@ const COMPLETED_LESSONS = 10;
 
 describe('buildLesson', () => {
   it('uses the 70/20/10 mix when all buckets are full', () => {
-    const deck = Array.from({ length: 100 }, (_, i) => phrase(`p${i}`));
+    const deck = Array.from({ length: 100 }, (_, i) => phrase(`p${i}`, i));
     const store = createInMemoryProgressStore();
 
     for (let i = 0; i < 50; i++) {
@@ -109,7 +110,7 @@ describe('buildLesson', () => {
   });
 
   it('orders weak bucket by ascending mastery (weakest first)', () => {
-    const deck = Array.from({ length: 5 }, (_, i) => phrase(`p${i}`));
+    const deck = Array.from({ length: 5 }, (_, i) => phrase(`p${i}`, i));
     const store = createInMemoryProgressStore();
     const masteries = [0.5, 0.1, 0.4, 0.2, 0.3];
     masteries.forEach((m, i) => {
@@ -131,7 +132,7 @@ describe('buildLesson', () => {
   });
 
   it('backfills when a bucket is empty', () => {
-    const deck = Array.from({ length: 5 }, (_, i) => phrase(`p${i}`));
+    const deck = Array.from({ length: 5 }, (_, i) => phrase(`p${i}`, i));
     const store = createInMemoryProgressStore();
     for (let i = 0; i < 5; i++) {
       store.put(
@@ -148,7 +149,7 @@ describe('buildLesson', () => {
   });
 
   it('respects deckSize even when more candidates exist', () => {
-    const deck = Array.from({ length: 50 }, (_, i) => phrase(`p${i}`));
+    const deck = Array.from({ length: 50 }, (_, i) => phrase(`p${i}`, i));
     const store = createInMemoryProgressStore();
     for (let i = 0; i < 50; i++) {
       store.put(

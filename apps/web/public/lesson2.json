@@ -1,6 +1,7 @@
 [
   {
     "id": "donde-se-pueden-comprar-manzanas",
+    "order": 0,
     "type": "new",
     "English": {
       "first-intro": "You ask someone: 'Where can apples be bought?'",
@@ -41,6 +42,7 @@
   },
   {
     "id": "puedes-comprarlas-en-la-tienda-de-comestibles",
+    "order": 1,
     "type": "combination",
     "English": {
       "first-intro": "They respond: 'You can buy them at the grocery store'",
@@ -91,6 +93,7 @@
   },
   {
     "id": "no-esta-lejos",
+    "order": 2,
     "type": "new",
     "English": {
       "first-intro": "This is how you say 'It's not far'",
@@ -121,6 +124,7 @@
   },
   {
     "id": "tengo-que-ir-al-banco",
+    "order": 3,
     "type": "new",
     "English": {
       "first-intro": "How woudld you say: 'I have to go to the bank'",
@@ -161,6 +165,7 @@
   },
   {
     "id": "necesito-enviar-una-carta",
+    "order": 4,
     "type": "new",
     "English": {
       "first-intro": "You now say: 'I need to send a letter'",
@@ -196,6 +201,7 @@
   },
   {
     "id": "ahora-mismo",
+    "order": 5,
     "type": "new",
     "English": {
       "first-intro": "This is how you say 'Right now'",
@@ -221,6 +227,7 @@
   },
   {
     "id": "quieres-algo",
+    "order": 6,
     "type": "new",
     "English": {
       "first-intro": "You now ask: 'Do you want anything?'",
@@ -246,6 +253,7 @@
   },
   {
     "id": "no-pero-te-recomiendo-que-te-lleves-la-chaqueta",
+    "order": 7,
     "type": "combination",
     "English": {
       "first-intro": "They respond: 'No, but I recommend you take your jacket'",
@@ -306,6 +314,7 @@
   },
   {
     "id": "esta-nevando-mucho",
+    "order": 8,
     "type": "new",
     "English": {
       "first-intro": "This is how you say 'It's snowing a lot'",
@@ -336,6 +345,7 @@
   },
   {
     "id": "me-viene-bien-porque",
+    "order": 9,
     "type": "new",
     "English": {
       "first-intro": "You then tell them: 'That suits me well because…'",
@@ -371,6 +381,7 @@
   },
   {
     "id": "quiero-enviar-una-carta-a-francia",
+    "order": 10,
     "type": "combination",
     "English": {
       "first-intro": "Try to say: 'I want to send a letter to France'",
@@ -416,6 +427,7 @@
   },
   {
     "id": "puedo-venir-contigo",
+    "order": 11,
     "type": "new",
     "English": {
       "first-intro": "Tell the person: 'I can come with you'",
@@ -446,6 +458,7 @@
   },
   {
     "id": "voy-a-la-libreria-a-comprar-una-novela",
+    "order": 12,
     "type": "combination",
     "English": {
       "first-intro": "Now try to say: 'I'm going to the bookstore to buy a novel'",
@@ -501,6 +514,7 @@
   },
   {
     "id": "tengo-que-comprar-bebidas",
+    "order": 13,
     "type": "combination",
     "English": {
       "first-intro": "Can you say: 'I have to buy drinks'?",

@@ -69,7 +69,7 @@ export async function runVerifyStt(outDir: string, apiKey: string): Promise<numb
     limit(async (): Promise<'ok' | 'mismatch' | 'error'> => {
       if (entry.text.trim().length <= 1) {
         console.warn(
-          `[verify-stt] SKIP id=${entry.id} file=${entry.localFile} — expected text is too short for reliable STT; not scored`
+          `[verify-stt] SKIP order=${entry.order} id=${entry.id} file=${entry.localFile} — expected text is too short for reliable STT; not scored`
         );
         return 'ok';
       }
@@ -79,7 +79,7 @@ export async function runVerifyStt(outDir: string, apiKey: string): Promise<numb
         buf = await fs.readFile(abs);
       } catch {
         console.error(
-          `[verify-stt] ERROR id=${entry.id} file=${entry.localFile} — missing or unreadable: ${abs}`
+          `[verify-stt] ERROR order=${entry.order} id=${entry.id} file=${entry.localFile} — missing or unreadable: ${abs}`
         );
         return 'error';
       }
@@ -99,13 +99,13 @@ export async function runVerifyStt(outDir: string, apiKey: string): Promise<numb
       if (error) {
         const msg = error instanceof Error ? error.message : String(error);
         console.error(
-          `[verify-stt] ERROR id=${entry.id} file=${entry.localFile} — Deepgram: ${msg}`
+          `[verify-stt] ERROR order=${entry.order} id=${entry.id} file=${entry.localFile} — Deepgram: ${msg}`
         );
         return 'error';
       }
       if (!result) {
         console.error(
-          `[verify-stt] ERROR id=${entry.id} file=${entry.localFile} — empty Deepgram result`
+          `[verify-stt] ERROR order=${entry.order} id=${entry.id} file=${entry.localFile} — empty Deepgram result`
         );
         return 'error';
       }
@@ -133,7 +133,9 @@ export async function runVerifyStt(outDir: string, apiKey: string): Promise<numb
 }
 
 function logMismatch(entry: ManifestEntry, got: string): void {
-  console.error(`[verify-stt] MISMATCH id=${entry.id} file=${entry.localFile}`);
+  console.error(
+    `[verify-stt] MISMATCH order=${entry.order} id=${entry.id} file=${entry.localFile}`
+  );
   console.error(`  expected: ${entry.text}`);
   console.error(`  got:      ${got === '' ? '(empty)' : got}`);
 }

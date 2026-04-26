@@ -121,6 +121,15 @@ export async function audioFileExists(outDir: string, jobId: string): Promise<bo
   }
 }
 
+/** Leading integer in `{index}-{lang}-{field}` ids (same as the audio file prefix). */
+export function phraseOrderFromJobId(jobId: string): number {
+  const m = /^(\d+)-/.exec(jobId);
+  if (!m) {
+    throw new Error(`Invalid TTS job id (expected "{index}-…"): ${jobId}`);
+  }
+  return parseInt(m[1]!, 10);
+}
+
 export function buildManifestEntry(
   job: TtsJob,
   relPath: string,
@@ -131,6 +140,7 @@ export function buildManifestEntry(
 ): ManifestEntry {
   const entry: ManifestEntry = {
     id: job.id,
+    order: phraseOrderFromJobId(job.id),
     language: job.language,
     text: job.text,
     voice: job.voice,
@@ -225,8 +235,14 @@ export async function readManifest(outDir: string): Promise<{
     const hash = requireString(o, 'hash', label);
     const createdAt = requireString(o, 'createdAt', label);
     const s3Key = o.s3Key;
+    const orderRaw = o.order;
+    const order =
+      typeof orderRaw === 'number' && Number.isInteger(orderRaw)
+        ? orderRaw
+        : phraseOrderFromJobId(id);
     const entry: ManifestEntry = {
       id,
+      order,
       language,
       text,
       voice,

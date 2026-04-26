@@ -14,6 +14,8 @@ export interface TtsJob {
 /** One row in output/manifest.json */
 export interface ManifestEntry {
   id: string;
+  /** Phrase index from the audio filename, e.g. 5 for `5-en-first-intro.mp3`. */
+  order: number;
   language: Language;
   text: string;
   voice: string;

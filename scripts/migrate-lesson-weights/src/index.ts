@@ -90,6 +90,7 @@ async function main(): Promise<void> {
 
     return {
       id,
+      order: index,
       English: phrase.English,
       Spanish: {
         grammar: phrase.Spanish.grammar,

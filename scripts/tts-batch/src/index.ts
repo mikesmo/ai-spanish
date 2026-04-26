@@ -21,6 +21,7 @@ import {
   normalizeLessonSegment,
   readHashCache,
   readManifest,
+  phraseOrderFromJobId,
   s3ManifestObjectKey,
   writeAudioFile,
   writeHashCache,
@@ -315,7 +316,7 @@ async function runOnlyPhraseBatch(
       const buffer = await withRetry(() => synthesizeToBuffer(job.text, job.language, apiKey));
       const rel = await writeAudioFile(opts.outDir, job, buffer, opts.noAudioPos);
       const createdAt = new Date().toISOString();
-      console.log(`  OK ${job.id}`);
+      console.log(`  OK order=${phraseOrderFromJobId(job.id)} ${job.id}`);
       return {
         job,
         entry: buildManifestEntry(
@@ -389,9 +390,9 @@ async function main(): Promise<void> {
   console.log(`Built ${jobs.length} TTS job(s)`);
 
   if (opts.onlyPhrase !== undefined) {
-    if (opts.onlyPhrase >= phrases.length) {
+    if (!phrases.some((p) => p.order === opts.onlyPhrase)) {
       throw new Error(
-        `--only-phrase ${opts.onlyPhrase} is out of range (valid: 0..${phrases.length - 1})`
+        `--only-phrase ${opts.onlyPhrase}: no phrase in the transcript has that "order" (see lesson JSON).`
       );
     }
     await runOnlyPhraseBatch(opts, jobs, opts.onlyPhrase, apiKey, region, s3Path);
@@ -428,7 +429,7 @@ async function main(): Promise<void> {
       );
       const rel = await writeAudioFile(opts.outDir, job, buffer, opts.noAudioPos);
       const createdAt = new Date().toISOString();
-      console.log(`  OK ${job.id}`);
+      console.log(`  OK order=${phraseOrderFromJobId(job.id)} ${job.id}`);
       return {
         job,
         entry: buildManifestEntry(

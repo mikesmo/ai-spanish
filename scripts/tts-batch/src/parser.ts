@@ -11,8 +11,8 @@ function isNonEmpty(text: string): boolean {
  */
 export function buildTtsJobs(phrases: Phrase[]): TtsJob[] {
   const jobs: TtsJob[] = [];
-  for (let i = 0; i < phrases.length; i++) {
-    const phrase = phrases[i]!;
+  for (const phrase of phrases) {
+    const i = phrase.order;
     const firstIntro = phrase.English['first-intro'] ?? '';
     if (isNonEmpty(firstIntro)) {
       jobs.push({

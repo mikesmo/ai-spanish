@@ -12,6 +12,8 @@ export type PhraseLessonType = 'new' | 'combination';
 
 export interface Phrase {
   id: string;
+  /** Phrase index in the lesson file; matches TTS audio id prefix (e.g. `3-en-question.mp3` → 3). */
+  order: number;
   /**
    * Lesson card kind from JSON. When `'new'`, the first in-session
    * presentation may show a Spanish pronunciation example (audio + text) on

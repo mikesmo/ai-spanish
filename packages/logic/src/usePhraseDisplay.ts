@@ -344,6 +344,7 @@ export function usePhraseDisplay(
       if (debugLearningPipelineRef.current) {
         logLearningAttempt({
           phraseId: currentPhrase.id,
+          order: currentPhrase.order,
           spanishTarget: spanishText,
           targetWords: target,
           transcript: finalCaption,
@@ -373,6 +374,7 @@ export function usePhraseDisplay(
       if (debugLearningPipelineRef.current) {
         logLearningPractice({
           phraseId: currentPhrase.id,
+          order: currentPhrase.order,
           spanishTarget: spanishText,
           transcript: finalCaption,
           spokenWords: words,
@@ -398,7 +400,7 @@ export function usePhraseDisplay(
 
   const emitReveal = useCallback((now: number) => {
     if (debugLearningPipelineRef.current) {
-      logRevealEmitted(currentPhrase.id);
+      logRevealEmitted(currentPhrase.id, currentPhrase.order);
     }
     const reveal: RevealEvent = {
       eventType: 'reveal',
@@ -468,7 +470,7 @@ export function usePhraseDisplay(
   const handleShowAnswer = useCallback(async () => {
     if (attemptEmittedRef.current) {
       if (debugLearningPipelineRef.current) {
-        logRevealSkipped(currentPhrase.id);
+        logRevealSkipped(currentPhrase.id, currentPhrase.order);
       }
       await playAnswerAudio();
       return;
@@ -492,7 +494,7 @@ export function usePhraseDisplay(
       } else {
         attemptEmittedRef.current = true;
         if (debugLearningPipelineRef.current) {
-          logShowAnswerTryAgainNoProgress(currentPhrase.id);
+          logShowAnswerTryAgainNoProgress(currentPhrase.id, currentPhrase.order);
         }
       }
     } else if (hasGradableSpeech) {
@@ -571,6 +573,7 @@ export function usePhraseDisplay(
       logPhraseBoundary({
         fromIndex: prevIndexRef.current,
         toIndex: currentIndex,
+        order: currentPhrase.order,
         phraseId: currentPhrase.id,
         reason: prevIndexRef.current === null ? 'init' : 'next',
       });
@@ -819,6 +822,7 @@ export function usePhraseDisplay(
           if (debugLearningPipelineRef.current) {
             logAttemptFireSource({
               phraseId: currentPhrase.id,
+              order: currentPhrase.order,
               trigger: statusRef.current === 'tryAgain' ? 'practice' : 'success-path-timer',
               captionAtFire: captureCaption,
               wordCountAtFire: captureWords.length,
@@ -862,6 +866,7 @@ export function usePhraseDisplay(
     emitAttempt,
     emitPracticeAttempt,
     currentPhrase.id,
+    currentPhrase.order,
     currentPhrase.type,
     isFirstSessionPresentationOfCurrentPhrase,
     hasUsedTryAgainOnCurrentCard,
@@ -883,6 +888,7 @@ export function usePhraseDisplay(
     }
 
     const phraseId = currentPhrase.id;
+    const phraseOrder = currentPhrase.order;
     const fireNow = Date.now();
     const captureCaption = sttRef.current.caption;
     const captureWords = sttRef.current.words;
@@ -893,6 +899,7 @@ export function usePhraseDisplay(
     if (debugLearningPipelineRef.current) {
       logAttemptFireSource({
         phraseId,
+        order: phraseOrder,
         trigger: statusRef.current === 'tryAgain' ? 'practice' : 'speech-final',
         captionAtFire: captureCaption,
         wordCountAtFire: captureWords.length,
@@ -919,6 +926,7 @@ export function usePhraseDisplay(
     emitAttempt,
     emitPracticeAttempt,
     currentPhrase.id,
+    currentPhrase.order,
   ]);
 
   const handleTryAgain = () => {

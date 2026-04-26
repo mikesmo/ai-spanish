@@ -18,8 +18,9 @@ import type { Phrase } from '../types';
 
 const NOW = 1_700_000_000_000;
 
-const phrase = (id: string): Phrase => ({
+const phrase = (id: string, order = 0): Phrase => ({
   id,
+  order,
   English: { 'first-intro': '', 'second-intro': '', question: id },
   Spanish: {
     grammar: '',
@@ -162,7 +163,7 @@ describe('createSessionEngine', () => {
   });
 
   it('reinserts stabilizing phrases deeper than weak ones', () => {
-    const deck = Array.from({ length: 10 }, (_, i) => phrase(`p${i}`));
+    const deck = Array.from({ length: 10 }, (_, i) => phrase(`p${i}`, i));
     const engine = createSessionEngine(deck, createInMemoryProgressStore());
     engine.pickNext(); // p0
     // Craft an attempt whose mastery lands in the stabilizing band:
@@ -210,7 +211,10 @@ describe('createSessionEngine', () => {
   });
 
   it('caps reinserts per phrase at MAX_REINSERTS_PER_PHRASE_PER_SESSION', () => {
-    const deck = [phrase('stuck'), ...Array.from({ length: 20 }, (_, i) => phrase(`p${i}`))];
+    const deck = [
+      phrase('stuck', 0),
+      ...Array.from({ length: 20 }, (_, i) => phrase(`p${i}`, i + 1)),
+    ];
     const engine = createSessionEngine(deck, createInMemoryProgressStore());
     let reinsertions = 0;
     // Repeatedly pick and fail 'stuck'.

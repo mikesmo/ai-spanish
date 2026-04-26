@@ -97,7 +97,7 @@ export async function runVerifyLoudness(
     limit(async (): Promise<'ok' | 'skip' | 'too_quiet' | 'error'> => {
       if (entry.text.trim().length <= 1) {
         console.warn(
-          `[verify-loudness] SKIP id=${entry.id} file=${entry.localFile} — expected text is too short; not scored`
+          `[verify-loudness] SKIP order=${entry.order} id=${entry.id} file=${entry.localFile} — expected text is too short; not scored`
         );
         return 'skip';
       }
@@ -106,7 +106,7 @@ export async function runVerifyLoudness(
         await fs.access(abs);
       } catch {
         console.error(
-          `[verify-loudness] ERROR id=${entry.id} file=${entry.localFile} — missing: ${abs}`
+          `[verify-loudness] ERROR order=${entry.order} id=${entry.id} file=${entry.localFile} — missing: ${abs}`
         );
         return 'error';
       }
@@ -116,19 +116,23 @@ export async function runVerifyLoudness(
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         console.error(
-          `[verify-loudness] ERROR id=${entry.id} file=${entry.localFile} — ${msg}`
+          `[verify-loudness] ERROR order=${entry.order} id=${entry.id} file=${entry.localFile} — ${msg}`
         );
         return 'error';
       }
       if (stats.maxDb < minMaxDb) {
-        console.error(`[verify-loudness] TOO_QUIET id=${entry.id} file=${entry.localFile} (peak)`);
+        console.error(
+          `[verify-loudness] TOO_QUIET order=${entry.order} id=${entry.id} file=${entry.localFile} (peak)`
+        );
         console.error(
           `  max_volume=${stats.maxDb.toFixed(1)} dB (mean=${stats.meanDb.toFixed(1)} dB) — need max >= ${minMaxDb} dB (TTS_VERIFY_LOUDNESS_MIN_MAX_DB)`
         );
         return 'too_quiet';
       }
       if (stats.meanDb < minMeanDb) {
-        console.error(`[verify-loudness] TOO_QUIET id=${entry.id} file=${entry.localFile} (mean)`);
+        console.error(
+          `[verify-loudness] TOO_QUIET order=${entry.order} id=${entry.id} file=${entry.localFile} (mean)`
+        );
         console.error(
           `  mean_volume=${stats.meanDb.toFixed(1)} dB (max=${stats.maxDb.toFixed(1)} dB) — need mean >= ${minMeanDb} dB (TTS_VERIFY_LOUDNESS_MIN_MEAN_DB)`
         );

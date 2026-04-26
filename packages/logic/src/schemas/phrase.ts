@@ -30,6 +30,7 @@ export const wordMetaSchema = z
 
 export const phraseSchema = z.object({
   id: z.string().min(1),
+  order: z.number().int().nonnegative(),
   type: z.enum(['new', 'combination']).optional(),
   English: z.object({
     'first-intro': z.string().default(''),
