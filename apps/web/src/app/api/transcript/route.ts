@@ -1,11 +1,24 @@
-import { NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 
-export async function GET() {
+const DEFAULT_LESSON = '1';
+const VALID_LESSON_IDS = new Set(['1', '2']);
+
+function resolveLessonId(raw: string | null): string {
+  if (raw == null || raw === '' || !VALID_LESSON_IDS.has(raw)) {
+    return DEFAULT_LESSON;
+  }
+  return raw;
+}
+
+export async function GET(request: NextRequest) {
   try {
-    // Read the JSON file from the public directory
-    const jsonPath = path.join(process.cwd(), 'public', 'lesson1.json');
+    const lessonId = resolveLessonId(
+      request.nextUrl.searchParams.get('lesson'),
+    );
+    const fileName = `lesson${lessonId}.json`;
+    const jsonPath = path.join(process.cwd(), 'public', fileName);
     const fileContent = fs.readFileSync(jsonPath, 'utf8');
     
     // Parse the JSON content

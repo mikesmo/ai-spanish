@@ -1,50 +1,33 @@
-"use client";
-
-import { PhraseDisplay } from "./components/PhraseDisplay";
-import { useTranscriptQuery } from "./hooks/useTranscriptQuery";
+import { lessons } from "@ai-spanish/logic";
+import Link from "next/link";
 
 export default function Home(): JSX.Element {
-  const {
-    data: phrases,
-    isLoading,
-    isError,
-    error,
-  } = useTranscriptQuery();
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <main className="w-full max-w-[390px] mx-auto px-8 py-16 text-center text-gray-500">
-          Loading lesson...
-        </main>
-      </div>
-    );
-  }
-
-  if (isError) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <main className="w-full max-w-[390px] mx-auto px-8 py-16 text-center text-[#D85A30]">
-          {error instanceof Error ? error.message : "Failed to load lesson."}
-        </main>
-      </div>
-    );
-  }
-
-  if (!phrases || phrases.length === 0) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <main className="w-full max-w-[390px] mx-auto px-8 py-16 text-center text-gray-500">
-          No phrases available.
-        </main>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-white">
-      <main className="w-full">
-        <PhraseDisplay phrases={phrases} />
+      <main className="w-full max-w-[390px] mx-auto px-8 py-16">
+        <h1 className="text-2xl font-semibold text-gray-900 text-center mb-2">
+          AI Spanish
+        </h1>
+        <p className="text-sm text-gray-500 text-center mb-10">
+          Choose a lesson to practice
+        </p>
+        <ul className="flex flex-col gap-4">
+          {lessons.map((lesson) => (
+            <li key={lesson.id}>
+              <Link
+                href={`/lesson/${lesson.id}`}
+                className="block w-full rounded-xl border border-gray-200 bg-white px-5 py-4 text-left shadow-sm transition hover:border-gray-300 hover:shadow"
+              >
+                <span className="block text-base font-medium text-gray-900">
+                  {lesson.title}
+                </span>
+                <span className="mt-1 block text-sm text-gray-500">
+                  {lesson.description}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
       </main>
     </div>
   );

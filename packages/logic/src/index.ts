@@ -68,7 +68,19 @@ export {
 export {
   TRANSCRIPT_QUERY_KEY,
   createTranscriptQueryOptions,
+  lessonTranscriptQueryKey,
+  lessonTranscriptQueryKeyPrefix,
+  createLessonTranscriptQueryOptions,
 } from './transcriptQuery';
+export {
+  DEFAULT_TRANSCRIPT_LESSON_ID,
+  lessons,
+  getLessonTitle,
+  isValidTranscriptLessonId,
+  transcriptPathWithLesson,
+  s3LessonFolderForTranscriptLessonId,
+  type LessonListEntry,
+} from './lessonCatalog';
 export {
   getAisSpeakingViewModel,
   getUserRecordingViewModel,

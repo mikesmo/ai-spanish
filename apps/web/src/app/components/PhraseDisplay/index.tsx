@@ -1,10 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   getAisSpeakingViewModel,
   getUserRecordingViewModel,
+  getLessonTitle,
   runPhraseFeedbackNext,
+  s3LessonFolderForTranscriptLessonId,
   usePhraseDisplayWithDeck,
 } from "@ai-spanish/logic";
 import { useS3TTS, useSTT } from "@ai-spanish/ai";
@@ -17,15 +20,20 @@ import { UserRecording } from "./components/UserRecording";
 import { HistorySidebar, HistoryToggle } from "../HistorySidebar";
 import type { PhraseDisplayProps } from "./PhraseDisplay.types";
 
-export const PhraseDisplay = ({ phrases }: PhraseDisplayProps): JSX.Element => {
+export const PhraseDisplay = ({
+  phrases,
+  lessonId,
+}: PhraseDisplayProps): JSX.Element => {
   const tts = useS3TTS();
   const stt = useSTT();
   const session = useLessonSession(phrases);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const lessonTitle = getLessonTitle(lessonId);
 
   const { display } = usePhraseDisplayWithDeck(phrases, session, stt, tts, {
     playSuccessChime,
     playRecordingPrimingAudio,
+    s3LessonSegment: s3LessonFolderForTranscriptLessonId(lessonId),
   });
 
   const { bindCurrentPhrase } = session;
@@ -52,11 +60,37 @@ export const PhraseDisplay = ({ phrases }: PhraseDisplayProps): JSX.Element => {
 
   return (
     <div className="w-full max-w-[390px] mx-auto bg-white flex flex-col min-h-[100dvh] py-16 px-8">
-      <p className="text-[13px] text-gray-400 self-end mb-8 shrink-0">
-        {session.isComplete
-          ? "session complete"
-          : `${session.remaining} left`}
-      </p>
+      <header className="relative mb-6 flex min-h-10 w-full shrink-0 items-center">
+        <Link
+          href="/"
+          className="absolute left-0 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg text-gray-500 transition hover:bg-gray-100 hover:text-gray-800"
+          aria-label="Exit lesson"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
+            <path d="M18 6 6 18" />
+            <path d="m6 6 12 12" />
+          </svg>
+        </Link>
+        <h1 className="w-full truncate px-12 text-center text-sm font-medium text-gray-900">
+          {lessonTitle}
+        </h1>
+        <p className="absolute right-0 top-1/2 z-10 max-w-[40%] -translate-y-1/2 text-right text-[13px] whitespace-nowrap text-gray-400">
+          {session.isComplete
+            ? "session complete"
+            : `${session.remaining} left`}
+        </p>
+      </header>
 
       <div className="relative flex-1 flex flex-col min-h-0 w-full">
       {(display.status === "loading" ||

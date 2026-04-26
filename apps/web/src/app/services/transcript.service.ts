@@ -1,3 +1,4 @@
+import { transcriptPathWithLesson } from "@ai-spanish/logic";
 import {
   transcriptResponseSchema,
   type TranscriptResponse,
@@ -5,10 +6,12 @@ import {
 export type { TranscriptResponse } from "./schemas/transcript.schema";
 
 /**
- * Fetches transcript phrases from the server API.
+ * Fetches transcript phrases from the server API for a given lesson.
  */
-export const fetchTranscript = async (): Promise<TranscriptResponse> => {
-  const response = await fetch("/api/transcript");
+export const fetchTranscript = async (
+  lessonId: string,
+): Promise<TranscriptResponse> => {
+  const response = await fetch(transcriptPathWithLesson(lessonId));
   const payload: unknown = await response.json();
 
   if (!response.ok) {

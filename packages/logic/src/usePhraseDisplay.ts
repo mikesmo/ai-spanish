@@ -102,6 +102,12 @@ export type UsePhraseDisplayOptions = {
    * Next (e.g. `runPhraseFeedbackNext`).
    */
   onSkipAnswerScreenAfterSuccess?: () => void;
+  /**
+   * S3 batch folder for this lesson (e.g. `lesson1`). Forwards to all S3 TTS
+   * `play` / `prefetch` calls so the correct mp3s load when multiple lessons
+   * share phrase indices.
+   */
+  s3LessonSegment?: string;
 };
 
 const splitWords = (s: string): string[] =>
@@ -428,11 +434,16 @@ export function usePhraseDisplay(
         if (isMountedRef.current) {
           setIsAudioPlaying(true);
         }
+        const s3Opts: TtsAdapterOptions | undefined =
+          options?.s3LessonSegment != null && options.s3LessonSegment !== ''
+            ? { s3LessonSegment: options.s3LessonSegment }
+            : undefined;
         await ttsRef.current.play(
           spanishText,
           'es',
           undefined,
           ttsPhraseIndexRef.current,
+          s3Opts,
         );
       } catch (error) {
         console.error('[usePhraseDisplay] Error playing Spanish:', error);
@@ -444,7 +455,7 @@ export function usePhraseDisplay(
     } finally {
       answerAudioInFlightRef.current = false;
     }
-  }, [spanishText]);
+  }, [spanishText, options?.s3LessonSegment]);
 
   /**
    * User clicked "Show Answer". If nothing was scored yet for this pass:
@@ -591,7 +602,12 @@ export function usePhraseDisplay(
       ? (enB['first-intro'] ?? '')
       : (enB['second-intro'] ?? '');
     const englishAppendQuestion = introTextForClips.trimEnd().endsWith(':');
+    const s3 =
+      options?.s3LessonSegment != null && options.s3LessonSegment !== ''
+        ? { s3LessonSegment: options.s3LessonSegment }
+        : ({} as { s3LessonSegment?: string });
     const enOpts = {
+      ...s3,
       englishUseFirstIntro: useFirstIntroClips,
       englishAppendQuestion,
     };
@@ -602,7 +618,7 @@ export function usePhraseDisplay(
     const bootstrapAbort = new AbortController();
     const { signal: bootstrapSignal } = bootstrapAbort;
     const enWithSignal = { ...enOpts, signal: bootstrapSignal };
-    const esWithSignal = { signal: bootstrapSignal } as TtsAdapterOptions;
+    const esWithSignal = { ...s3, signal: bootstrapSignal } as TtsAdapterOptions;
     // Presign fetches (prefetch) are not tied to `bootstrapSignal`. Effect
     // cleanup still aborts that signal to cancel play / priming / stt — but
     // aborting in-flight /api/audio during HMR or a duplicate effect run only
@@ -613,7 +629,12 @@ export function usePhraseDisplay(
         const hintedIndex = ttsPhraseIndexRef.current;
         await Promise.all([
           ttsRef.current.prefetch(englishText, 'en', hintedIndex, enOpts),
-          ttsRef.current.prefetch(spanishText, 'es', hintedIndex, undefined),
+          ttsRef.current.prefetch(
+            spanishText,
+            'es',
+            hintedIndex,
+            s3 as TtsAdapterOptions,
+          ),
         ]);
         if (bootstrapSignal.aborted) return;
         if (!isMountedRef.current) return;
@@ -722,7 +743,13 @@ export function usePhraseDisplay(
     // at the same index (or a one-element `phrases` array) still triggers a
     // fresh bootstrap. currentPhrase.id is included so queue-driven hosts
     // that swap the in-array identity without changing index also re-run.
-  }, [currentIndex, currentPhrase.id, currentPhrase.type, presentationVersion]);
+  }, [
+    currentIndex,
+    currentPhrase.id,
+    currentPhrase.type,
+    presentationVersion,
+    options?.s3LessonSegment,
+  ]);
   // `currentPhrase.English` strings are *not* deps: hot edits without id change
   // are rare; listing them re-ran bootstrap and could pick the wrong S3 intro.
 
@@ -920,6 +947,10 @@ export function usePhraseDisplay(
   };
 
   const handleReplay = async () => {
+    const s3Opts: TtsAdapterOptions | undefined =
+      options?.s3LessonSegment != null && options.s3LessonSegment !== ''
+        ? { s3LessonSegment: options.s3LessonSegment }
+        : undefined;
     try {
       if (isMountedRef.current) {
         setIsAudioPlaying(true);
@@ -929,6 +960,7 @@ export function usePhraseDisplay(
         'es',
         PLAYBACK_RATES[speed],
         ttsPhraseIndexRef.current,
+        s3Opts,
       );
     } catch (error) {
       console.error('[usePhraseDisplay] Error replaying Spanish:', error);

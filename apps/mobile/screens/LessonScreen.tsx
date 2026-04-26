@@ -1,15 +1,50 @@
-import { ActivityIndicator, SafeAreaView, StyleSheet, Text, View } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
-import { PhraseDisplay } from '../src/components/PhraseDisplay/index';
-import { useTranscriptQuery } from '../src/hooks/useTranscriptQuery';
+import { isValidTranscriptLessonId } from "@ai-spanish/logic";
+import { StatusBar } from "expo-status-bar";
+import { useEffect } from "react";
+import {
+  ActivityIndicator,
+  BackHandler,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import { PhraseDisplay } from "../src/components/PhraseDisplay";
+import { useLessonQuery } from "../src/hooks/useLessonQuery";
 
-export default function HomeScreen(): JSX.Element {
+type LessonScreenProps = {
+  lessonId: string;
+  onBack: () => void;
+};
+
+function InvalidLessonId({ onBack }: { onBack: () => void }): null {
+  useEffect(() => {
+    onBack();
+  }, [onBack]);
+  return null;
+}
+
+function LessonSessionContent({
+  lessonId,
+  onBack,
+}: {
+  lessonId: string;
+  onBack: () => void;
+}): JSX.Element {
+  useEffect(() => {
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      onBack();
+      return true;
+    });
+    return () => sub.remove();
+  }, [onBack]);
+
   const {
     data: phrases,
     isLoading,
     isError,
     error,
-  } = useTranscriptQuery();
+  } = useLessonQuery(lessonId);
 
   if (isLoading) {
     return (
@@ -50,15 +85,25 @@ export default function HomeScreen(): JSX.Element {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
-      <PhraseDisplay phrases={phrases} />
+      <PhraseDisplay phrases={phrases} lessonId={lessonId} onExit={onBack} />
     </SafeAreaView>
   );
+}
+
+export default function LessonScreen({
+  lessonId,
+  onBack,
+}: LessonScreenProps): JSX.Element {
+  if (!isValidTranscriptLessonId(lessonId)) {
+    return <InvalidLessonId onBack={onBack} />;
+  }
+  return <LessonSessionContent lessonId={lessonId} onBack={onBack} />;
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: "#ffffff",
   },
   center: {
     flex: 1,

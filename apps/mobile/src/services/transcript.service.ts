@@ -1,3 +1,4 @@
+import { transcriptPathWithLesson } from "@ai-spanish/logic";
 import {
   transcriptResponseSchema,
   type TranscriptResponse,
@@ -10,14 +11,17 @@ const WEB_ORIGIN = process.env.EXPO_PUBLIC_WEB_ORIGIN;
  * Requires EXPO_PUBLIC_WEB_ORIGIN to be set (e.g. http://localhost:3000 for
  * local dev, or the production URL when deployed).
  */
-export const fetchTranscript = async (): Promise<TranscriptResponse> => {
+export const fetchTranscript = async (
+  lessonId: string,
+): Promise<TranscriptResponse> => {
   if (!WEB_ORIGIN) {
     throw new Error(
       "EXPO_PUBLIC_WEB_ORIGIN is not set. Add it to your .env file."
     );
   }
 
-  const response = await fetch(`${WEB_ORIGIN}/api/transcript`);
+  const path = transcriptPathWithLesson(lessonId);
+  const response = await fetch(`${WEB_ORIGIN.replace(/\/$/, "")}${path}`);
 
   if (!response.ok) {
     throw new Error(`Failed to load transcript: ${response.status}`);

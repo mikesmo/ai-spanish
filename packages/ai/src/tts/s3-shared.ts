@@ -35,9 +35,13 @@ export async function fetchPresignedUrl(
   baseUrl: string,
   phraseIndex: number,
   segment: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  s3LessonSegment?: string
 ): Promise<string | null> {
   const params = new URLSearchParams({ phrase: String(phraseIndex), segment });
+  if (s3LessonSegment != null && s3LessonSegment !== '') {
+    params.set('lesson', s3LessonSegment);
+  }
   try {
     const response = await fetch(`${baseUrl}/api/audio?${params.toString()}`, {
       signal,

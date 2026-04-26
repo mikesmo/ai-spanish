@@ -11,9 +11,16 @@ type CachedUrl = { url: string; fetchedAt: number };
 function fetchPresignedUrl(
   phraseIndex: number,
   segment: string,
-  signal?: AbortSignal
+  signal: AbortSignal | undefined,
+  s3LessonSegment: string | undefined
 ): Promise<string | null> {
-  return _fetchPresignedUrl('', phraseIndex, segment, signal);
+  return _fetchPresignedUrl(
+    '',
+    phraseIndex,
+    segment,
+    signal,
+    s3LessonSegment
+  );
 }
 
 /**
@@ -66,12 +73,14 @@ export function useS3TTS(): TTSAdapter {
     ): Promise<void> => {
       if (phraseIndex === undefined) return;
       const signal = options?.signal;
+      const s3 = options?.s3LessonSegment;
+      const lessonKey = s3 ?? '';
       await Promise.all(
         segmentsForLanguage(lang, options).map(async (seg) => {
           if (signal?.aborted) return;
-          const cacheKey = `${phraseIndex}-${seg}`;
+          const cacheKey = `${lessonKey}|${phraseIndex}-${seg}`;
           if (getUrlFromCache(cacheKey) != null) return;
-          const url = await fetchPresignedUrl(phraseIndex, seg, signal);
+          const url = await fetchPresignedUrl(phraseIndex, seg, signal, s3);
           if (signal?.aborted) return;
           if (url) urlCache.current.set(cacheKey, { url, fetchedAt: Date.now() });
         })
@@ -98,15 +107,18 @@ export function useS3TTS(): TTSAdapter {
       if (!audioRef.current) audioRef.current = new Audio();
       const el = audioRef.current;
 
+      const s3 = options?.s3LessonSegment;
+      const lessonKey = s3 ?? '';
+
       for (const seg of segmentsForLanguage(lang, options)) {
         if (playEpochRef.current !== myEpoch || stoppedRef.current || signal?.aborted) {
           return;
         }
 
-        const cacheKey = `${phraseIndex}-${seg}`;
+        const cacheKey = `${lessonKey}|${phraseIndex}-${seg}`;
         let url: string | null = getUrlFromCache(cacheKey);
         if (!url) {
-          const fetched = await fetchPresignedUrl(phraseIndex, seg, signal);
+          const fetched = await fetchPresignedUrl(phraseIndex, seg, signal, s3);
           if (fetched) {
             url = fetched;
             // Only write to cache when this play is still the current one;

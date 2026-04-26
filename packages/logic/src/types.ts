@@ -96,6 +96,11 @@ export type TtsAdapterOptions = {
    * `usePhraseDisplay` during phrase bootstrap to cancel obsolete audio.
    */
   signal?: AbortSignal;
+  /**
+   * S3 path segment for batch-uploaded clips (e.g. `lesson1`), sent as
+   * `/api/audio?lesson=` on web. Omitted or empty uses the server default env.
+   */
+  s3LessonSegment?: string;
 };
 
 export type TTSAdapter = {

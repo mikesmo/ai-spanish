@@ -19,7 +19,8 @@ function fetchPresignedUrl(
   segment: string,
   presignedByKey: Map<string, PresignedEntry>,
   cacheKey: string,
-  signal?: AbortSignal
+  signal: AbortSignal | undefined,
+  s3LessonSegment: string | undefined
 ): Promise<string | null> {
   const origin = getWebOrigin();
   if (!origin) return Promise.resolve(null);
@@ -29,14 +30,28 @@ function fetchPresignedUrl(
   }
   return (async () => {
     if (signal?.aborted) return null;
-    const url = await _fetchPresignedUrl(origin, phraseIndex, segment, signal);
+    const url = await _fetchPresignedUrl(
+      origin,
+      phraseIndex,
+      segment,
+      signal,
+      s3LessonSegment
+    );
     if (url) presignedByKey.set(cacheKey, { url, fetchedAt: Date.now() });
     return url;
   })();
 }
 
-function localCachePath(phraseIndex: number, segment: string): string {
-  return `${FileSystem.cacheDirectory}s3audio-${phraseIndex}-${segment}.mp3`;
+function localCachePath(
+  phraseIndex: number,
+  segment: string,
+  s3LessonSegment?: string
+): string {
+  const p =
+    s3LessonSegment != null && s3LessonSegment !== ''
+      ? `${s3LessonSegment}-`
+      : '';
+  return `${FileSystem.cacheDirectory}s3audio-${p}${phraseIndex}-${segment}.mp3`;
 }
 
 async function ensureLocalFile(
@@ -44,10 +59,12 @@ async function ensureLocalFile(
   segment: string,
   fileCache: Map<string, string>,
   presignedByKey: Map<string, PresignedEntry>,
-  signal?: AbortSignal
+  signal: AbortSignal | undefined,
+  s3LessonSegment: string | undefined
 ): Promise<string | null> {
   if (signal?.aborted) return null;
-  const cacheKey = `${phraseIndex}-${segment}`;
+  const lessonKey = s3LessonSegment ?? '';
+  const cacheKey = `${lessonKey}|${phraseIndex}-${segment}`;
   const cachedUri = fileCache.get(cacheKey);
   if (cachedUri) {
     const info = await FileSystem.getInfoAsync(cachedUri);
@@ -55,11 +72,18 @@ async function ensureLocalFile(
     fileCache.delete(cacheKey);
   }
 
-  const presigned = await fetchPresignedUrl(phraseIndex, segment, presignedByKey, cacheKey, signal);
+  const presigned = await fetchPresignedUrl(
+    phraseIndex,
+    segment,
+    presignedByKey,
+    cacheKey,
+    signal,
+    s3LessonSegment
+  );
   if (!presigned) return null;
   if (signal?.aborted) return null;
 
-  const dest = localCachePath(phraseIndex, segment);
+  const dest = localCachePath(phraseIndex, segment, s3LessonSegment);
   const result = await FileSystem.downloadAsync(presigned, dest);
   if (signal?.aborted) return null;
   fileCache.set(cacheKey, result.uri);
@@ -158,6 +182,7 @@ export function useS3TTS(): TTSAdapter {
     ): Promise<void> => {
       if (phraseIndex === undefined) return;
       const signal = options?.signal;
+      const s3 = options?.s3LessonSegment;
       await Promise.all(
         segmentsForLanguage(lang, options).map(async (seg) => {
           if (signal?.aborted) return;
@@ -166,7 +191,8 @@ export function useS3TTS(): TTSAdapter {
             seg,
             fileCacheRef.current,
             presignedByKeyRef.current,
-            signal
+            signal,
+            s3
           ).catch(() => {});
         })
       );
@@ -199,7 +225,8 @@ export function useS3TTS(): TTSAdapter {
           seg,
           fileCacheRef.current,
           presignedByKeyRef.current,
-          signal
+          signal,
+          options?.s3LessonSegment
         );
         if (!uri || stoppedRef.current || signal?.aborted) continue;
 

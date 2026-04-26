@@ -1,8 +1,10 @@
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import {
   getAisSpeakingViewModel,
+  getLessonTitle,
   getUserRecordingViewModel,
   runPhraseFeedbackNext,
+  s3LessonFolderForTranscriptLessonId,
   useLessonSession,
   usePhraseDisplayWithDeck,
 } from "@ai-spanish/logic";
@@ -14,14 +16,20 @@ import { AISpeaking } from "./components/AISpeaking";
 import { UserFeedback } from "./components/UserFeedback";
 import { UserRecording } from "./components/UserRecording";
 
-export const PhraseDisplay = ({ phrases }: PhraseDisplayProps): JSX.Element => {
+export const PhraseDisplay = ({
+  phrases,
+  lessonId,
+  onExit,
+}: PhraseDisplayProps): JSX.Element => {
   const tts = useS3TTS();
   const stt = useSTT();
   const session = useLessonSession(phrases);
+  const lessonTitle = getLessonTitle(lessonId);
 
   const { display } = usePhraseDisplayWithDeck(phrases, session, stt, tts, {
     playSuccessChime,
     playRecordingPrimingAudio,
+    s3LessonSegment: s3LessonFolderForTranscriptLessonId(lessonId),
   });
 
   const ais = getAisSpeakingViewModel({
@@ -43,9 +51,22 @@ export const PhraseDisplay = ({ phrases }: PhraseDisplayProps): JSX.Element => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.counter}>
-        {session.isComplete ? "session complete" : `${session.remaining} left`}
-      </Text>
+      <View style={styles.header}>
+        <Pressable
+          onPress={onExit}
+          style={({ pressed }) => [styles.headerClose, pressed && styles.pressed]}
+          accessibilityRole="button"
+          accessibilityLabel="Exit lesson"
+        >
+          <Text style={styles.closeGlyph}>×</Text>
+        </Pressable>
+        <Text style={styles.headerTitle} numberOfLines={1}>
+          {lessonTitle}
+        </Text>
+        <Text style={styles.headerCounter} numberOfLines={1}>
+          {session.isComplete ? "session complete" : `${session.remaining} left`}
+        </Text>
+      </View>
 
       <View style={styles.contentStage}>
         {(display.status === "loading" ||
@@ -102,11 +123,47 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     backgroundColor: "#ffffff",
   },
-  counter: {
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    width: "100%",
+    minHeight: 40,
+    marginBottom: 16,
+  },
+  headerClose: {
+    position: "absolute",
+    left: 0,
+    zIndex: 1,
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 8,
+  },
+  closeGlyph: {
+    fontSize: 28,
+    lineHeight: 32,
+    color: "#6b7280",
+  },
+  pressed: {
+    backgroundColor: "#f3f4f6",
+  },
+  headerTitle: {
+    flex: 1,
+    paddingHorizontal: 48,
+    fontSize: 15,
+    fontWeight: "500",
+    color: "#111827",
+    textAlign: "center",
+  },
+  headerCounter: {
+    position: "absolute",
+    right: 0,
+    zIndex: 1,
+    maxWidth: "40%",
     fontSize: 13,
     color: "#9ca3af",
-    alignSelf: "flex-end",
-    marginBottom: 16,
+    textAlign: "right",
   },
   contentStage: {
     flex: 1,
