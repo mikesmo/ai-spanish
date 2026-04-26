@@ -17,7 +17,7 @@ export function segmentsForLanguage(
     }
     return segs;
   }
-  return ['es-question'];
+  return ['es-answer'];
 }
 
 /**

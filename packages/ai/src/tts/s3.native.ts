@@ -95,7 +95,7 @@ async function ensureLocalFile(
  *
  * - English: en-first-intro or en-second-intro per englishUseFirstIntro; appends
  *   en-question when englishAppendQuestion (intro ends with ":" after trim).
- * - Spanish: es-question only.
+ * - Spanish: es-answer only.
  * - Missing clips are skipped silently.
  * - Requires phraseIndex; calls without it are no-ops.
  */

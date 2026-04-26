@@ -9,13 +9,13 @@ import {
 
 /**
  * Allowed segment values — must stay in sync with tts-batch parser job id formula:
- *   {phraseIndex}-en-first-intro, {phraseIndex}-en-second-intro, {phraseIndex}-en-question, {phraseIndex}-es-question
+ *   {phraseIndex}-en-first-intro, {phraseIndex}-en-second-intro, {phraseIndex}-en-question, {phraseIndex}-es-answer
  */
 const ALLOWED_SEGMENTS = [
   'en-first-intro',
   'en-second-intro',
   'en-question',
-  'es-question',
+  'es-answer',
 ] as const;
 type Segment = (typeof ALLOWED_SEGMENTS)[number];
 

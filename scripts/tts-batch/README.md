@@ -147,7 +147,7 @@ output/
     hashes.json
 ```
 
-Transcript rows are flattened to jobs such as `{i}-en-first-intro`, `{i}-en-second-intro`, `{i}-en-question`, `{i}-es-question` (empty strings skipped).
+Transcript rows are flattened to jobs such as `{i}-en-first-intro`, `{i}-en-second-intro`, `{i}-en-question`, `{i}-es-answer` (empty strings skipped).
 
 ## S3 object keys
 
