@@ -58,6 +58,7 @@ const IS_FINAL_COMMIT_DEBOUNCE_MS = 800;
 export function useSTT(): SpeechToTextHandle {
   const [caption, setCaption] = useState('');
   const [isFinal, setIsFinalState] = useState(false);
+  const [sttError, setSttError] = useState<string | null>(null);
   const paragraphRef = useRef('');
   const lastCaptionRef = useRef('');
   const finalizedCountRef = useRef(0);
@@ -252,6 +253,7 @@ export function useSTT(): SpeechToTextHandle {
       if (options?.signal?.aborted) {
         return;
       }
+      setSttError(null);
       if (debugRef.current) {
         logSttAdapterStart({
           connState: 'unknown',
@@ -293,22 +295,17 @@ export function useSTT(): SpeechToTextHandle {
           apiKey = await resolveKeyForListen();
         } catch (err) {
           console.error('[Deepgram STT] auth key', err);
+          setSttError(err instanceof Error ? err.message : String(err));
           return;
         }
-        if (startEpochRef.current !== myEpoch) {
-          try { stopListeningRef.current(); } catch { /* empty */ }
-          return;
-        }
-        if (options?.signal?.aborted) {
+        // Single combined guard — configure() is synchronous so epoch/signal
+        // cannot change between here and the await startListening() below.
+        if (startEpochRef.current !== myEpoch || options?.signal?.aborted) {
           try { stopListeningRef.current(); } catch { /* empty */ }
           return;
         }
         configure({ apiKey });
-        if (startEpochRef.current !== myEpoch) {
-          try { stopListeningRef.current(); } catch { /* empty */ }
-          return;
-        }
-        if (options?.signal?.aborted) {
+        if (startEpochRef.current !== myEpoch || options?.signal?.aborted) {
           try { stopListeningRef.current(); } catch { /* empty */ }
           return;
         }
@@ -369,5 +366,6 @@ export function useSTT(): SpeechToTextHandle {
     words,
     isFinal,
     clearTranscription,
+    error: sttError,
   };
 }

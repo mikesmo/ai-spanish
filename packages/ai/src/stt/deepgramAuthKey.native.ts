@@ -23,10 +23,13 @@ async function fetchListenKeyFromServer(): Promise<string> {
   const response = await fetch(`${origin}/api/authenticate`, {
     cache: 'no-store',
   });
-  const result: unknown = await response.json();
   if (!response.ok) {
-    throw new Error(`Failed to get Deepgram auth key: ${response.status}`);
+    const body = await response.text().catch(() => '');
+    throw new Error(
+      `Failed to get Deepgram auth key: ${response.status}${body ? ` — ${body}` : ''}`,
+    );
   }
+  const result: unknown = await response.json();
   if (
     typeof result !== 'object' ||
     result === null ||
@@ -67,12 +70,17 @@ export async function resolveKeyForListen(): Promise<string> {
 }
 
 export function prefetchListenKey(): void {
-  void (async () => {
-    try {
-      const key = await fetchListenKeyFromServer();
-      nextKey = { key, fetchedAt: Date.now() };
-    } catch (err) {
+  void getFreshKeySingleFlight()
+    .then((key) => {
+      // Only store if nothing fresher arrived while we were waiting.
+      // If resolveKeyForListen() ran concurrently it consumed the same
+      // in-flight request, so storing the key here lets the session after
+      // this one reuse it without an extra round-trip.
+      if (!nextKey) {
+        nextKey = { key, fetchedAt: Date.now() };
+      }
+    })
+    .catch((err: unknown) => {
       console.error('[Deepgram] prefetch listen key failed:', err);
-    }
-  })();
+    });
 }

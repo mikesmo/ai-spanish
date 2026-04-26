@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     await deepgram.manage.getProjects();
 
   if (projectsError) {
-    return NextResponse.json(projectsError);
+    return NextResponse.json(projectsError, { status: 500 });
   }
 
   const project = projectsResult?.projects[0];
@@ -28,7 +28,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       new DeepgramError(
         "Cannot find a Deepgram project. Please create a project first."
-      )
+      ),
+      { status: 500 }
     );
   }
 
@@ -41,7 +42,7 @@ export async function GET(request: NextRequest) {
     });
 
   if (newKeyError) {
-    return NextResponse.json(newKeyError);
+    return NextResponse.json(newKeyError, { status: 500 });
   }
 
   const response = NextResponse.json({ ...newKeyResult, url });

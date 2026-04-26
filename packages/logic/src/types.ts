@@ -153,6 +153,8 @@ export type SpeechToTextHandle = {
   words: SpokenWord[];
   isFinal: boolean;
   clearTranscription: () => void;
+  /** Non-null when the last `start()` attempt failed (e.g. auth key fetch error). Cleared on the next `start()`. */
+  error: string | null;
 };
 
 export interface ScoreBreakdown {

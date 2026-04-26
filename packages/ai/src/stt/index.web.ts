@@ -576,5 +576,6 @@ export function useSTT(): SpeechToTextHandle {
     words,
     isFinal,
     clearTranscription,
+    error: null,
   };
 }
