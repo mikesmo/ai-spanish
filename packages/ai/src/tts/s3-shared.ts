@@ -29,14 +29,19 @@ export function segmentsForLanguage(
  * Returns null when the segment does not exist (e.g. empty intro text skipped
  * at batch time), when the API is unconfigured (503), or on network error.
  */
+export const PRESIGNED_URL_CACHE_TTL_MS = 240_000;
+
 export async function fetchPresignedUrl(
   baseUrl: string,
   phraseIndex: number,
-  segment: string
+  segment: string,
+  signal?: AbortSignal
 ): Promise<string | null> {
   const params = new URLSearchParams({ phrase: String(phraseIndex), segment });
   try {
-    const response = await fetch(`${baseUrl}/api/audio?${params.toString()}`);
+    const response = await fetch(`${baseUrl}/api/audio?${params.toString()}`, {
+      signal,
+    });
     if (!response.ok) return null;
     const data = (await response.json()) as AudioUrlResponse;
     return data.url ?? null;

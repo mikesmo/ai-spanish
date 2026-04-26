@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   getAisSpeakingViewModel,
   getUserRecordingViewModel,
@@ -28,7 +28,10 @@ export const PhraseDisplay = ({ phrases }: PhraseDisplayProps): JSX.Element => {
     playRecordingPrimingAudio,
   });
 
-  session.bindCurrentPhrase(display.currentPhrase);
+  const { bindCurrentPhrase } = session;
+  useEffect(() => {
+    bindCurrentPhrase(display.currentPhrase);
+  }, [display.currentPhrase, bindCurrentPhrase]);
 
   const ais = getAisSpeakingViewModel({
     status: display.status,

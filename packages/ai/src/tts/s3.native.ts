@@ -2,16 +2,37 @@ import { useCallback, useRef } from 'react';
 import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system';
 import type { Language, TTSAdapter, TtsAdapterOptions } from '@ai-spanish/logic';
-import { fetchPresignedUrl as _fetchPresignedUrl, segmentsForLanguage } from './s3-shared';
+import {
+  PRESIGNED_URL_CACHE_TTL_MS,
+  fetchPresignedUrl as _fetchPresignedUrl,
+  segmentsForLanguage,
+} from './s3-shared';
+
+type PresignedEntry = { url: string; fetchedAt: number };
 
 function getWebOrigin(): string {
   return (process.env.EXPO_PUBLIC_WEB_ORIGIN ?? '').replace(/\/$/, '');
 }
 
-function fetchPresignedUrl(phraseIndex: number, segment: string): Promise<string | null> {
+function fetchPresignedUrl(
+  phraseIndex: number,
+  segment: string,
+  presignedByKey: Map<string, PresignedEntry>,
+  cacheKey: string,
+  signal?: AbortSignal
+): Promise<string | null> {
   const origin = getWebOrigin();
   if (!origin) return Promise.resolve(null);
-  return _fetchPresignedUrl(origin, phraseIndex, segment);
+  const e = presignedByKey.get(cacheKey);
+  if (e && Date.now() - e.fetchedAt <= PRESIGNED_URL_CACHE_TTL_MS) {
+    return Promise.resolve(e.url);
+  }
+  return (async () => {
+    if (signal?.aborted) return null;
+    const url = await _fetchPresignedUrl(origin, phraseIndex, segment, signal);
+    if (url) presignedByKey.set(cacheKey, { url, fetchedAt: Date.now() });
+    return url;
+  })();
 }
 
 function localCachePath(phraseIndex: number, segment: string): string {
@@ -21,8 +42,11 @@ function localCachePath(phraseIndex: number, segment: string): string {
 async function ensureLocalFile(
   phraseIndex: number,
   segment: string,
-  fileCache: Map<string, string>
+  fileCache: Map<string, string>,
+  presignedByKey: Map<string, PresignedEntry>,
+  signal?: AbortSignal
 ): Promise<string | null> {
+  if (signal?.aborted) return null;
   const cacheKey = `${phraseIndex}-${segment}`;
   const cachedUri = fileCache.get(cacheKey);
   if (cachedUri) {
@@ -31,11 +55,13 @@ async function ensureLocalFile(
     fileCache.delete(cacheKey);
   }
 
-  const presigned = await fetchPresignedUrl(phraseIndex, segment);
+  const presigned = await fetchPresignedUrl(phraseIndex, segment, presignedByKey, cacheKey, signal);
   if (!presigned) return null;
+  if (signal?.aborted) return null;
 
   const dest = localCachePath(phraseIndex, segment);
   const result = await FileSystem.downloadAsync(presigned, dest);
+  if (signal?.aborted) return null;
   fileCache.set(cacheKey, result.uri);
   return result.uri;
 }
@@ -51,11 +77,14 @@ async function ensureLocalFile(
  */
 export function useS3TTS(): TTSAdapter {
   const fileCacheRef = useRef<Map<string, string>>(new Map());
+  const presignedByKeyRef = useRef<Map<string, PresignedEntry>>(new Map());
   const currentSoundRef = useRef<Audio.Sound | null>(null);
   const stoppedRef = useRef(false);
   const stopIntentionallyRef = useRef(false);
+  /** Await before `createAsync` so interleaved `play()` cannot overlap unload. */
+  const unloadInFlightRef = useRef<Promise<void> | null>(null);
 
-  const unloadCurrentSound = useCallback(async () => {
+  const runUnload = useCallback(async () => {
     const sound = currentSoundRef.current;
     currentSoundRef.current = null;
     if (!sound) return;
@@ -64,10 +93,33 @@ export function useS3TTS(): TTSAdapter {
     await sound.unloadAsync().catch(() => {});
   }, []);
 
+  const awaitUnload = useCallback(async () => {
+    if (unloadInFlightRef.current) {
+      try {
+        await unloadInFlightRef.current;
+      } catch {
+        /* empty */
+      }
+    }
+  }, []);
+
+  const unloadWithTracking = useCallback(async () => {
+    await awaitUnload();
+    const p = runUnload();
+    unloadInFlightRef.current = p;
+    try {
+      await p;
+    } finally {
+      if (unloadInFlightRef.current === p) {
+        unloadInFlightRef.current = null;
+      }
+    }
+  }, [awaitUnload, runUnload]);
+
   const stop = useCallback(() => {
     stoppedRef.current = true;
-    void unloadCurrentSound();
-  }, [unloadCurrentSound]);
+    void unloadWithTracking();
+  }, [unloadWithTracking]);
 
   const playSegment = useCallback(async (fileUri: string, rate: number): Promise<void> => {
     await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
@@ -105,9 +157,17 @@ export function useS3TTS(): TTSAdapter {
       options?: TtsAdapterOptions
     ): Promise<void> => {
       if (phraseIndex === undefined) return;
+      const signal = options?.signal;
       await Promise.all(
         segmentsForLanguage(lang, options).map(async (seg) => {
-          await ensureLocalFile(phraseIndex, seg, fileCacheRef.current).catch(() => {});
+          if (signal?.aborted) return;
+          await ensureLocalFile(
+            phraseIndex,
+            seg,
+            fileCacheRef.current,
+            presignedByKeyRef.current,
+            signal
+          ).catch(() => {});
         })
       );
     },
@@ -123,25 +183,36 @@ export function useS3TTS(): TTSAdapter {
       options?: TtsAdapterOptions
     ): Promise<void> => {
       if (phraseIndex === undefined) return;
+      const signal = options?.signal;
+      if (signal?.aborted) return;
 
       stoppedRef.current = false;
-      await unloadCurrentSound();
+      await unloadWithTracking();
+      if (signal?.aborted) return;
       stopIntentionallyRef.current = false;
 
       for (const seg of segmentsForLanguage(lang, options)) {
-        if (stoppedRef.current) return;
+        if (stoppedRef.current || signal?.aborted) return;
 
-        const uri = await ensureLocalFile(phraseIndex, seg, fileCacheRef.current);
-        if (!uri || stoppedRef.current) continue;
+        const uri = await ensureLocalFile(
+          phraseIndex,
+          seg,
+          fileCacheRef.current,
+          presignedByKeyRef.current,
+          signal
+        );
+        if (!uri || stoppedRef.current || signal?.aborted) continue;
 
         try {
+          /* eslint-disable no-await-in-loop */
           await playSegment(uri, rate);
+          /* eslint-enable no-await-in-loop */
         } catch {
           // Skip failed segments (network/playback); matches silent skip for missing clips.
         }
       }
     },
-    [playSegment, unloadCurrentSound]
+    [awaitUnload, playSegment, unloadWithTracking]
   );
 
   return { play, prefetch, stop };

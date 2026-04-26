@@ -40,6 +40,7 @@ import type {
   ScoreBreakdown,
   SpeechToTextHandle,
   SpokenWord,
+  TtsAdapterOptions,
   TTSAdapter,
   UIStatus,
 } from './types';
@@ -212,6 +213,14 @@ export function usePhraseDisplay(
   sttRef.current = stt;
   ttsRef.current = tts;
 
+  const isMountedRef = useRef(true);
+  useLayoutEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   /** Tracks whether an Attempt/PracticeAttempt/Reveal (or tryAgain no-speech Show Answer)
    * has already been recorded for the current pass. Suppresses duplicate emissions. */
   const attemptEmittedRef = useRef(false);
@@ -298,12 +307,14 @@ export function usePhraseDisplay(
         0,
       );
 
-      setLastScoreBreakdown({
-        accuracy: accuracy.accuracy,
-        fluency: fluencyScore,
-        mastery,
-        isAccuracySuccess: accuracySucceeded,
-      });
+      if (isMountedRef.current) {
+        setLastScoreBreakdown({
+          accuracy: accuracy.accuracy,
+          fluency: fluencyScore,
+          mastery,
+          isAccuracySuccess: accuracySucceeded,
+        });
+      }
 
       const attempt: Attempt = {
         eventType: 'attempt',
@@ -402,15 +413,21 @@ export function usePhraseDisplay(
     // it, or the first call never got to setStatus in edge races.
     if (answerAudioInFlightRef.current) {
       sttRef.current.stop();
-      setStatus('answer');
+      if (isMountedRef.current) {
+        setStatus('answer');
+      }
       return;
     }
     answerAudioInFlightRef.current = true;
     try {
       sttRef.current.stop();
-      setStatus('answer');
+      if (isMountedRef.current) {
+        setStatus('answer');
+      }
       try {
-        setIsAudioPlaying(true);
+        if (isMountedRef.current) {
+          setIsAudioPlaying(true);
+        }
         await ttsRef.current.play(
           spanishText,
           'es',
@@ -420,7 +437,9 @@ export function usePhraseDisplay(
       } catch (error) {
         console.error('[usePhraseDisplay] Error playing Spanish:', error);
       } finally {
-        setIsAudioPlaying(false);
+        if (isMountedRef.current) {
+          setIsAudioPlaying(false);
+        }
       }
     } finally {
       answerAudioInFlightRef.current = false;
@@ -580,17 +599,24 @@ export function usePhraseDisplay(
     const shouldPronunciationExample =
       isNewLessonCard && isFirstSessionPresentation;
 
-    let cancelled = false;
-    const primingAbort = new AbortController();
+    const bootstrapAbort = new AbortController();
+    const { signal: bootstrapSignal } = bootstrapAbort;
+    const enWithSignal = { ...enOpts, signal: bootstrapSignal };
+    const esWithSignal = { signal: bootstrapSignal } as TtsAdapterOptions;
+    // Presign fetches (prefetch) are not tied to `bootstrapSignal`. Effect
+    // cleanup still aborts that signal to cancel play / priming / stt — but
+    // aborting in-flight /api/audio during HMR or a duplicate effect run only
+    // produced NS_BINDING_ABORTED noise and a redundant second fetch.
 
     const init = async () => {
       try {
         const hintedIndex = ttsPhraseIndexRef.current;
         await Promise.all([
           ttsRef.current.prefetch(englishText, 'en', hintedIndex, enOpts),
-          ttsRef.current.prefetch(spanishText, 'es', hintedIndex),
+          ttsRef.current.prefetch(spanishText, 'es', hintedIndex, undefined),
         ]);
-        if (cancelled) return;
+        if (bootstrapSignal.aborted) return;
+        if (!isMountedRef.current) return;
         setStatus('idle');
         setIsAudioPlaying(true);
         await ttsRef.current.play(
@@ -598,12 +624,13 @@ export function usePhraseDisplay(
           'en',
           undefined,
           ttsPhraseIndexRef.current,
-          enOpts,
+          enWithSignal,
         );
-        if (cancelled) return;
+        if (bootstrapSignal.aborted) return;
+        if (!isMountedRef.current) return;
 
         if (shouldPronunciationExample) {
-          if (!cancelled) {
+          if (!bootstrapSignal.aborted && isMountedRef.current) {
             setStatus('pronunciationExample');
             setIsAudioPlaying(true);
             try {
@@ -612,6 +639,7 @@ export function usePhraseDisplay(
                 'es',
                 undefined,
                 ttsPhraseIndexRef.current,
+                esWithSignal,
               );
             } catch (esError) {
               console.error(
@@ -619,14 +647,17 @@ export function usePhraseDisplay(
                 esError,
               );
             } finally {
-              if (!cancelled) setIsAudioPlaying(false);
+              if (!bootstrapSignal.aborted && isMountedRef.current) {
+                setIsAudioPlaying(false);
+              }
             }
           }
-        } else if (!cancelled) {
+        } else if (!bootstrapSignal.aborted && isMountedRef.current) {
           setIsAudioPlaying(false);
         }
 
-        if (cancelled) return;
+        if (bootstrapSignal.aborted) return;
+        if (!isMountedRef.current) return;
 
         const playPrime = playRecordingPrimingAudioRef.current;
         if (
@@ -636,11 +667,10 @@ export function usePhraseDisplay(
         ) {
           setStatus('recordingPriming');
           try {
-            await playPrime(primingAbort.signal);
+            await playPrime(bootstrapSignal);
           } catch (primError: unknown) {
             const aborted =
-              cancelled ||
-              primingAbort.signal.aborted ||
+              bootstrapSignal.aborted ||
               (primError instanceof DOMException &&
                 primError.name === 'AbortError') ||
               (primError instanceof Error && primError.name === 'AbortError');
@@ -650,24 +680,26 @@ export function usePhraseDisplay(
               primError,
             );
           }
-          if (cancelled || primingAbort.signal.aborted) return;
+          if (bootstrapSignal.aborted) return;
+          if (!isMountedRef.current) return;
         }
 
-        // Serialize with phrase-bootstrap cleanup: cleanup calls `stop()` without
-        // awaiting; `start()` can open Deepgram and run `startMicrophone()` while
-        // the prior MediaRecorder is still "recording", which bails without setting
-        // mic state to Open — UI stays on `recordingPriming` forever.
-        await Promise.resolve(sttRef.current.stop());
-        if (cancelled) return;
+        await sttRef.current.stop();
+        if (bootstrapSignal.aborted) return;
+        if (!isMountedRef.current) return;
 
         sttRef.current.clearTranscription();
         sttRef.current.start({
           keywords: isSingleWordAnswer(currentPhrase.Spanish.answer)
             ? tokenizeForDeepgramKeywords(currentPhrase.Spanish.answer)
             : [],
+          signal: bootstrapSignal,
         });
       } catch (error) {
-        if (!cancelled) {
+        if (bootstrapSignal.aborted) {
+          return;
+        }
+        if (isMountedRef.current) {
           console.error('[usePhraseDisplay] Error loading phrase audio:', error);
           setStatus('idle');
           setIsAudioPlaying(false);
@@ -678,10 +710,12 @@ export function usePhraseDisplay(
     void init();
 
     return () => {
-      cancelled = true;
-      primingAbort.abort();
+      // Aligned with eb2932e: begin `stt.stop()` / runStop first so
+      // isUserStarted flips and mic/WS tear down start before TTS/abort; the
+      // next `init` still `await stt.stop()` and coalesces on the same promise.
+      void Promise.resolve(sttRef.current.stop()).catch(() => {});
+      bootstrapAbort.abort();
       ttsRef.current.stop();
-      sttRef.current.stop();
     };
     // Re-run on currentIndex change (linear navigation) AND on
     // presentationVersion bumps from a session engine so a requeued phrase
@@ -706,6 +740,7 @@ export function usePhraseDisplay(
     if (statusRef.current === 'answer' || statusRef.current === 'loading') {
       return;
     }
+    if (!isMountedRef.current) return;
     setStatus('recording');
   }, [stt.isRecording]);
 
@@ -741,6 +776,7 @@ export function usePhraseDisplay(
       postSoundTimer = setTimeout(() => {
         postSoundTimer = null;
         if (ac.signal.aborted) return;
+        if (!isMountedRef.current) return;
         // Emit at fire time so sttRef has the full utterance if additional
         // segments landed during the chime + post-success pause.
         if (!attemptEmittedRef.current) {
@@ -885,7 +921,9 @@ export function usePhraseDisplay(
 
   const handleReplay = async () => {
     try {
-      setIsAudioPlaying(true);
+      if (isMountedRef.current) {
+        setIsAudioPlaying(true);
+      }
       await ttsRef.current.play(
         spanishText,
         'es',
@@ -895,7 +933,9 @@ export function usePhraseDisplay(
     } catch (error) {
       console.error('[usePhraseDisplay] Error replaying Spanish:', error);
     } finally {
-      setIsAudioPlaying(false);
+      if (isMountedRef.current) {
+        setIsAudioPlaying(false);
+      }
     }
   };
 

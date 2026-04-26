@@ -17,7 +17,14 @@ function stopAudio() {
   }
 }
 
-async function fetchAudio(text: string, language: Language): Promise<Blob> {
+async function fetchAudio(
+  text: string,
+  language: Language,
+  signal?: AbortSignal
+): Promise<Blob> {
+  if (signal?.aborted) {
+    throw new DOMException('Aborted', 'AbortError');
+  }
   const key: AudioCacheKey = `${text}-${language}`;
   const cached = audioCache.get(key);
   if (cached) return cached;
@@ -26,6 +33,7 @@ async function fetchAudio(text: string, language: Language): Promise<Blob> {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ text, provider: 'deepgram', language }),
+    signal,
   });
   if (!response.ok) throw new Error(`TTS request failed: ${response.statusText}`);
   const blob = await response.blob();
@@ -37,16 +45,46 @@ async function fetchAudio(text: string, language: Language): Promise<Blob> {
   return blob;
 }
 
-async function playAudio(text: string, language: Language, rate = 1): Promise<void> {
+async function playAudio(
+  text: string,
+  language: Language,
+  rate = 1,
+  signal?: AbortSignal
+): Promise<void> {
+  if (signal?.aborted) return;
   if (!audioPlayer) audioPlayer = new Audio();
-  const blob = await fetchAudio(text, language);
+  const blob = await fetchAudio(text, language, signal);
+  if (signal?.aborted) return;
   const url = URL.createObjectURL(blob);
   stoppedIntentionally = false;
   audioPlayer.src = url;
   audioPlayer.playbackRate = rate;
+  if (signal?.aborted) {
+    URL.revokeObjectURL(url);
+    return;
+  }
   await new Promise<void>((resolve, reject) => {
-    audioPlayer!.onended = () => { URL.revokeObjectURL(url); resolve(); };
+    const onAbort = () => {
+      URL.revokeObjectURL(url);
+      audioPlayer!.onended = null;
+      audioPlayer!.onerror = null;
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    };
+    if (signal) {
+      if (signal.aborted) {
+        onAbort();
+        return;
+      }
+      signal.addEventListener('abort', onAbort, { once: true });
+    }
+    audioPlayer!.onended = () => {
+      signal?.removeEventListener('abort', onAbort);
+      URL.revokeObjectURL(url);
+      resolve();
+    };
     audioPlayer!.onerror = () => {
+      signal?.removeEventListener('abort', onAbort);
       URL.revokeObjectURL(url);
       stoppedIntentionally ? resolve() : reject(new Error('Audio playback error'));
     };
@@ -56,12 +94,17 @@ async function playAudio(text: string, language: Language, rate = 1): Promise<vo
 
 export function useTTS(): TTSAdapter {
   const play = useCallback(
-    (text: string, lang: Language, rate?: number, _phraseIndex?: number, _options?: TtsAdapterOptions) =>
-      playAudio(text, lang, rate),
+    (text: string, lang: Language, rate?: number, _phraseIndex?: number, options?: TtsAdapterOptions) =>
+      playAudio(text, lang, rate, options?.signal),
     []
   );
-  const prefetch = useCallback(async (text: string, lang: Language, _phraseIndex?: number, _options?: TtsAdapterOptions) => {
-    await fetchAudio(text, lang).catch((err) => console.error('[TTS prefetch]', err));
+  const prefetch = useCallback(async (text: string, lang: Language, _phraseIndex?: number, options?: TtsAdapterOptions) => {
+    try {
+      await fetchAudio(text, lang, options?.signal);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      console.error('[TTS prefetch]', err);
+    }
   }, []);
   const stop = useCallback(() => stopAudio(), []);
   return { play, prefetch, stop };

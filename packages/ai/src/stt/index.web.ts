@@ -107,9 +107,15 @@ export function useSTT(): SpeechToTextHandle {
     isStreamReady,
   } = useMicrophone(sendVoiceData);
 
+  const microphoneStateRef = useRef<MicrophoneState>(microphoneState);
+  microphoneStateRef.current = microphoneState;
+
   const prevConnectionState = useRef<LiveConnectionState>(LiveConnectionState.CLOSED);
   const isIntentionalStop = useRef(false);
   const isUserStarted = useRef(false);
+  /** Throttles initial-silence arming from startMic-direct + WS-OPEN (no ~2× effective timeout). */
+  const lastInitialSilenceArmAtRef = useRef(0);
+  const stopInFlightRef = useRef<Promise<void> | null>(null);
   const reconnectAttempts = useRef(0);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const MAX_ATTEMPTS = 5;
@@ -180,6 +186,16 @@ export function useSTT(): SpeechToTextHandle {
     if (watchdogTimerRef.current) clearTimeout(watchdogTimerRef.current);
     watchdogTimerRef.current = setTimeout(fireWatchdog, timeoutMs);
   }, [fireWatchdog]);
+
+  /** Single place for initial-silence arming: debounce duplicate arms within 400ms. */
+  const armInitialSilenceOnce = useCallback(() => {
+    const now = Date.now();
+    if (now - lastInitialSilenceArmAtRef.current < 400) {
+      return;
+    }
+    lastInitialSilenceArmAtRef.current = now;
+    armWatchdog(INITIAL_SILENCE_TIMEOUT_MS);
+  }, [armWatchdog]);
 
   // Transcript handler must be registered with stable hook order: all
   // useState/useRef/useCallback before any useEffect in this hook.
@@ -380,11 +396,14 @@ export function useSTT(): SpeechToTextHandle {
   };
 
   const start = (options?: SttStartOptions) => {
+    if (options?.signal?.aborted) {
+      return;
+    }
     isIntentionalStop.current = false;
     isUserStarted.current = true;
     nextKeywordsRef.current = options?.keywords ?? [];
 
-    // Three-way branch over the current (mic, conn) state:
+    // Three-way branch over the current (mic, conn) state (use `microphoneStateRef` — not stale state).
     //   - conn OPEN                → startMic-direct (fast path; pre-warm was on)
     //   - mic Ready, conn not OPEN → connect-direct (mic warm from prior attempt,
     //                                 WS closed by last stop; open a fresh WS now)
@@ -393,14 +412,14 @@ export function useSTT(): SpeechToTextHandle {
     const path: 'startMic-direct' | 'connect-direct' | 'setupMic-async' =
       connectionStateRef.current === LiveConnectionState.OPEN
         ? 'startMic-direct'
-        : microphoneState === MicrophoneState.Ready && isStreamReady()
+        : microphoneStateRef.current === MicrophoneState.Ready && isStreamReady()
           ? 'connect-direct'
           : 'setupMic-async';
 
     if (debugRef.current) {
       logSttAdapterStart({
         connState: String(connectionStateRef.current),
-        micState: String(microphoneState),
+        micState: String(microphoneStateRef.current),
         path,
         keywords: nextKeywordsRef.current,
       });
@@ -412,7 +431,7 @@ export function useSTT(): SpeechToTextHandle {
       // no-speech-ever safety net now. The connectionState useEffect won't
       // re-fire (edge-triggered) so this is the only arming point for this
       // path.
-      armWatchdog(INITIAL_SILENCE_TIMEOUT_MS);
+      armInitialSilenceOnce();
     } else if (path === 'connect-direct') {
       // Mic stack is warm from a prior attempt (setupMicrophone is now
       // idempotent and stopMicrophone leaves us in Ready), but the WS was
@@ -425,9 +444,10 @@ export function useSTT(): SpeechToTextHandle {
     }
   };
 
-  const stop = async () => {
+  const runStop = async () => {
     isIntentionalStop.current = true;
     isUserStarted.current = false;
+    lastInitialSilenceArmAtRef.current = 0;
     if (debugRef.current) {
       logSttAdapterStop({
         connState: String(connectionStateRef.current),
@@ -443,6 +463,17 @@ export function useSTT(): SpeechToTextHandle {
     await stopMicrophone();
     await disconnectFromDeepgram();
   };
+
+  const stop = (): Promise<void> => {
+    if (!stopInFlightRef.current) {
+      stopInFlightRef.current = runStop().finally(() => {
+        stopInFlightRef.current = null;
+      });
+    }
+    return stopInFlightRef.current;
+  };
+  const stopRef = useRef<() => Promise<void>>(stop);
+  stopRef.current = stop;
 
   const clearTranscription = () => {
     if (debugRef.current) {
@@ -475,7 +506,16 @@ export function useSTT(): SpeechToTextHandle {
   useEffect(() => {
     return () => {
       clearWatchdog();
-      teardownMicrophone();
+      isIntentionalStop.current = true;
+      isUserStarted.current = false;
+      void (async () => {
+        try {
+          await stopRef.current();
+        } catch {
+          /* empty */
+        }
+        await teardownMicrophone();
+      })();
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -497,7 +537,7 @@ export function useSTT(): SpeechToTextHandle {
   useEffect(() => {
     if (connectionState === LiveConnectionState.OPEN && isUserStarted.current) {
       startMicrophone();
-      armWatchdog(INITIAL_SILENCE_TIMEOUT_MS);
+      armInitialSilenceOnce();
     }
   }, [connectionState, microphoneState]); // eslint-disable-line react-hooks/exhaustive-deps
 

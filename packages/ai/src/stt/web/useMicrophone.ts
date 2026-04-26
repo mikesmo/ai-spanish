@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import {
   getDefaultLearningPipelineDebug,
   logSttMicSetupDone,
@@ -21,14 +21,20 @@ export enum MicrophoneState {
 
 export function useMicrophone(onVoiceData: (ev: BlobEvent) => void) {
   const microphone = useRef<MediaRecorder | null>(null);
-  // #region agent log
   const energyStreamRef = useRef<MediaStream | null>(null);
   const energyCtxRef = useRef<AudioContext | null>(null);
   const energyAnalyserRef = useRef<AnalyserNode | null>(null);
   const energyBufRef = useRef<Float32Array | null>(null);
-  const energyTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  // #endregion
   const [microphoneState, setMicrophoneState] = useState<MicrophoneState>(MicrophoneState.NotSetup);
+  /** Set only in the `useEffect` below (do not set in `teardownMicrophone` — that runs async and can clobber a Strict remount). */
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const onReceiveData = useCallback((ev: BlobEvent) => {
     onVoiceData(ev);
@@ -67,13 +73,18 @@ export function useMicrophone(onVoiceData: (ev: BlobEvent) => void) {
       // TTS→mic bleed on laptop speakers.
       audio: { noiseSuppression: false, echoCancellation: true },
     });
+    if (!isMountedRef.current) {
+      stream.getTracks().forEach((t) => {
+        try { t.stop(); } catch { /* empty */ }
+      });
+      return;
+    }
     // NOTE: we do NOT create the MediaRecorder here. It's created fresh per
     // attempt in startMicrophone() so that (a) mic.stop() cleanly flushes the
     // buffered audio to the CURRENT WebSocket via its final dataavailable
     // event, and (b) the next attempt's MediaRecorder produces a brand-new
     // WebM stream whose first blob contains the full EBML header — required
     // for Deepgram to decode on a freshly-opened WebSocket.
-    // #region agent log
     try {
       energyStreamRef.current = stream;
       const Ctx: typeof AudioContext =
@@ -88,7 +99,16 @@ export function useMicrophone(onVoiceData: (ev: BlobEvent) => void) {
       energyAnalyserRef.current = analyser;
       energyBufRef.current = new Float32Array(analyser.fftSize);
     } catch {}
-    // #endregion
+    if (!isMountedRef.current) {
+      stream.getTracks().forEach((t) => {
+        try { t.stop(); } catch { /* empty */ }
+      });
+      energyStreamRef.current = null;
+      energyCtxRef.current = null;
+      energyAnalyserRef.current = null;
+      energyBufRef.current = null;
+      return;
+    }
     setMicrophoneState(MicrophoneState.Ready);
     if (getDefaultLearningPipelineDebug()) {
       logSttMicSetupDone({ elapsedMs: Date.now() - setupStartedAt });
@@ -151,12 +171,6 @@ export function useMicrophone(onVoiceData: (ev: BlobEvent) => void) {
         recorderState: microphone.current?.state ?? null,
       });
     }
-    // #region agent log
-    if (energyTimerRef.current) {
-      clearInterval(energyTimerRef.current);
-      energyTimerRef.current = null;
-    }
-    // #endregion
     setMicrophoneState(MicrophoneState.Stopping);
     const mic = microphone.current;
     if (mic && mic.state !== 'inactive') {
@@ -189,10 +203,6 @@ export function useMicrophone(onVoiceData: (ev: BlobEvent) => void) {
   // DSP graph). Only call this when the component is going away, not between
   // attempts.
   const teardownMicrophone = async () => {
-    if (energyTimerRef.current) {
-      clearInterval(energyTimerRef.current);
-      energyTimerRef.current = null;
-    }
     const mic = microphone.current;
     microphone.current = null;
     if (mic && mic.state !== 'inactive') {

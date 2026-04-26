@@ -27,7 +27,14 @@ async function stopAudio(): Promise<void> {
   }
 }
 
-async function fetchAndCacheAudio(text: string, language: Language): Promise<string> {
+async function fetchAndCacheAudio(
+  text: string,
+  language: Language,
+  signal?: AbortSignal
+): Promise<string> {
+  if (signal?.aborted) {
+    throw new DOMException('Aborted', 'AbortError');
+  }
   const key = `${language}-${text}`;
   const cached = audioCache.get(key);
   if (cached) {
@@ -37,7 +44,10 @@ async function fetchAndCacheAudio(text: string, language: Language): Promise<str
   }
 
   const apiKey = process.env.EXPO_PUBLIC_DEEPGRAM_API_KEY!;
-  const buffer = await fetchTTSAudio(text, language, apiKey);
+  if (signal?.aborted) {
+    throw new DOMException('Aborted', 'AbortError');
+  }
+  const buffer = await fetchTTSAudio(text, language, apiKey, undefined, signal);
   const base64 = arrayBufferToBase64(buffer);
   const fileUri = `${FileSystem.cacheDirectory}tts-${Date.now()}-${Math.random().toString(36).slice(2)}.mp3`;
 
@@ -55,11 +65,19 @@ async function fetchAndCacheAudio(text: string, language: Language): Promise<str
   return fileUri;
 }
 
-async function playAudio(text: string, language: Language, rate = 1): Promise<void> {
+async function playAudio(
+  text: string,
+  language: Language,
+  rate = 1,
+  signal?: AbortSignal
+): Promise<void> {
+  if (signal?.aborted) return;
   await stopAudio();
   stopIntentionally = false;
+  if (signal?.aborted) return;
 
-  const fileUri = await fetchAndCacheAudio(text, language);
+  const fileUri = await fetchAndCacheAudio(text, language, signal);
+  if (signal?.aborted) return;
   await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
   const { sound } = await Audio.Sound.createAsync({ uri: fileUri });
   currentSound = sound;
@@ -67,15 +85,34 @@ async function playAudio(text: string, language: Language, rate = 1): Promise<vo
   if (rate !== 1) await sound.setRateAsync(rate, true);
 
   await new Promise<void>((resolve, reject) => {
-    sound.setOnPlaybackStatusUpdate((status) => {
+    const onAbort = () => {
+      signal?.removeEventListener('abort', onAbort);
+      stopIntentionally = true;
+      void sound.stopAsync()
+        .then(() => sound.unloadAsync().catch(() => {}))
+        .finally(() => {
+          if (currentSound === sound) currentSound = null;
+          resolve();
+        });
+    };
+    if (signal) {
+      if (signal.aborted) {
+        onAbort();
+        return;
+      }
+      signal.addEventListener('abort', onAbort, { once: true });
+    }
+    sound.setOnPlaybackStatusUpdate((status: { isLoaded: boolean; didJustFinish?: boolean }) => {
       if (!status.isLoaded) return;
       if (status.didJustFinish) {
+        signal?.removeEventListener('abort', onAbort);
         sound.unloadAsync().catch(() => {});
         if (currentSound === sound) currentSound = null;
         resolve();
       }
     });
-    sound.playAsync().catch((err) => {
+    sound.playAsync().catch((err: unknown) => {
+      signal?.removeEventListener('abort', onAbort);
       if (stopIntentionally) resolve();
       else reject(err);
     });
@@ -84,12 +121,17 @@ async function playAudio(text: string, language: Language, rate = 1): Promise<vo
 
 export function useTTS(): TTSAdapter {
   const play = useCallback(
-    (text: string, lang: Language, rate?: number, _phraseIndex?: number, _options?: TtsAdapterOptions) =>
-      playAudio(text, lang, rate),
+    (text: string, lang: Language, rate?: number, _phraseIndex?: number, options?: TtsAdapterOptions) =>
+      playAudio(text, lang, rate, options?.signal),
     []
   );
-  const prefetch = useCallback(async (text: string, lang: Language, _phraseIndex?: number, _options?: TtsAdapterOptions) => {
-    await fetchAndCacheAudio(text, lang).catch((err) => console.error('[TTS prefetch]', err));
+  const prefetch = useCallback(async (text: string, lang: Language, _phraseIndex?: number, options?: TtsAdapterOptions) => {
+    try {
+      await fetchAndCacheAudio(text, lang, options?.signal);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      console.error('[TTS prefetch]', err);
+    }
   }, []);
   const stop = useCallback(() => { stopAudio(); }, []);
   return { play, prefetch, stop };

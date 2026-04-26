@@ -39,42 +39,20 @@ const DEEPGRAM_LIVE_OPTIONS = {
   endpointing: 1500,
 } as const;
 
-/**
- * Client-side inactivity watchdog (parity with web): if the native SDK
- * fails to emit an `isFinal` event within this many milliseconds of the
- * most recent transcript carrying new text, close the utterance locally.
- * 3000 ms tolerates a mid-phrase vocab-retrieval pause without feeling
- * laggy when a genuinely-ended utterance simply failed to trigger
- * end-of-speech detection. See also: the web `INACTIVITY_WATCHDOG_MS`.
- */
 const INACTIVITY_WATCHDOG_MS = 3000;
-
-/**
- * Initial-silence safety net: if the mic starts but no transcript ever
- * arrives with non-empty text, we have no "last words at" moment to drive
- * the inactivity watchdog from. Arm this on start and clear it on the
- * first real word. If it fires, the attempt closes with zero words rather
- * than hanging the UI — user can retry immediately.
- */
 const INITIAL_SILENCE_TIMEOUT_MS = 6000;
-
-/**
- * `react-native-deepgram`’s `stopListening` fires `Deepgram.stopRecording()` without
- * awaiting completion before returning. `startListening` then awaits
- * `Deepgram.startRecording()` — a race can throw "another recording session
- * is already active". A short settle after stop avoids that, and is only
- * needed on the start path (not on user stop).
- */
 const NATIVE_STOP_SETTLE_MS = 50;
 
 /**
- * Note: on native, the `react-native-deepgram` SDK surface only exposes
- * `isFinal` on its `DeepgramTranscriptEvent`. The raw Deepgram
- * `speech_final` signal (which web uses as the true utterance-close
- * trigger) is not forwarded by the native SDK. As a result we treat any
- * `isFinal === true` as an utterance close here; this is slightly coarser
- * than web and explains why the inactivity/initial-silence timers below
- * are doubly important on mobile.
+ * The native SDK does not expose `speech_final`; a chunk with `isFinal` may be
+ * mid-utterance. We debounce the commit so a following interim can cancel it,
+ * approximating web `speech_final` + endpointing.
+ */
+const IS_FINAL_COMMIT_DEBOUNCE_MS = 800;
+
+/**
+ * `react-native-deepgram`’s `stopListening` returns before recording fully stops;
+ * a short settle before `startListening` avoids "session already active".
  */
 export function useSTT(): SpeechToTextHandle {
   const [caption, setCaption] = useState('');
@@ -86,11 +64,11 @@ export function useSTT(): SpeechToTextHandle {
   const initialSilenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
-  // `stopListening` is returned by the SDK hook, but our timer callbacks
-  // need to reference it inside the `onTranscript` closure that's passed
-  // INTO the same hook. Break the cycle with a ref we overwrite each
-  // render after the hook has returned.
+  const finalCommitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stopListeningRef = useRef<() => void>(() => {});
+  /** Bumped in `start` / `stop` so a deferred IIFE from a previous `start` cannot call `startListening` after a quick `stop`. */
+  const startEpochRef = useRef(0);
+  const stopInFlightRef = useRef<Promise<void> | null>(null);
   const debugRef = useRef(getDefaultLearningPipelineDebug());
   debugRef.current = getDefaultLearningPipelineDebug();
 
@@ -108,20 +86,23 @@ export function useSTT(): SpeechToTextHandle {
     }
   }, []);
 
-  // Close the utterance locally when neither the SDK's `isFinal` nor any
-  // new transcript has arrived inside the watchdog window. Synthesizes
-  // an utterance-end by committing the last interim caption and flipping
-  // `isFinal` so `usePhraseDisplay` advances out of the recording state.
+  const clearFinalCommitTimer = useCallback(() => {
+    if (finalCommitTimerRef.current) {
+      clearTimeout(finalCommitTimerRef.current);
+      finalCommitTimerRef.current = null;
+    }
+  }, []);
+
   const fireWatchdog = useCallback(() => {
     inactivityTimerRef.current = null;
+    clearFinalCommitTimer();
     paragraphRef.current = lastCaptionRef.current;
     setIsFinalState(true);
     finalizedCountRef.current += 1;
     try {
       stopListeningRef.current();
     } catch {
-      // swallow — we've already committed state and want to stay silent
-      // here so the UI can advance cleanly.
+      // swallow
     }
     if (debugRef.current) {
       logSttUtteranceEnd({
@@ -130,7 +111,7 @@ export function useSTT(): SpeechToTextHandle {
         trigger: 'inactivity-watchdog',
       });
     }
-  }, []);
+  }, [clearFinalCommitTimer]);
 
   const armInactivityWatchdog = useCallback(() => {
     clearInactivityTimer();
@@ -143,25 +124,34 @@ export function useSTT(): SpeechToTextHandle {
   const { startListening, stopListening, state } = useDeepgramSpeechToText({
     trackState: true,
     onTranscript: (text: string, event?: TranscriptEvent) => {
-      // Any message (text or empty) means the socket is alive — cancel
-      // the initial-silence watchdog once we've heard from Deepgram.
       if (text !== '') clearInitialSilenceTimer();
 
-      if (text === '') {
-        if (event?.isFinal) {
+      const runDebouncedCommit = (segmentWords: number, transcriptLine: string) => {
+        clearFinalCommitTimer();
+        const myEpoch = startEpochRef.current;
+        finalCommitTimerRef.current = setTimeout(() => {
+          finalCommitTimerRef.current = null;
+          // Bail if stop() or a new start() ran while we were debouncing —
+          // both bump startEpochRef, so this commit belongs to a stale attempt.
+          if (startEpochRef.current !== myEpoch) return;
           paragraphRef.current = lastCaptionRef.current;
-          setIsFinalState(true);
           finalizedCountRef.current += 1;
+          setIsFinalState(true);
           clearInactivityTimer();
+          try {
+            stopListeningRef.current();
+          } catch {
+            // swallow
+          }
           if (debugRef.current) {
             logSttSegment({
               isFinal: true,
-              segmentWords: 0,
+              segmentWords,
               totalFinalized: finalizedCountRef.current,
               totalWords: lastCaptionRef.current
                 .split(/\s+/)
                 .filter(Boolean).length,
-              transcript: '',
+              transcript: transcriptLine,
               captionLen: lastCaptionRef.current.length,
             });
             logSttUtteranceEnd({
@@ -170,6 +160,16 @@ export function useSTT(): SpeechToTextHandle {
               trigger: 'speech-final',
             });
           }
+        }, IS_FINAL_COMMIT_DEBOUNCE_MS);
+      };
+
+      if (text === '') {
+        if (event?.isFinal) {
+          clearInactivityTimer();
+          runDebouncedCommit(
+            0,
+            '',
+          );
         }
         return;
       }
@@ -181,28 +181,20 @@ export function useSTT(): SpeechToTextHandle {
 
       if (event?.isFinal) {
         paragraphRef.current = newCaption;
-        setIsFinalState(true);
-        finalizedCountRef.current += 1;
         clearInactivityTimer();
+        runDebouncedCommit(segmentWordCount, text);
       } else {
+        clearFinalCommitTimer();
         setIsFinalState(false);
         armInactivityWatchdog();
-      }
-
-      if (debugRef.current) {
-        logSttSegment({
-          isFinal: !!event?.isFinal,
-          segmentWords: segmentWordCount,
-          totalFinalized: finalizedCountRef.current,
-          totalWords: newCaption.split(/\s+/).filter(Boolean).length,
-          transcript: text,
-          captionLen: newCaption.length,
-        });
-        if (event?.isFinal) {
-          logSttUtteranceEnd({
+        if (debugRef.current) {
+          logSttSegment({
+            isFinal: false,
+            segmentWords: segmentWordCount,
             totalFinalized: finalizedCountRef.current,
-            caption: newCaption,
-            trigger: 'speech-final',
+            totalWords: newCaption.split(/\s+/).filter(Boolean).length,
+            transcript: text,
+            captionLen: newCaption.length,
           });
         }
       }
@@ -223,26 +215,39 @@ export function useSTT(): SpeechToTextHandle {
     finalizedCountRef.current = 0;
     clearInactivityTimer();
     clearInitialSilenceTimer();
+    clearFinalCommitTimer();
+    // Bump epoch so any in-flight start() IIFE (mid-settle or mid-startListening)
+    // sees a new epoch and bails rather than proceeding to listen.
+    startEpochRef.current += 1;
     try {
       stopListeningRef.current();
     } catch {
-      // ignore — host may call clear when nothing was recording
+      // ignore
     }
     if (debugRef.current) {
       logSttClear({ prevFinalized, prevCaptionLen });
     }
-  }, [clearInactivityTimer, clearInitialSilenceTimer]);
+  }, [
+    clearInactivityTimer,
+    clearInitialSilenceTimer,
+    clearFinalCommitTimer,
+  ]);
 
-  // The `react-native-deepgram` SDK surface only yields an opaque transcript
-  // string via `onTranscript(text, event)`, so we can't produce per-word
-  // timestamps here today. Expose an empty `words[]` so consumers gracefully
-  // fall back to the no-fluency mastery formula (see packages/logic/mastery).
   const words: SpokenWord[] = [];
 
+  const runStopSync = () => {
+    startEpochRef.current += 1;
+    clearInactivityTimer();
+    clearInitialSilenceTimer();
+    clearFinalCommitTimer();
+    stopListening();
+  };
+
   return {
-    // Per-attempt `keywords` for Deepgram are passed through
-    // `useDeepgramSpeechToText` `startListening(override)` (merges with `live`).
     start: (options?: SttStartOptions) => {
+      if (options?.signal?.aborted) {
+        return;
+      }
       if (debugRef.current) {
         logSttAdapterStart({
           connState: 'unknown',
@@ -251,7 +256,10 @@ export function useSTT(): SpeechToTextHandle {
           keywords: options?.keywords,
         });
       }
+      startEpochRef.current += 1;
+      const myEpoch = startEpochRef.current;
       clearInitialSilenceTimer();
+      clearFinalCommitTimer();
       const kws = options?.keywords;
       const listenOpts =
         kws && kws.length > 0
@@ -262,9 +270,20 @@ export function useSTT(): SpeechToTextHandle {
         try {
           stopListeningRef.current();
         } catch {
-          // ignore — e.g. already idle; we still want a clean start
+          // ignore
+        }
+        if (startEpochRef.current !== myEpoch) {
+          return;
         }
         await new Promise<void>((r) => setTimeout(r, NATIVE_STOP_SETTLE_MS));
+        if (startEpochRef.current !== myEpoch) {
+          try { stopListeningRef.current(); } catch { /* empty */ }
+          return;
+        }
+        if (options?.signal?.aborted) {
+          try { stopListeningRef.current(); } catch { /* empty */ }
+          return;
+        }
         try {
           if (listenOpts) {
             await startListening(listenOpts);
@@ -272,38 +291,50 @@ export function useSTT(): SpeechToTextHandle {
             await startListening();
           }
         } catch {
-          // SDK reports via onError; concurrent-start path does not run closeEverything
+          return;
+        }
+        if (startEpochRef.current !== myEpoch) {
+          try { stopListeningRef.current(); } catch { /* empty */ }
+          return;
+        }
+        if (options?.signal?.aborted) {
+          try { stopListeningRef.current(); } catch { /* empty */ }
           return;
         }
         clearInitialSilenceTimer();
         initialSilenceTimerRef.current = setTimeout(() => {
           initialSilenceTimerRef.current = null;
-          // No transcript ever arrived — commit nothing, flip final so the
-          // UI advances, and stop the SDK.
+          if (startEpochRef.current !== myEpoch) return;
           setIsFinalState(true);
           try {
             stopListeningRef.current();
-          } catch {}
+          } catch { /* empty */ }
           if (debugRef.current) {
             logSttUtteranceEnd({
               totalFinalized: finalizedCountRef.current,
               caption: lastCaptionRef.current,
-              trigger: 'inactivity-watchdog',
+              trigger: 'initial-silence-timeout',
             });
           }
         }, INITIAL_SILENCE_TIMEOUT_MS);
       })();
     },
-    stop: () => {
+    stop: (): void | Promise<void> => {
       if (debugRef.current) {
         logSttAdapterStop({
           connState: 'unknown',
           micState: state?.status ?? 'idle',
         });
       }
-      clearInactivityTimer();
-      clearInitialSilenceTimer();
-      stopListening();
+      if (!stopInFlightRef.current) {
+        stopInFlightRef.current = new Promise<void>((resolve) => {
+          runStopSync();
+          resolve();
+        }).finally(() => {
+          stopInFlightRef.current = null;
+        });
+      }
+      return stopInFlightRef.current;
     },
     isRecording: state?.status === 'listening',
     caption,

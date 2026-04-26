@@ -68,7 +68,7 @@ export function useDeepgramConnection() {
 
   const connectToDeepgram = useCallback(async (options: LiveSchema) => {
     connectionIdRef.current++;
-    const id = connectionIdRef.current;
+    const myId = connectionIdRef.current;
     try {
       let key: string;
       const cached = nextApiKeyRef.current;
@@ -79,15 +79,26 @@ export function useDeepgramConnection() {
         nextApiKeyRef.current = null;
         key = await getApiKey();
       }
+      if (connectionIdRef.current !== myId) {
+        return;
+      }
 
       const conn = createClient(key).listen.live({
         ...options,
-        client_id: `conn-${id}-${Date.now()}`,
+        client_id: `conn-${myId}-${Date.now()}`,
       });
+      if (connectionIdRef.current !== myId) {
+        try { conn.finish(); } catch { /* empty */ }
+        return;
+      }
 
       let opened = false;
 
       conn.addListener(LiveTranscriptionEvents.Open, () => {
+        if (connectionIdRef.current !== myId) {
+          try { conn.finish(); } catch { /* empty */ }
+          return;
+        }
         opened = true;
         connectionRef.current = conn;
         connectionStateRef.current = LiveConnectionState.OPEN;
@@ -97,57 +108,77 @@ export function useDeepgramConnection() {
       });
 
       conn.addListener(LiveTranscriptionEvents.Close, () => {
+        if (connectionIdRef.current !== myId) return;
         stopKeepAlive();
         connectionStateRef.current = LiveConnectionState.CLOSED;
         setConnectionState(LiveConnectionState.CLOSED);
         if (!opened) setConnectionFailedSignal((n) => n + 1);
       });
 
-      conn.addListener(LiveTranscriptionEvents.Error, (err) =>
-        console.error(`[Deepgram connection ${id}] error:`, err)
-      );
+      conn.addListener(LiveTranscriptionEvents.Error, (err) => {
+        if (connectionIdRef.current !== myId) return;
+        console.error(`[Deepgram connection ${myId}] error:`, err);
+      });
 
-      const handler = (data: unknown) => onTranscriptRef.current?.(data);
+      const handler = (data: unknown) => {
+        if (connectionIdRef.current !== myId) return;
+        onTranscriptRef.current?.(data);
+      };
       conn.addListener(LiveTranscriptionEvents.Transcript, handler);
       transcriptHandlerRef.current = handler;
 
       // UtteranceEnd is a separate event type from Transcript. Deepgram emits
       // it when `utterance_end_ms` of silence elapses without endpointing
       // firing speech_final=true, giving us a safety-net utterance closer.
-      const utteranceEndHandler = (data: unknown) =>
+      const utteranceEndHandler = (data: unknown) => {
+        if (connectionIdRef.current !== myId) return;
         onUtteranceEndRef.current?.(data);
+      };
       conn.addListener(LiveTranscriptionEvents.UtteranceEnd, utteranceEndHandler);
       utteranceEndHandlerRef.current = utteranceEndHandler;
 
       connectionRef.current = conn;
     } catch (err) {
-      console.error(`[Deepgram connection ${id}] failed to create:`, err);
-      connectionStateRef.current = LiveConnectionState.CLOSED;
-      setConnectionState(LiveConnectionState.CLOSED);
-      setConnectionFailedSignal((n) => n + 1);
+      if (connectionIdRef.current === myId) {
+        console.error(`[Deepgram connection ${myId}] failed to create:`, err);
+        connectionStateRef.current = LiveConnectionState.CLOSED;
+        setConnectionState(LiveConnectionState.CLOSED);
+        setConnectionFailedSignal((n) => n + 1);
+      }
     }
   }, [prefetchApiKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const disconnectFromDeepgram = useCallback(async () => {
+    connectionIdRef.current++;
     if (connectionRef.current) {
       try {
         stopKeepAlive();
         connectionStateRef.current = LiveConnectionState.CLOSING;
+        const conn = connectionRef.current;
         if (transcriptHandlerRef.current) {
-          connectionRef.current.removeListener(
+          conn.removeListener(
             LiveTranscriptionEvents.Transcript,
             transcriptHandlerRef.current
           );
         }
         if (utteranceEndHandlerRef.current) {
-          connectionRef.current.removeListener(
+          conn.removeListener(
             LiveTranscriptionEvents.UtteranceEnd,
             utteranceEndHandlerRef.current
           );
         }
-        connectionRef.current.finish();
-        await new Promise((r) => setTimeout(r, 100));
-        connectionRef.current.removeAllListeners();
+        conn.finish();
+        await Promise.race([
+          new Promise<void>((resolve) => {
+            const onClose = () => {
+              try { conn.removeListener(LiveTranscriptionEvents.Close, onClose); } catch { /* empty */ }
+              resolve();
+            };
+            conn.addListener(LiveTranscriptionEvents.Close, onClose);
+          }),
+          new Promise<void>((r) => setTimeout(r, 100)),
+        ]);
+        conn.removeAllListeners();
         connectionRef.current = null;
         connectionStateRef.current = LiveConnectionState.CLOSED;
         setConnectionState(LiveConnectionState.CLOSED);
@@ -226,6 +257,7 @@ export function useDeepgramConnection() {
 
   useEffect(() => {
     return () => {
+      connectionIdRef.current++;
       stopKeepAlive();
       connectionRef.current?.removeAllListeners();
       connectionRef.current?.finish();

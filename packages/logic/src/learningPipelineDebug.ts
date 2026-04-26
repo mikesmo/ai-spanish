@@ -269,7 +269,7 @@ export function logSttUtteranceEnd(ctx: {
    *   - `inactivity-watchdog`: neither of the above fired within our
    *     client-side deadline after the last word; we closed locally to
    *     avoid hanging the UI. Indicates a Deepgram VAD/endpointing anomaly. */
-  trigger: 'speech-final' | 'utterance-end-fallback' | 'inactivity-watchdog';
+  trigger: 'speech-final' | 'utterance-end-fallback' | 'inactivity-watchdog' | 'initial-silence-timeout';
 }): void {
   console.log(
     `${STT_PREFIX} utterance-end (${ctx.trigger})`,

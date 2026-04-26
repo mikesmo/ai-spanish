@@ -91,6 +91,11 @@ export type TtsAdapterOptions = {
    * `trimEnd()`.
    */
   englishAppendQuestion?: boolean;
+  /**
+   * When aborted, in-flight S3/playback work should no-op. Used by
+   * `usePhraseDisplay` during phrase bootstrap to cancel obsolete audio.
+   */
+  signal?: AbortSignal;
 };
 
 export type TTSAdapter = {
@@ -110,7 +115,12 @@ export type TTSAdapter = {
    * Prefetch / warm-up audio so playback starts immediately.
    * `phraseIndex` has the same semantics as in `play`.
    */
-  prefetch: (text: string, lang: Language, phraseIndex?: number, options?: TtsAdapterOptions) => Promise<void>;
+  prefetch: (
+    text: string,
+    lang: Language,
+    phraseIndex?: number,
+    options?: TtsAdapterOptions,
+  ) => Promise<void>;
   stop: () => void;
 };
 
@@ -123,10 +133,15 @@ export type SttStartOptions = {
   /**
    * Target words to bias the ASR toward for this attempt. The learning pipeline
    * only supplies this for single-word Spanish target answers. Web and native
-   * adapters map non-empty arrays to Deepgram's live `keywords` (Nova-2) using
+   *   adapters map non-empty arrays to Deepgram's live `keywords` (Nova-2) using
    * `toDeepgramLiveKeywordParams` from `./deepgramKeywords`.
    */
   keywords?: string[];
+  /**
+   * When present and aborted, `start` is a no-op. Used by the phrase bootstrap
+   * so in-flight work can be cancelled on phrase change or unmount.
+   */
+  signal?: AbortSignal;
 };
 
 export type SpeechToTextHandle = {
