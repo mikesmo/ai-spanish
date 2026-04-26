@@ -59,6 +59,15 @@ const INACTIVITY_WATCHDOG_MS = 3000;
 const INITIAL_SILENCE_TIMEOUT_MS = 6000;
 
 /**
+ * `react-native-deepgram`’s `stopListening` fires `Deepgram.stopRecording()` without
+ * awaiting completion before returning. `startListening` then awaits
+ * `Deepgram.startRecording()` — a race can throw "another recording session
+ * is already active". A short settle after stop avoids that, and is only
+ * needed on the start path (not on user stop).
+ */
+const NATIVE_STOP_SETTLE_MS = 50;
+
+/**
  * Note: on native, the `react-native-deepgram` SDK surface only exposes
  * `isFinal` on its `DeepgramTranscriptEvent`. The raw Deepgram
  * `speech_final` signal (which web uses as the true utterance-close
@@ -214,6 +223,11 @@ export function useSTT(): SpeechToTextHandle {
     finalizedCountRef.current = 0;
     clearInactivityTimer();
     clearInitialSilenceTimer();
+    try {
+      stopListeningRef.current();
+    } catch {
+      // ignore — host may call clear when nothing was recording
+    }
     if (debugRef.current) {
       logSttClear({ prevFinalized, prevCaptionLen });
     }
@@ -238,28 +252,47 @@ export function useSTT(): SpeechToTextHandle {
         });
       }
       clearInitialSilenceTimer();
-      initialSilenceTimerRef.current = setTimeout(() => {
-        initialSilenceTimerRef.current = null;
-        // No transcript ever arrived — commit nothing, flip final so the
-        // UI advances, and stop the SDK.
-        setIsFinalState(true);
+      const kws = options?.keywords;
+      const listenOpts =
+        kws && kws.length > 0
+          ? { keywords: toDeepgramLiveKeywordParams(kws) }
+          : undefined;
+
+      void (async () => {
         try {
           stopListeningRef.current();
-        } catch {}
-        if (debugRef.current) {
-          logSttUtteranceEnd({
-            totalFinalized: finalizedCountRef.current,
-            caption: lastCaptionRef.current,
-            trigger: 'inactivity-watchdog',
-          });
+        } catch {
+          // ignore — e.g. already idle; we still want a clean start
         }
-      }, INITIAL_SILENCE_TIMEOUT_MS);
-      const kws = options?.keywords;
-      if (kws && kws.length > 0) {
-        void startListening({ keywords: toDeepgramLiveKeywordParams(kws) });
-      } else {
-        void startListening();
-      }
+        await new Promise<void>((r) => setTimeout(r, NATIVE_STOP_SETTLE_MS));
+        try {
+          if (listenOpts) {
+            await startListening(listenOpts);
+          } else {
+            await startListening();
+          }
+        } catch {
+          // SDK reports via onError; concurrent-start path does not run closeEverything
+          return;
+        }
+        clearInitialSilenceTimer();
+        initialSilenceTimerRef.current = setTimeout(() => {
+          initialSilenceTimerRef.current = null;
+          // No transcript ever arrived — commit nothing, flip final so the
+          // UI advances, and stop the SDK.
+          setIsFinalState(true);
+          try {
+            stopListeningRef.current();
+          } catch {}
+          if (debugRef.current) {
+            logSttUtteranceEnd({
+              totalFinalized: finalizedCountRef.current,
+              caption: lastCaptionRef.current,
+              trigger: 'inactivity-watchdog',
+            });
+          }
+        }, INITIAL_SILENCE_TIMEOUT_MS);
+      })();
     },
     stop: () => {
       if (debugRef.current) {

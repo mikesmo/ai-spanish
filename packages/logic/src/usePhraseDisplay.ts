@@ -674,6 +674,7 @@ export function usePhraseDisplay(
       cancelled = true;
       primingAbort.abort();
       ttsRef.current.stop();
+      sttRef.current.stop();
     };
     // Re-run on currentIndex change (linear navigation) AND on
     // presentationVersion bumps from a session engine so a requeued phrase
