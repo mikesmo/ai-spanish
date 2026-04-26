@@ -3,7 +3,7 @@
     "id": "perdon",
     "type": "new",
     "English": {
-      "first-intro": "This is how you say 'excuse me' in Spanish",
+      "first-intro": "You're a British visitor on the streets of Barcelona; you stop a young woman to get her attention, this is how you say 'excuse me'",
       "second-intro": "How do you say 'excuse me'",
       "question": "Excuse me"
     },
@@ -23,9 +23,9 @@
     "id": "senorita",
     "type": "new",
     "English": {
-      "first-intro": "This is how you formally address a young woman in Spanish",
+      "first-intro": "This is how you formally address a young woman in Spanish.",
       "second-intro": "How would you formally address a young woman",
-      "question": "Formally address a young woman"
+      "question": "Miss"
     },
     "Spanish": {
       "grammar": "",
@@ -40,21 +40,91 @@
     }
   },
   {
+    "id": "senor",
+    "type": "new",
+    "English": {
+      "first-intro": "This is how you say 'sir' in Spanish.",
+      "second-intro": "How do you say 'sir'",
+      "question": "Sir"
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "Señor",
+      "words": [
+        {
+          "word": "señor",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "id": "perdon-senorita",
+    "type": "combination",
+    "English": {
+      "first-intro": "Now put it together — how would you say 'excuse me, Miss'?",
+      "second-intro": "How would you say 'excuse me, Miss'",
+      "question": "Excuse me, Miss"
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "Perdón, señorita",
+      "words": [
+        {
+          "word": "perdón",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "señorita",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "id": "perdon-senor",
+    "type": "combination",
+    "English": {
+      "first-intro": "You've been addressing the young woman; the man nearby is older — how do you say 'excuse me, sir'?",
+      "second-intro": "How do you say 'excuse me, sir'",
+      "question": "Excuse me, sir"
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "Perdón, señor",
+      "words": [
+        {
+          "word": "perdón",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "señor",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
     "id": "entiende",
     "type": "new",
     "English": {
-      "first-intro": "This is how you say 'Do you understand?'",
+      "first-intro": "This is how you formally ask one person, 'Do you understand?'",
       "second-intro": "How do you ask 'Do you understand?'",
       "question": "Do you understand?"
     },
     "Spanish": {
-      "grammar": "",
+      "grammar": "Formal address (usted → 3rd-person verb)",
       "answer": "¿Entiende?",
       "words": [
         {
           "word": "entiende",
           "type": "verb",
-          "weight": 3
+          "weight": 3.0
         }
       ]
     }
@@ -63,8 +133,8 @@
     "id": "ingles",
     "type": "new",
     "English": {
-      "first-intro": "Listen and repeat the word",
-      "second-intro": "How do you say English",
+      "first-intro": "Listen and repeat the word for 'English.'",
+      "second-intro": "How do you say 'English'",
       "question": "English"
     },
     "Spanish": {
@@ -88,13 +158,68 @@
       "question": "Do you understand English?"
     },
     "Spanish": {
-      "grammar": "",
+      "grammar": "Yes/no question intonation",
       "answer": "¿Entiende inglés?",
       "words": [
         {
           "word": "entiende",
           "type": "verb",
-          "weight": 3
+          "weight": 3.0
+        },
+        {
+          "word": "inglés",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "id": "perdon-entiende",
+    "type": "combination",
+    "English": {
+      "first-intro": "You already know 'excuse me'; how would yoy say 'Excuse me, do you understand'?",
+      "second-intro": "How do you say 'Excuse me, do you understand?'",
+      "question": "Excuse me, do you understand?"
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "Perdón, ¿Entiende?",
+      "words": [
+        {
+          "word": "perdón",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "entiende",
+          "type": "verb",
+          "weight": 3.0
+        }
+      ]
+    }
+  },
+  {
+    "id": "perdon-entiende-ingles",
+    "type": "combination",
+    "English": {
+      "first-intro": "She hasn't answered — how do you ask the full question: 'Excuse me, do you understand English?'",
+      "second-intro": "How would you ask 'Excuse me, do you understand English?'",
+      "question": "Excuse me, do you understand English?"
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "Perdón, ¿Entiende inglés?",
+      "words": [
+        {
+          "word": "perdón",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "entiende",
+          "type": "verb",
+          "weight": 3.0
         },
         {
           "word": "inglés",
@@ -108,12 +233,12 @@
     "id": "no",
     "type": "new",
     "English": {
-      "first-intro": "The word 'no' is the same in English.",
+      "first-intro": "The word 'no' works like English here for this pattern.",
       "second-intro": "How do you say 'No'",
       "question": "No"
     },
     "Spanish": {
-      "grammar": "",
+      "grammar": "Negation",
       "answer": "No",
       "words": [
         {
@@ -125,17 +250,22 @@
     }
   },
   {
-    "id": "senor",
-    "type": "new",
+    "id": "no-senor",
+    "type": "combination",
     "English": {
-      "first-intro": "This is how you say 'sir'",
-      "second-intro": "How do you say 'sir'",
-      "question": "Sir"
+      "first-intro": "The word 'no' is the same as in English, how would she then reply 'No, sir'?",
+      "second-intro": "How do you say 'No, sir'",
+      "question": "No, sir"
     },
     "Spanish": {
       "grammar": "",
-      "answer": "Señor",
+      "answer": "No, señor",
       "words": [
+        {
+          "word": "no",
+          "type": "adverb",
+          "weight": 1.5
+        },
         {
           "word": "señor",
           "type": "noun",
@@ -145,16 +275,16 @@
     }
   },
   {
-    "id": "no-senor",
+    "id": "no-senorita",
     "type": "combination",
     "English": {
-      "first-intro": "How would you then say 'No sir'",
-      "second-intro": "How do you say:",
-      "question": "No sir"
+      "first-intro": "How do you say 'No, Miss'?",
+      "second-intro": "How do you say 'No, Miss'",
+      "question": "No, Miss"
     },
     "Spanish": {
       "grammar": "",
-      "answer": "No señor",
+      "answer": "No, señorita",
       "words": [
         {
           "word": "no",
@@ -162,7 +292,7 @@
           "weight": 1.5
         },
         {
-          "word": "señor",
+          "word": "señorita",
           "type": "noun",
           "weight": 2.5
         }
@@ -173,18 +303,18 @@
     "id": "entiendo",
     "type": "new",
     "English": {
-      "first-intro": "This is how you say 'I understand'",
+      "first-intro": "This is how you say 'I understand.'",
       "second-intro": "How do you say 'I understand'?",
       "question": "I understand"
     },
     "Spanish": {
-      "grammar": "",
+      "grammar": "Present tense 1st person (entender)",
       "answer": "Entiendo",
       "words": [
         {
           "word": "entiendo",
           "type": "verb",
-          "weight": 3
+          "weight": 3.0
         }
       ]
     }
@@ -193,12 +323,12 @@
     "id": "no-entiendo",
     "type": "combination",
     "English": {
-      "first-intro": "Now, try to say 'I don't understand'",
+      "first-intro": "How would you say 'I don't understand'?",
       "second-intro": "How do you say 'I don't understand'?",
-      "question": "I don’t understand."
+      "question": "I don't understand"
     },
     "Spanish": {
-      "grammar": "",
+      "grammar": "Negation (no + verb)",
       "answer": "No entiendo",
       "words": [
         {
@@ -209,7 +339,152 @@
         {
           "word": "entiendo",
           "type": "verb",
-          "weight": 3
+          "weight": 3.0
+        }
+      ]
+    }
+  },
+  {
+    "id": "entiendo-ingles",
+    "type": "combination",
+    "English": {
+      "first-intro": "How would you say 'I understand English'?",
+      "second-intro": "How do you say 'I understand English'?",
+      "question": "I understand English"
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "Entiendo inglés",
+      "words": [
+        {
+          "word": "entiendo",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "inglés",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "id": "espanol",
+    "type": "new",
+    "English": {
+      "first-intro": "Listen and repeat the name of the Spanish language.",
+      "second-intro": "How do you say 'Spanish'",
+      "question": "Spanish"
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "Español",
+      "words": [
+        {
+          "word": "español",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "id": "entiende-espanol",
+    "type": "combination",
+    "English": {
+      "first-intro": "She asked about English; how do you ask whether she understands Spanish?",
+      "second-intro": "How would you ask 'Do you understand Spanish?'",
+      "question": "Do you understand Spanish?"
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "¿Entiende español?",
+      "words": [
+        {
+          "word": "entiende",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "español",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "id": "si",
+    "type": "new",
+    "English": {
+      "first-intro": "Here's how you say 'yes'",
+      "second-intro": "How do you say 'yes'",
+      "question": "Yes"
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "Sí",
+      "words": [
+        {
+          "word": "sí",
+          "type": "adverb",
+          "weight": 1.5
+        }
+      ]
+    }
+  },
+  {
+    "id": "si-entiendo",
+    "type": "combination",
+    "English": {
+      "first-intro": "How would you say 'yes' and 'I understand'?",
+      "second-intro": "How do you say 'Yes, I understand'?",
+      "question": "Yes, I understand"
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "Sí entiendo",
+      "words": [
+        {
+          "word": "sí",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "entiendo",
+          "type": "verb",
+          "weight": 3.0
+        }
+      ]
+    }
+  },
+  {
+    "id": "si-entiendo-espanol",
+    "type": "combination",
+    "English": {
+      "first-intro": "She asks whether you understand Spanish — how do you reply 'Yes, I understand Spanish'?",
+      "second-intro": "How do you say 'Yes, I understand Spanish'?",
+      "question": "Yes, I understand Spanish"
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "Sí entiendo español",
+      "words": [
+        {
+          "word": "sí",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "entiendo",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "español",
+          "type": "noun",
+          "weight": 2.5
         }
       ]
     }
@@ -218,32 +493,292 @@
     "id": "hablo",
     "type": "new",
     "English": {
-      "first-intro": "This is how you say 'I speak'",
+      "first-intro": "This is how you say 'I speak.'",
       "second-intro": "Now say 'I speak'",
-      "question": "I speak."
+      "question": "I speak"
     },
     "Spanish": {
-      "grammar": "",
+      "grammar": "Present tense 1st person (hablar)",
       "answer": "Hablo",
       "words": [
         {
           "word": "hablo",
           "type": "verb",
-          "weight": 3
+          "weight": 3.0
         }
       ]
     }
   },
   {
-    "id": "poco",
+    "id": "hablo-ingles",
+    "type": "combination",
+    "English": {
+      "first-intro": "How would you say 'I speak English'?",
+      "second-intro": "How do you say 'I speak English'?",
+      "question": "I speak English"
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "Hablo inglés",
+      "words": [
+        {
+          "word": "hablo",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "inglés",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "id": "hablo-espanol",
+    "type": "combination",
+    "English": {
+      "first-intro": "She asks if you speak Spanish — how do you say 'I speak Spanish'?",
+      "second-intro": "How do you say 'I speak Spanish'?",
+      "question": "I speak Spanish"
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "Hablo español",
+      "words": [
+        {
+          "word": "hablo",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "español",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "id": "si-hablo-espanol",
+    "type": "combination",
+    "English": {
+      "first-intro": "How would you tell her 'Yes, I speak Spanish'?",
+      "second-intro": "How do you say 'Yes, I speak Spanish'?",
+      "question": "Yes, I speak Spanish"
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "Sí hablo español",
+      "words": [
+        {
+          "word": "sí",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "hablo",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "español",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "id": "no-hablo",
+    "type": "combination",
+    "English": {
+      "first-intro": "How would you say 'I don't speak'?",
+      "second-intro": "How do you say 'I don't speak'?",
+      "question": "I don't speak"
+    },
+    "Spanish": {
+      "grammar": "Negation",
+      "answer": "No hablo",
+      "words": [
+        {
+          "word": "no",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "hablo",
+          "type": "verb",
+          "weight": 3.0
+        }
+      ]
+    }
+  },
+  {
+    "id": "no-hablo-espanol",
+    "type": "combination",
+    "English": {
+      "first-intro": "How do you extend that to 'I don't speak Spanish'?",
+      "second-intro": "How do you say 'I don't speak Spanish'?",
+      "question": "I don't speak Spanish"
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "No hablo español",
+      "words": [
+        {
+          "word": "no",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "hablo",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "español",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "id": "entiendo-espanol",
+    "type": "combination",
+    "English": {
+      "first-intro": "She asks 'do you understand Spanish?' — how do you reply 'I understand Spanish'?",
+      "second-intro": "How do you say 'I understand Spanish'?",
+      "question": "I understand Spanish"
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "Entiendo español",
+      "words": [
+        {
+          "word": "entiendo",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "español",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "id": "habla",
     "type": "new",
     "English": {
-      "first-intro": "This is how you say 'a little'",
+      "first-intro": "Here's how you say 'you speak' in the formal manner.",
+      "second-intro": "How do you say 'you speak' (formal)",
+      "question": "You speak"
+    },
+    "Spanish": {
+      "grammar": "Present tense 3rd person (hablar)",
+      "answer": "Habla",
+      "words": [
+        {
+          "word": "habla",
+          "type": "verb",
+          "weight": 3.0
+        }
+      ]
+    }
+  },
+  {
+    "id": "habla-ingles",
+    "type": "combination",
+    "English": {
+      "first-intro": "How would you ask 'Do you speak English'?",
+      "second-intro": "How would you ask 'Do you speak English?'",
+      "question": "Do you speak English?"
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "¿Habla inglés?",
+      "words": [
+        {
+          "word": "habla",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "inglés",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "id": "habla-espanol",
+    "type": "combination",
+    "English": {
+      "first-intro": "She turns the question to Spanish — how would you ask 'Do you speak Spanish'?",
+      "second-intro": "How would you ask 'Do you speak Spanish?'",
+      "question": "Do you speak Spanish?"
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "¿Habla español?",
+      "words": [
+        {
+          "word": "habla",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "español",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "id": "no-hablo-ingles",
+    "type": "combination",
+    "English": {
+      "first-intro": "She says she doesn't speak English — how does she say 'I don't speak English'?",
+      "second-intro": "How do you say 'I don't speak English'?",
+      "question": "I don't speak English"
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "No hablo inglés",
+      "words": [
+        {
+          "word": "no",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "hablo",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "inglés",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "id": "un-poco",
+    "type": "new",
+    "English": {
+      "first-intro": "This is how you say 'a little.'",
       "second-intro": "Say 'a little'",
       "question": "A little"
     },
     "Spanish": {
-      "grammar": "",
+      "grammar": "Quantifier phrase",
       "answer": "Un poco",
       "words": [
         {
@@ -255,6 +790,456 @@
           "word": "poco",
           "type": "adverb",
           "weight": 1.5
+        }
+      ]
+    }
+  },
+  {
+    "id": "habla-un-poco",
+    "type": "combination",
+    "English": {
+      "first-intro": "How would you ask 'Do you speak a little'?",
+      "second-intro": "How would you ask 'Do you speak a little?'",
+      "question": "Do you speak a little?"
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "¿Habla un poco?",
+      "words": [
+        {
+          "word": "habla",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "un",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "poco",
+          "type": "adverb",
+          "weight": 1.5
+        }
+      ]
+    }
+  },
+  {
+    "id": "hablo-un-poco",
+    "type": "combination",
+    "English": {
+      "first-intro": "How do you answer back 'I speak a little'?",
+      "second-intro": "How do you say 'I speak a little'?",
+      "question": "I speak a little"
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "Hablo un poco",
+      "words": [
+        {
+          "word": "hablo",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "un",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "poco",
+          "type": "adverb",
+          "weight": 1.5
+        }
+      ]
+    }
+  },
+  {
+    "id": "hablo-un-poco-de-espanol",
+    "type": "combination",
+    "English": {
+      "first-intro": "Here's how to say the full phrase 'I speak a little Spanish.'",
+      "second-intro": "How do you say 'I speak a little Spanish'?",
+      "question": "I speak a little Spanish"
+    },
+    "Spanish": {
+      "grammar": "Un poco de + noun",
+      "answer": "Hablo un poco de español",
+      "words": [
+        {
+          "word": "hablo",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "un",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "poco",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "de",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "español",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "id": "entiendo-un-poco",
+    "type": "combination",
+    "English": {
+      "first-intro": "How would you say 'I understand a little'?",
+      "second-intro": "How do you say 'I understand a little'?",
+      "question": "I understand a little"
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "Entiendo un poco",
+      "words": [
+        {
+          "word": "entiendo",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "un",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "poco",
+          "type": "adverb",
+          "weight": 1.5
+        }
+      ]
+    }
+  },
+  {
+    "id": "entiendo-un-poco-de-espanol",
+    "type": "combination",
+    "English": {
+      "first-intro": "How would you say 'I understand a little Spanish'?",
+      "second-intro": "How do you say 'I understand a little Spanish'?",
+      "question": "I understand a little Spanish"
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "Entiendo un poco de español",
+      "words": [
+        {
+          "word": "entiendo",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "un",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "poco",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "de",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "español",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "id": "entiende-un-poco",
+    "type": "combination",
+    "English": {
+      "first-intro": "How do you ask whether she understands even a little?",
+      "second-intro": "How would you ask 'Do you understand a little?'",
+      "question": "Do you understand a little?"
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "¿Entiende un poco?",
+      "words": [
+        {
+          "word": "entiende",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "un",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "poco",
+          "type": "adverb",
+          "weight": 1.5
+        }
+      ]
+    }
+  },
+  {
+    "id": "entiende-un-poco-de-ingles",
+    "type": "combination",
+    "English": {
+      "first-intro": "How would you ask 'Do you understand a little English'?",
+      "second-intro": "How would you ask 'Do you understand a little English?'",
+      "question": "Do you understand a little English?"
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "¿Entiende un poco de inglés?",
+      "words": [
+        {
+          "word": "entiende",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "un",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "poco",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "de",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "inglés",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "id": "entiendo-un-poco-de-ingles",
+    "type": "combination",
+    "English": {
+      "first-intro": "She says she understands some — how does she say 'I understand a little English'?",
+      "second-intro": "How do you say 'I understand a little English'?",
+      "question": "I understand a little English"
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "Entiendo un poco de inglés",
+      "words": [
+        {
+          "word": "entiendo",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "un",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "poco",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "de",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "inglés",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "id": "britanico",
+    "type": "new",
+    "English": {
+      "first-intro": "This is how you say 'British.'",
+      "second-intro": "How do you say 'British'",
+      "question": "British"
+    },
+    "Spanish": {
+      "grammar": "Adjective (nationality)",
+      "answer": "Británico",
+      "words": [
+        {
+          "word": "británico",
+          "type": "adjective",
+          "weight": 2.0
+        }
+      ]
+    }
+  },
+  {
+    "id": "usted",
+    "type": "new",
+    "English": {
+      "first-intro": "Here is the formal word for 'you.'",
+      "second-intro": "How do you say 'you'",
+      "question": "You (formal)"
+    },
+    "Spanish": {
+      "grammar": "Formal pronoun",
+      "answer": "Usted",
+      "words": [
+        {
+          "word": "usted",
+          "type": "pronoun",
+          "weight": 1.5
+        }
+      ]
+    }
+  },
+  {
+    "id": "es",
+    "type": "new",
+    "English": {
+      "first-intro": "This is how you say 'is' or 'are' in Spanish",
+      "second-intro": "How do you say 'is'",
+      "question": "Is; are"
+    },
+    "Spanish": {
+      "grammar": "Present tense 3rd person (ser)",
+      "answer": "Es",
+      "words": [
+        {
+          "word": "es",
+          "type": "verb",
+          "weight": 3.0
+        }
+      ]
+    }
+  },
+  {
+    "id": "usted-es",
+    "type": "combination",
+    "English": {
+      "first-intro": "How would you say 'You are'—subject and verb together?",
+      "second-intro": "How do you say 'You are'",
+      "question": "You are"
+    },
+    "Spanish": {
+      "grammar": "Ser + predicate",
+      "answer": "Usted es",
+      "words": [
+        {
+          "word": "usted",
+          "type": "pronoun",
+          "weight": 1.5
+        },
+        {
+          "word": "es",
+          "type": "verb",
+          "weight": 3.0
+        }
+      ]
+    }
+  },
+  {
+    "id": "usted-es-britanico",
+    "type": "combination",
+    "English": {
+      "first-intro": "How she state 'You are British'?",
+      "second-intro": "How do you say 'You are British'",
+      "question": "You are British"
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "Usted es británico",
+      "words": [
+        {
+          "word": "usted",
+          "type": "pronoun",
+          "weight": 1.5
+        },
+        {
+          "word": "es",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "británico",
+          "type": "adjective",
+          "weight": 2.0
+        }
+      ]
+    }
+  },
+  {
+    "id": "es-usted-britanico",
+    "type": "combination",
+    "English": {
+      "first-intro": "How do you ask that as a question: \"Are you British\"?",
+      "second-intro": "How would you ask 'Are you British?'",
+      "question": "Are you British?"
+    },
+    "Spanish": {
+      "grammar": "Question word order with usted",
+      "answer": "¿Es usted británico?",
+      "words": [
+        {
+          "word": "es",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "usted",
+          "type": "pronoun",
+          "weight": 1.5
+        },
+        {
+          "word": "británico",
+          "type": "adjective",
+          "weight": 2.0
+        }
+      ]
+    }
+  },
+  {
+    "id": "si-senorita",
+    "type": "combination",
+    "English": {
+      "first-intro": "Reply to her 'Yes, Miss.'",
+      "second-intro": "How do you say 'Yes, Miss'",
+      "question": "Yes, Miss"
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "Sí, señorita",
+      "words": [
+        {
+          "word": "sí",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "señorita",
+          "type": "noun",
+          "weight": 2.5
         }
       ]
     }
