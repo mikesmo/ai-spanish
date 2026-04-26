@@ -307,6 +307,25 @@ export function logSttAdapterStart(ctx: {
   );
 }
 
+/**
+ * When live Deepgram listen is opened with `keywords` biasing, log the
+ * target words and the exact `word:boost` strings passed to the SDK
+ * (`toDeepgramLiveKeywordParams`). Call only when the array is non-empty.
+ */
+export function logSttDeepgramKeywordsSent(
+  liveKeywords: string[],
+): void {
+  const tokenLabels = liveKeywords.map((k) => {
+    const i = k.lastIndexOf(':');
+    return i > 0 ? k.slice(0, i) : k;
+  });
+  console.log(
+    `${STT_PREFIX} Deepgram · keywords sent`,
+    'tokens=' + tokenLabels.map((t) => JSON.stringify(t)).join(','),
+    'live=' + liveKeywords.map((k) => JSON.stringify(k)).join(','),
+  );
+}
+
 export function logSttAdapterStop(ctx: {
   connState: string;
   micState: string;

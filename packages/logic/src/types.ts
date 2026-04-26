@@ -137,9 +137,10 @@ export type TTSAdapter = {
 export type SttStartOptions = {
   /**
    * Target words to bias the ASR toward for this attempt. The learning pipeline
-   * only supplies this for single-word Spanish target answers. Web and native
-   *   adapters map non-empty arrays to Deepgram's live `keywords` (Nova-2) using
-   * `toDeepgramLiveKeywordParams` from `./deepgramKeywords`.
+   * supplies this when the phrase's `Spanish.words` has one or two entries
+   * (from lesson JSON). Web and native adapters map non-empty arrays to
+   * Deepgram's live `keywords` (Nova-2) using `toDeepgramLiveKeywordParams`
+   * from `./deepgramKeywords`.
    */
   keywords?: string[];
   /**

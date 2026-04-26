@@ -52,6 +52,7 @@ export {
   logSttDeepgramClose,
   logSttDeepgramFirstBlobDropped,
   logSttDeepgramFirstBlobSent,
+  logSttDeepgramKeywordsSent,
   logSttDeepgramOpen,
   logSttMicSetupDone,
   logSttMicSetupStart,

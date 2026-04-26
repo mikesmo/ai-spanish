@@ -113,9 +113,11 @@ export type UsePhraseDisplayOptions = {
 const splitWords = (s: string): string[] =>
   s.trim().split(/\s+/).filter(Boolean);
 
-/** True when `answer` is a single whitespace-separated word (for Deepgram keyword biasing). */
-const isSingleWordAnswer = (answer: string): boolean =>
-  splitWords(answer).length === 1;
+/** True when lesson `Spanish.words` has 1 or 2 entries (Deepgram keyword biasing). */
+const shouldBiasDeepgramKeywords = (phrase: Phrase): boolean => {
+  const n = phrase.Spanish.words.length;
+  return n === 1 || n === 2;
+};
 
 /** Caption for scoring on Show Answer: prefer live caption, else join STT words. */
 function captionAndGradableFromStt(
@@ -711,7 +713,7 @@ export function usePhraseDisplay(
 
         sttRef.current.clearTranscription();
         sttRef.current.start({
-          keywords: isSingleWordAnswer(currentPhrase.Spanish.answer)
+          keywords: shouldBiasDeepgramKeywords(currentPhrase)
             ? tokenizeForDeepgramKeywords(currentPhrase.Spanish.answer)
             : [],
           signal: bootstrapSignal,
@@ -932,7 +934,7 @@ export function usePhraseDisplay(
     attemptEmittedRef.current = false;
     setStatus('tryAgain');
     sttRef.current.start({
-      keywords: isSingleWordAnswer(currentPhrase.Spanish.answer)
+      keywords: shouldBiasDeepgramKeywords(currentPhrase)
         ? tokenizeForDeepgramKeywords(currentPhrase.Spanish.answer)
         : [],
     });

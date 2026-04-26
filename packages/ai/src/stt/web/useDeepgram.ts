@@ -12,6 +12,7 @@ import {
   logSttDeepgramClose,
   logSttDeepgramFirstBlobDropped,
   logSttDeepgramFirstBlobSent,
+  logSttDeepgramKeywordsSent,
   logSttDeepgramOpen,
 } from "@ai-spanish/logic";
 
@@ -67,6 +68,10 @@ export function useDeepgramConnection() {
   };
 
   const connectToDeepgram = useCallback(async (options: LiveSchema) => {
+    const kw = options.keywords;
+    if (Array.isArray(kw) && kw.length > 0) {
+      logSttDeepgramKeywordsSent(kw);
+    }
     connectionIdRef.current++;
     const myId = connectionIdRef.current;
     try {

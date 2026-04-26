@@ -5,6 +5,7 @@ import {
   getDefaultLearningPipelineDebug,
   logSttAdapterStart,
   logSttAdapterStop,
+  logSttDeepgramKeywordsSent,
   logSttClear,
   logSttSegment,
   logSttUtteranceEnd,
@@ -311,6 +312,7 @@ export function useSTT(): SpeechToTextHandle {
         }
         try {
           if (listenOpts) {
+            logSttDeepgramKeywordsSent(listenOpts.keywords);
             await startListening(listenOpts);
           } else {
             await startListening();
