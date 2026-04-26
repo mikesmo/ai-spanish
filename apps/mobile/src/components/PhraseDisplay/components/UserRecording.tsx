@@ -1,10 +1,20 @@
-import { useEffect, useRef } from "react";
-import { ActivityIndicator, Animated, StyleSheet, Text, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  Animated,
+  LayoutChangeEvent,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { Feather } from "@expo/vector-icons";
+import { getPhraseHeroLayout } from "../heroLayout";
 import type { UserRecordingProps } from "../PhraseDisplay.types";
 import { PillButton } from "./PillButton";
 
 type UserRecordingScreenMode = "pronunciationAttempt" | "userTest";
+
+const CIRCLE_SIZE = 120;
 
 export const UserRecording = ({
   englishText,
@@ -16,6 +26,11 @@ export const UserRecording = ({
   onShowAnswer,
   showMicChrome = true,
 }: UserRecordingProps): JSX.Element => {
+  const [hero, setHero] = useState<ReturnType<typeof getPhraseHeroLayout>>(null);
+  const onStageLayout = (e: LayoutChangeEvent) => {
+    setHero(getPhraseHeroLayout(e.nativeEvent.layout));
+  };
+
   const showRecordingIndicator = showMicChrome && isRecording && !isCorrect;
   const screenMode: UserRecordingScreenMode =
     spanishLine != null && String(spanishLine).trim() !== ""
@@ -46,7 +61,7 @@ export const UserRecording = ({
   }, [blinkOpacity, breatheScale]);
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} onLayout={onStageLayout}>
       {showRecordingIndicator ? (
         <View style={styles.recordingBadge} pointerEvents="none">
           <Animated.View style={[styles.blinkerDot, { opacity: blinkOpacity }]} />
@@ -54,40 +69,47 @@ export const UserRecording = ({
         </View>
       ) : null}
 
-      <View style={styles.middle}>
-        <View style={styles.centerStack}>
-          {isCorrect ? (
-            <View style={styles.bienHechoRow}>
-              <Feather name="check-circle" size={20} color="#1D9E75" />
-              <Text style={styles.bienHechoText}>bien hecho!</Text>
-            </View>
-          ) : screenMode === "pronunciationAttempt" ? (
-            <View style={styles.nowYouTryRow}>
-              <Text style={styles.diffLabel}>Now you try</Text>
-            </View>
-          ) : null}
+      {hero != null && isCorrect ? (
+        <View style={[styles.aboveLabel, { top: hero.aboveCircleLabelTop }]}>
+          <View style={styles.bienHechoRow}>
+            <Feather name="check-circle" size={20} color="#1D9E75" />
+            <Text style={styles.bienHechoText}>Bien hecho!</Text>
+          </View>
+        </View>
+      ) : hero != null && screenMode === "pronunciationAttempt" ? (
+        <View style={[styles.aboveLabel, { top: hero.aboveCircleLabelTop }]}>
+          <View style={styles.nowYouTryRow}>
+            <Text style={styles.diffLabel}>Now you try</Text>
+          </View>
+        </View>
+      ) : null}
 
-          {showMicChrome ? (
-            <Animated.View
-              style={[
-                styles.micCircle,
-                isCorrect && styles.micCircleCorrect,
-                { transform: [{ scale: breatheScale }] },
-              ]}
-            >
-              <Feather name="mic" size={28} color="white" />
-            </Animated.View>
-          ) : (
-            <View style={styles.primingCircle} accessibilityRole="progressbar" accessibilityLabel="Loading">
-              <ActivityIndicator size="large" color="#ffffff" />
-            </View>
-          )}
+      {hero != null && showMicChrome ? (
+        <Animated.View
+          style={[
+            styles.micCircle,
+            { left: hero.circleLeft, top: hero.circleTop },
+            isCorrect && styles.micCircleCorrect,
+            { transform: [{ scale: breatheScale }] },
+          ]}
+        >
+          <Feather name="mic" size={28} color="white" />
+        </Animated.View>
+      ) : hero != null && !showMicChrome ? (
+        <View
+          style={[styles.primingCircle, { left: hero.circleLeft, top: hero.circleTop }]}
+          accessibilityRole="progressbar"
+          accessibilityLabel="Loading"
+        >
+          <ActivityIndicator size="large" color="#ffffff" />
+        </View>
+      ) : null}
 
+      {hero != null ? (
+        <View style={[styles.hintTranscriptBlock, { top: hero.textBelowTop }]}>
           {spanishLine ? (
             <View style={styles.hintBlock}>
-              {showEnglishInHint ? (
-                <Text style={styles.englishLine}>{englishText}</Text>
-              ) : null}
+              {showEnglishInHint ? <Text style={styles.englishLine}>{englishText}</Text> : null}
               <Text style={styles.spanishTarget}>{spanishLine}</Text>
             </View>
           ) : (
@@ -100,7 +122,7 @@ export const UserRecording = ({
             </Text>
           </View>
         </View>
-      </View>
+      ) : null}
 
       <View style={styles.bottomControls}>
         <PillButton label="show answer" onPress={onShowAnswer} variant="secondary" />
@@ -109,14 +131,11 @@ export const UserRecording = ({
   );
 };
 
-const CIRCLE_SIZE = 120;
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: "center",
-    justifyContent: "space-between",
     width: "100%",
+    minHeight: 0,
   },
   recordingBadge: {
     position: "absolute",
@@ -127,26 +146,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
   },
-  middle: {
-    flex: 1,
-    width: "100%",
-    minHeight: 0,
-    justifyContent: "center",
+  aboveLabel: {
+    position: "absolute",
+    left: 0,
+    right: 0,
     alignItems: "center",
-  },
-  centerStack: {
-    alignItems: "center",
-    width: "100%",
   },
   bienHechoRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    marginBottom: 24,
   },
-  /** Same slot as bienHecho; matches UserFeedback section labels. */
   nowYouTryRow: {
-    marginBottom: 24,
     alignItems: "center",
     width: "100%",
   },
@@ -160,6 +171,7 @@ const styles = StyleSheet.create({
     color: "#1D9E75",
   },
   micCircle: {
+    position: "absolute",
     width: CIRCLE_SIZE,
     height: CIRCLE_SIZE,
     borderRadius: CIRCLE_SIZE / 2,
@@ -168,6 +180,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   primingCircle: {
+    position: "absolute",
     width: CIRCLE_SIZE,
     height: CIRCLE_SIZE,
     borderRadius: CIRCLE_SIZE / 2,
@@ -178,10 +191,16 @@ const styles = StyleSheet.create({
   micCircleCorrect: {
     backgroundColor: "rgba(29, 158, 117, 0.7)",
   },
+  hintTranscriptBlock: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    paddingHorizontal: 0,
+    alignItems: "center",
+  },
   hintBlock: {
     alignItems: "center",
     maxWidth: 280,
-    marginTop: 24,
     gap: 4,
   },
   englishLine: {
@@ -202,7 +221,6 @@ const styles = StyleSheet.create({
     color: "#999",
     textAlign: "center",
     maxWidth: 280,
-    marginTop: 24,
     opacity: 0.55,
   },
   transcriptArea: {
@@ -221,6 +239,7 @@ const styles = StyleSheet.create({
     color: "#1D9E75",
   },
   bottomControls: {
+    marginTop: "auto",
     width: "100%",
     alignItems: "center",
     gap: 24,

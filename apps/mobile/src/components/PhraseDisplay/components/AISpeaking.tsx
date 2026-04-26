@@ -1,11 +1,13 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
+  LayoutChangeEvent,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import { getPhraseHeroLayout, HERO_CIRCLE_SIZE } from "../heroLayout";
 import type { AISpeakingProps } from "../PhraseDisplay.types";
 
 export const AISpeaking = ({
@@ -14,6 +16,11 @@ export const AISpeaking = ({
   englishQuestion,
   spanishLine,
 }: AISpeakingProps): JSX.Element => {
+  const [hero, setHero] = useState<ReturnType<typeof getPhraseHeroLayout>>(null);
+  const onStageLayout = (e: LayoutChangeEvent) => {
+    setHero(getPhraseHeroLayout(e.nativeEvent.layout));
+  };
+
   const ring1Scale = useRef(new Animated.Value(1)).current;
   const ring1Opacity = useRef(new Animated.Value(0)).current;
   const ring2Scale = useRef(new Animated.Value(1)).current;
@@ -96,74 +103,85 @@ export const AISpeaking = ({
   ]);
 
   return (
-    <View style={styles.container}>
-      <View style={styles.wrapper}>
-        <Animated.View
+    <View style={styles.container} onLayout={onStageLayout}>
+      {hero != null ? (
+        <View
           style={[
-            styles.ring,
-            { opacity: ring1Opacity, transform: [{ scale: ring1Scale }] },
-          ]}
-        />
-        <Animated.View
-          style={[
-            styles.ring,
-            { opacity: ring2Opacity, transform: [{ scale: ring2Scale }] },
-          ]}
-        />
-        <Animated.View
-          style={[
-            styles.circle,
-            isLoading && styles.circleLoading,
-            { transform: [{ scale: breatheScale }] },
+            styles.heroWrapper,
+            {
+              left: hero.circleLeft,
+              top: hero.circleTop,
+              width: HERO_CIRCLE_SIZE,
+              height: HERO_CIRCLE_SIZE,
+            },
           ]}
         >
-          {isLoading ? (
-            <ActivityIndicator color="rgba(255,255,255,0.7)" size="small" />
-          ) : (
-            <Text style={styles.label}>AI</Text>
-          )}
-        </Animated.View>
-      </View>
-      {englishQuestion || spanishLine ? (
-        <View style={styles.revealBlock}>
-          {englishQuestion ? (
-            <Text style={styles.englishQuestion}>{englishQuestion}</Text>
-          ) : null}
-          {spanishLine ? (
-            <Text style={styles.spanishLine}>{spanishLine}</Text>
-          ) : null}
+          <Animated.View
+            style={[
+              styles.ring,
+              { opacity: ring1Opacity, transform: [{ scale: ring1Scale }] },
+            ]}
+          />
+          <Animated.View
+            style={[
+              styles.ring,
+              { opacity: ring2Opacity, transform: [{ scale: ring2Scale }] },
+            ]}
+          />
+          <Animated.View
+            style={[
+              styles.circle,
+              isLoading && styles.circleLoading,
+              { transform: [{ scale: breatheScale }] },
+            ]}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="rgba(255,255,255,0.7)" size="small" />
+            ) : (
+              <Text style={styles.label}>AI</Text>
+            )}
+          </Animated.View>
+        </View>
+      ) : null}
+      {hero != null && (englishQuestion || spanishLine) ? (
+        <View
+          style={[
+            styles.revealBlock,
+            {
+              top: hero.textBelowTop,
+            },
+          ]}
+        >
+          {englishQuestion ? <Text style={styles.englishQuestion}>{englishQuestion}</Text> : null}
+          {spanishLine ? <Text style={styles.spanishLine}>{spanishLine}</Text> : null}
         </View>
       ) : null}
     </View>
   );
 };
 
-const CIRCLE_SIZE = 120;
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
+    width: "100%",
   },
-  wrapper: {
-    width: CIRCLE_SIZE,
-    height: CIRCLE_SIZE,
+  heroWrapper: {
+    position: "absolute",
     alignItems: "center",
     justifyContent: "center",
   },
   ring: {
     position: "absolute",
-    width: CIRCLE_SIZE,
-    height: CIRCLE_SIZE,
-    borderRadius: CIRCLE_SIZE / 2,
+    width: HERO_CIRCLE_SIZE,
+    height: HERO_CIRCLE_SIZE,
+    borderRadius: HERO_CIRCLE_SIZE / 2,
     borderWidth: 2,
     borderColor: "#7F77DD",
   },
   circle: {
-    width: CIRCLE_SIZE,
-    height: CIRCLE_SIZE,
-    borderRadius: CIRCLE_SIZE / 2,
+    width: HERO_CIRCLE_SIZE,
+    height: HERO_CIRCLE_SIZE,
+    borderRadius: HERO_CIRCLE_SIZE / 2,
     backgroundColor: "#7F77DD",
     alignItems: "center",
     justifyContent: "center",
@@ -179,9 +197,12 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   revealBlock: {
-    marginTop: 40,
+    position: "absolute",
+    left: 0,
+    right: 0,
+    paddingHorizontal: 8,
     alignItems: "center",
-    maxWidth: "90%",
+    maxWidth: "100%",
   },
   englishQuestion: {
     textAlign: "center",
@@ -196,4 +217,3 @@ const styles = StyleSheet.create({
     color: "#1D1D1D",
   },
 });
-

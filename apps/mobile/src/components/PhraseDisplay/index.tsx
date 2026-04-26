@@ -47,47 +47,49 @@ export const PhraseDisplay = ({ phrases }: PhraseDisplayProps): JSX.Element => {
         {session.isComplete ? "session complete" : `${session.remaining} left`}
       </Text>
 
-      {(display.status === "loading" ||
-        display.status === "idle" ||
-        display.status === "pronunciationExample") && (
-        <AISpeaking
-          isLoading={ais.isLoading}
-          isAudioPlaying={ais.isAudioPlaying}
-          englishQuestion={ais.englishQuestion}
-          spanishLine={ais.spanishLine}
-        />
-      )}
+      <View style={styles.contentStage}>
+        {(display.status === "loading" ||
+          display.status === "idle" ||
+          display.status === "pronunciationExample") && (
+          <AISpeaking
+            isLoading={ais.isLoading}
+            isAudioPlaying={ais.isAudioPlaying}
+            englishQuestion={ais.englishQuestion}
+            spanishLine={ais.spanishLine}
+          />
+        )}
 
-      {(display.status === "recording" ||
-        display.status === "recordingPriming" ||
-        display.status === "tryAgain") && (
-        <UserRecording
-          englishText={recording.englishText}
-          spanishLine={recording.spanishLine}
-          showEnglishInHint={recording.showEnglishInHint}
-          transcription={display.caption}
-          isRecording={stt.isRecording}
-          isCorrect={display.isCorrect}
-          onShowAnswer={display.handleShowAnswer}
-          showMicChrome={display.status !== "recordingPriming"}
-        />
-      )}
+        {(display.status === "recording" ||
+          display.status === "recordingPriming" ||
+          display.status === "tryAgain") && (
+          <UserRecording
+            englishText={recording.englishText}
+            spanishLine={recording.spanishLine}
+            showEnglishInHint={recording.showEnglishInHint}
+            transcription={display.caption}
+            isRecording={stt.isRecording}
+            isCorrect={display.isCorrect}
+            onShowAnswer={display.handleShowAnswer}
+            showMicChrome={display.status !== "recordingPriming"}
+          />
+        )}
 
-      {display.status === "answer" && !session.isComplete && (
-        <UserFeedback
-          transcription={display.caption}
-          spanishPhrase={display.spanishText}
-          isCorrect={display.isCorrect}
-          isAudioPlaying={display.isAudioPlaying}
-          speed={display.speed}
-          onSpeedChange={display.setSpeed}
-          onReplay={display.handleReplay}
-          onTryAgain={display.handleTryAgain}
-          onNext={() => {
-            runPhraseFeedbackNext(display, session);
-          }}
-        />
-      )}
+        {display.status === "answer" && !session.isComplete && (
+          <UserFeedback
+            transcription={display.caption}
+            spanishPhrase={display.spanishText}
+            isCorrect={display.isCorrect}
+            isAudioPlaying={display.isAudioPlaying}
+            speed={display.speed}
+            onSpeedChange={display.setSpeed}
+            onReplay={display.handleReplay}
+            onTryAgain={display.handleTryAgain}
+            onNext={() => {
+              runPhraseFeedbackNext(display, session);
+            }}
+          />
+        )}
+      </View>
     </View>
   );
 };
@@ -105,5 +107,10 @@ const styles = StyleSheet.create({
     color: "#9ca3af",
     alignSelf: "flex-end",
     marginBottom: 16,
+  },
+  contentStage: {
+    flex: 1,
+    width: "100%",
+    minHeight: 0,
   },
 });

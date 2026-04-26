@@ -58,7 +58,7 @@ export const PhraseDisplay = ({ phrases }: PhraseDisplayProps): JSX.Element => {
           : `${session.remaining} left`}
       </p>
 
-      <div className="flex-1 flex flex-col min-h-0 w-full">
+      <div className="relative flex-1 flex flex-col min-h-0 w-full">
       {(display.status === "loading" ||
         display.status === "idle" ||
         display.status === "pronunciationExample") && (
