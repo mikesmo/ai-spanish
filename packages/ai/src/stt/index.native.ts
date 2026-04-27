@@ -14,8 +14,13 @@ import {
   type SpokenWord,
   type SttStartOptions,
 } from '@ai-spanish/logic';
+import {
+  spokenWordsFromDeepgramRaw,
+  syntheticSpokenWordsFromTextSegment,
+} from './deepgramSpokenWords';
 
-type TranscriptEvent = { isFinal?: boolean };
+/** Matches `useDeepgramSpeechToText`’s second arg (`{ isFinal, raw }`). */
+type NativeOnTranscriptEvent = { isFinal?: boolean; raw?: unknown };
 
 /**
  * Deepgram live options — mirrors the web adapter's `DEEPGRAM_OPTIONS` so
@@ -59,10 +64,15 @@ const IS_FINAL_COMMIT_DEBOUNCE_MS = 800;
 export function useSTT(): SpeechToTextHandle {
   const [caption, setCaption] = useState('');
   const [isFinal, setIsFinalState] = useState(false);
+  const [words, setWords] = useState<SpokenWord[]>([]);
   const [sttError, setSttError] = useState<string | null>(null);
   const paragraphRef = useRef('');
   const lastCaptionRef = useRef('');
   const finalizedCountRef = useRef(0);
+  /** `is_final` words committed to the current utterance (mirrors web). */
+  const finalizedWordsRef = useRef<SpokenWord[]>([]);
+  /** Latest interim segment only. */
+  const pendingInterimWordsRef = useRef<SpokenWord[]>([]);
   const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initialSilenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
@@ -99,6 +109,12 @@ export function useSTT(): SpeechToTextHandle {
   const fireWatchdog = useCallback(() => {
     inactivityTimerRef.current = null;
     clearFinalCommitTimer();
+    const pending = pendingInterimWordsRef.current;
+    if (pending.length > 0) {
+      finalizedWordsRef.current = [...finalizedWordsRef.current, ...pending];
+      pendingInterimWordsRef.current = [];
+      setWords([...finalizedWordsRef.current]);
+    }
     paragraphRef.current = lastCaptionRef.current;
     setIsFinalState(true);
     finalizedCountRef.current += 1;
@@ -129,10 +145,11 @@ export function useSTT(): SpeechToTextHandle {
     onStart: () => {
       prefetchListenKey();
     },
-    onTranscript: (text: string, event?: TranscriptEvent) => {
+    onTranscript: (text: string, event?: NativeOnTranscriptEvent) => {
       if (text !== '') clearInitialSilenceTimer();
+      const raw = event?.raw;
 
-      const runDebouncedCommit = (segmentWords: number, transcriptLine: string) => {
+      const runDebouncedCommit = (segmentWordCount: number, transcriptLine: string) => {
         clearFinalCommitTimer();
         const myEpoch = startEpochRef.current;
         finalCommitTimerRef.current = setTimeout(() => {
@@ -152,7 +169,7 @@ export function useSTT(): SpeechToTextHandle {
           if (debugRef.current) {
             logSttSegment({
               isFinal: true,
-              segmentWords,
+              segmentWords: segmentWordCount,
               totalFinalized: finalizedCountRef.current,
               totalWords: lastCaptionRef.current
                 .split(/\s+/)
@@ -171,34 +188,58 @@ export function useSTT(): SpeechToTextHandle {
 
       if (text === '') {
         if (event?.isFinal) {
+          // Speech-final with empty string (rare) — close using pending interims
+          // if the SDK ever emits that pattern.
+          const pending = pendingInterimWordsRef.current;
+          if (pending.length > 0) {
+            finalizedWordsRef.current = [...finalizedWordsRef.current, ...pending];
+            pendingInterimWordsRef.current = [];
+            setWords([...finalizedWordsRef.current]);
+          }
           clearInactivityTimer();
-          runDebouncedCommit(
-            0,
-            '',
-          );
+          runDebouncedCommit(0, '');
         }
         return;
       }
 
+      let segmentWords = spokenWordsFromDeepgramRaw(raw);
+      if (segmentWords.length === 0) {
+        segmentWords = syntheticSpokenWordsFromTextSegment(text);
+      }
+      const segmentWordCount = segmentWords.length;
+
       const newCaption = (paragraphRef.current + ' ' + text).trim();
       lastCaptionRef.current = newCaption;
       setCaption(newCaption);
-      const segmentWordCount = text.split(/\s+/).filter(Boolean).length;
 
       if (event?.isFinal) {
+        finalizedWordsRef.current = [
+          ...finalizedWordsRef.current,
+          ...segmentWords,
+        ];
+        pendingInterimWordsRef.current = [];
+        setWords([...finalizedWordsRef.current]);
         paragraphRef.current = newCaption;
         clearInactivityTimer();
-        runDebouncedCommit(segmentWordCount, text);
+        runDebouncedCommit(
+          segmentWordCount > 0
+            ? segmentWordCount
+            : text.split(/\s+/).filter(Boolean).length,
+          text,
+        );
       } else {
         clearFinalCommitTimer();
+        pendingInterimWordsRef.current = segmentWords;
+        setWords([...finalizedWordsRef.current, ...segmentWords]);
         setIsFinalState(false);
         armInactivityWatchdog();
         if (debugRef.current) {
+          const merged = [...finalizedWordsRef.current, ...segmentWords];
           logSttSegment({
             isFinal: false,
             segmentWords: segmentWordCount,
             totalFinalized: finalizedCountRef.current,
-            totalWords: newCaption.split(/\s+/).filter(Boolean).length,
+            totalWords: merged.length,
             transcript: text,
             captionLen: newCaption.length,
           });
@@ -216,6 +257,9 @@ export function useSTT(): SpeechToTextHandle {
     const prevFinalized = finalizedCountRef.current;
     setCaption('');
     setIsFinalState(false);
+    finalizedWordsRef.current = [];
+    pendingInterimWordsRef.current = [];
+    setWords([]);
     paragraphRef.current = '';
     lastCaptionRef.current = '';
     finalizedCountRef.current = 0;
@@ -238,8 +282,6 @@ export function useSTT(): SpeechToTextHandle {
     clearInitialSilenceTimer,
     clearFinalCommitTimer,
   ]);
-
-  const words: SpokenWord[] = [];
 
   const runStopSync = () => {
     startEpochRef.current += 1;
@@ -332,6 +374,12 @@ export function useSTT(): SpeechToTextHandle {
         initialSilenceTimerRef.current = setTimeout(() => {
           initialSilenceTimerRef.current = null;
           if (startEpochRef.current !== myEpoch) return;
+          const pending = pendingInterimWordsRef.current;
+          if (pending.length > 0) {
+            finalizedWordsRef.current = [...finalizedWordsRef.current, ...pending];
+            pendingInterimWordsRef.current = [];
+            setWords([...finalizedWordsRef.current]);
+          }
           setIsFinalState(true);
           try {
             stopListeningRef.current();

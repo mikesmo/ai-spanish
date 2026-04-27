@@ -47,6 +47,7 @@ export const PhraseDisplay = ({
     isFirstSessionPresentationOfCurrentPhrase:
       display.isFirstSessionPresentationOfCurrentPhrase,
     hasUsedTryAgainOnCurrentCard: display.hasUsedTryAgainOnCurrentCard,
+    lessonDeck: phrases,
   });
 
   return (
@@ -86,6 +87,7 @@ export const PhraseDisplay = ({
           <UserRecording
             englishText={recording.englishText}
             spanishLine={recording.spanishLine}
+            showSpanishTranslation={recording.showSpanishTranslation}
             showEnglishInHint={recording.showEnglishInHint}
             transcription={display.caption}
             isRecording={stt.isRecording}

@@ -19,6 +19,7 @@ const CIRCLE_SIZE = 120;
 export const UserRecording = ({
   englishText,
   spanishLine,
+  showSpanishTranslation = false,
   showEnglishInHint = true,
   transcription,
   isRecording,
@@ -31,11 +32,13 @@ export const UserRecording = ({
     setHero(getPhraseHeroLayout(e.nativeEvent.layout));
   };
 
+  const displaySpanishLine =
+    showSpanishTranslation && spanishLine != null && String(spanishLine).trim() !== ""
+      ? spanishLine
+      : null;
   const showRecordingIndicator = showMicChrome && isRecording && !isCorrect;
   const screenMode: UserRecordingScreenMode =
-    spanishLine != null && String(spanishLine).trim() !== ""
-      ? "pronunciationAttempt"
-      : "userTest";
+    displaySpanishLine != null ? "pronunciationAttempt" : "userTest";
   const blinkOpacity = useRef(new Animated.Value(1)).current;
   const breatheScale = useRef(new Animated.Value(1)).current;
 
@@ -107,10 +110,10 @@ export const UserRecording = ({
 
       {hero != null ? (
         <View style={[styles.hintTranscriptBlock, { top: hero.textBelowTop }]}>
-          {spanishLine ? (
+          {displaySpanishLine ? (
             <View style={styles.hintBlock}>
               {showEnglishInHint ? <Text style={styles.englishLine}>{englishText}</Text> : null}
-              <Text style={styles.spanishTarget}>{spanishLine}</Text>
+              <Text style={styles.spanishTarget}>{displaySpanishLine}</Text>
             </View>
           ) : (
             <Text style={styles.englishText}>{englishText}</Text>

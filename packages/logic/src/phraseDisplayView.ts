@@ -32,8 +32,21 @@ export function getAisSpeakingViewModel(input: {
 export type UserRecordingViewModel = {
   englishText: string;
   spanishLine: string | null;
+  /** When true, show {@link spanishLine} on the recording screen (bilingual hint). */
+  showSpanishTranslation: boolean;
   showEnglishInHint: boolean;
 };
+
+/**
+ * The smallest N distinct {@link Phrase.order} values present in `deck` (lesson file order).
+ */
+export function getFirstNLessonOrdersInDeck(deck: Phrase[], phraseCount: number): Set<number> {
+  if (phraseCount <= 0 || deck.length === 0) return new Set();
+  const sortedUnique = [...new Set(deck.map((p) => p.order))].sort((a, b) => a - b);
+  return new Set(sortedUnique.slice(0, phraseCount));
+}
+
+const SPANISH_ON_RECORDING_FIRST_PHRASE_COUNT = 2;
 
 /**
  * Text hints while the learner is recording (shared recording / try-again status).
@@ -43,13 +56,20 @@ export function getUserRecordingViewModel(input: {
   spanishText: string;
   isFirstSessionPresentationOfCurrentPhrase: boolean;
   hasUsedTryAgainOnCurrentCard: boolean;
+  /** Full lesson deck (same array passed to the session). Drives which lesson orders show Spanish. */
+  lessonDeck: Phrase[];
 }): UserRecordingViewModel {
   const {
     currentPhrase,
     spanishText,
     isFirstSessionPresentationOfCurrentPhrase,
     hasUsedTryAgainOnCurrentCard,
+    lessonDeck,
   } = input;
+  const showSpanishTranslation = getFirstNLessonOrdersInDeck(
+    lessonDeck,
+    SPANISH_ON_RECORDING_FIRST_PHRASE_COUNT,
+  ).has(currentPhrase.order);
   return {
     englishText: currentPhrase.English.question,
     spanishLine:
@@ -58,6 +78,7 @@ export function getUserRecordingViewModel(input: {
       !hasUsedTryAgainOnCurrentCard
         ? spanishText
         : null,
+    showSpanishTranslation,
     showEnglishInHint: isFirstSessionPresentationOfCurrentPhrase,
   };
 }
@@ -70,6 +91,8 @@ export type PhraseDisplayHostProps = {
 export type UserRecordingViewProps = {
   englishText: string;
   spanishLine?: string | null;
+  /** When false, English-only hint on the recording screen. @defaultValue false */
+  showSpanishTranslation?: boolean;
   showEnglishInHint?: boolean;
   transcription: string;
   isRecording: boolean;

@@ -13,6 +13,7 @@ type UserRecordingScreenMode = "pronunciationAttempt" | "userTest";
 export const UserRecording = ({
   englishText,
   spanishLine,
+  showSpanishTranslation = false,
   showEnglishInHint = true,
   transcription,
   isRecording,
@@ -20,11 +21,13 @@ export const UserRecording = ({
   onShowAnswer,
   showMicChrome = true,
 }: UserRecordingProps): JSX.Element => {
+  const displaySpanishLine =
+    showSpanishTranslation && spanishLine != null && String(spanishLine).trim() !== ""
+      ? spanishLine
+      : null;
   const showRecordingIndicator = showMicChrome && isRecording && !isCorrect;
   const screenMode: UserRecordingScreenMode =
-    spanishLine != null && String(spanishLine).trim() !== ""
-      ? "pronunciationAttempt"
-      : "userTest";
+    displaySpanishLine != null ? "pronunciationAttempt" : "userTest";
 
   return (
   <div className="relative flex-1 flex flex-col min-h-0 w-full animate-screen-fade-in">
@@ -127,13 +130,13 @@ export const UserRecording = ({
     </div>
 
     <div className="absolute left-1/2 top-[calc(40%_+_60px_+_1.5rem)] z-0 w-full -translate-x-1/2 flex flex-col items-center px-0">
-      {spanishLine ? (
+      {displaySpanishLine ? (
         <div className="flex max-w-[280px] flex-col items-center gap-1">
           {showEnglishInHint ? (
             <p className="text-center text-[15px] leading-snug text-gray-500">{englishText}</p>
           ) : null}
           <p className="text-center text-[18px] font-medium leading-relaxed text-[#1D1D1D]">
-            {spanishLine}
+            {displaySpanishLine}
           </p>
         </div>
       ) : (

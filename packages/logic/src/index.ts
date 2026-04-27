@@ -84,6 +84,7 @@ export {
 } from './lessonCatalog';
 export {
   getAisSpeakingViewModel,
+  getFirstNLessonOrdersInDeck,
   getUserRecordingViewModel,
   type AisSpeakingViewModel,
   type PhraseDisplayHostProps,

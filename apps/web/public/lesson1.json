@@ -894,7 +894,7 @@
     "order": 35,
     "type": "combination",
     "English": {
-      "first-intro": "Here's how to say the full phrase 'I speak a little Spanish.'",
+      "first-intro": "How do you say the full phrase 'I speak a little Spanish.'",
       "second-intro": "How do you say 'I speak a little Spanish'?",
       "question": "I speak a little Spanish"
     },
@@ -1210,7 +1210,7 @@
     "type": "combination",
     "English": {
       "first-intro": "How she state 'You are British'?",
-      "second-intro": "How do you say 'You are British'",
+      "second-intro": "How does she say 'You are British'",
       "question": "You are British"
     },
     "Spanish": {
