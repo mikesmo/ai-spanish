@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import {
   getAisSpeakingViewModel,
   getLessonTitle,
@@ -12,6 +12,7 @@ import {
 import { useSTT, useS3TTS } from "@ai-spanish/ai";
 import { playRecordingPrimingAudio } from "../../lib/playRecordingPrimingAudio";
 import { playSuccessChime } from "../../lib/playSuccessChime";
+import { postSessionHistoryEntry } from "../../services/sessionHistory.service";
 import type { PhraseDisplayProps } from "./PhraseDisplay.types";
 import { AISpeaking } from "./components/AISpeaking";
 import { UserFeedback } from "./components/UserFeedback";
@@ -37,6 +38,18 @@ export const PhraseDisplay = ({
   useEffect(() => {
     bindCurrentPhrase(display.currentPhrase);
   }, [display.currentPhrase, bindCurrentPhrase]);
+
+  const syncedLengthRef = useRef(0);
+  useEffect(() => {
+    if (!__DEV__) return;
+    const { history } = session;
+    const newCount = history.length;
+    if (newCount <= syncedLengthRef.current) return;
+    for (let i = syncedLengthRef.current; i < newCount; i++) {
+      void postSessionHistoryEntry(lessonId, history[i]).catch(() => {});
+    }
+    syncedLengthRef.current = newCount;
+  }, [session.history, lessonId]);
 
   const ais = getAisSpeakingViewModel({
     status: display.status,

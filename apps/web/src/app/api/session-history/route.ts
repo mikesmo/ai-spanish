@@ -1,0 +1,69 @@
+import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
+import { historyEntrySchema } from '@ai-spanish/logic';
+import {
+  appendSessionHistoryEntry,
+  getLessonHistory,
+} from '@/lib/sessionHistoryStore';
+
+const DEV_ONLY = NextResponse.json(
+  { error: 'Not found' },
+  { status: 404 },
+);
+
+const lessonIdSchema = z.string().min(1);
+
+export async function POST(request: NextRequest) {
+  if (process.env.NODE_ENV !== 'development') return DEV_ONLY;
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+  }
+
+  if (typeof body !== 'object' || body === null) {
+    return NextResponse.json({ error: 'Expected a JSON object' }, { status: 400 });
+  }
+
+  const raw = body as Record<string, unknown>;
+
+  const lessonIdResult = lessonIdSchema.safeParse(raw['lessonId']);
+  if (!lessonIdResult.success) {
+    return NextResponse.json(
+      { error: 'Invalid lessonId', issues: lessonIdResult.error.issues },
+      { status: 400 },
+    );
+  }
+
+  const entryResult = historyEntrySchema.safeParse(raw['entry']);
+  if (!entryResult.success) {
+    return NextResponse.json(
+      { error: 'Invalid entry', issues: entryResult.error.issues },
+      { status: 400 },
+    );
+  }
+
+  const lessonId = lessonIdResult.data;
+  const entry = entryResult.data;
+  appendSessionHistoryEntry(lessonId, entry);
+  const totalForLesson = getLessonHistory(lessonId).length;
+
+  return NextResponse.json({ lessonId, totalForLesson }, { status: 201 });
+}
+
+export async function GET(request: NextRequest) {
+  if (process.env.NODE_ENV !== 'development') return DEV_ONLY;
+
+  const lesson = request.nextUrl.searchParams.get('lesson');
+  if (!lesson || lesson.trim() === '') {
+    return NextResponse.json(
+      { error: 'Missing required query param: lesson' },
+      { status: 400 },
+    );
+  }
+
+  const entries = getLessonHistory(lesson);
+  return NextResponse.json({ lessonId: lesson, entries });
+}

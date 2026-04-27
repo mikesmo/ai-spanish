@@ -1,6 +1,8 @@
 import { lessons } from "@ai-spanish/logic";
 import Link from "next/link";
 
+const isDev = process.env.NODE_ENV === "development";
+
 export default function Home(): JSX.Element {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-white">
@@ -28,6 +30,29 @@ export default function Home(): JSX.Element {
             </li>
           ))}
         </ul>
+
+        {isDev && (
+          <div className="mt-12 border-t border-dashed border-gray-200 pt-8">
+            <p className="mb-3 text-xs font-medium uppercase tracking-wide text-gray-400">
+              Developer
+            </p>
+            <ul className="flex flex-col gap-2">
+              {lessons.map((lesson) => (
+                <li key={lesson.id}>
+                  <Link
+                    href={`/dev/mobile-session-log?lesson=${lesson.id}`}
+                    className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-4 py-2.5 text-xs text-gray-500 transition hover:border-gray-300 hover:text-gray-700"
+                  >
+                    <span>
+                      Mobile session log — {lesson.title}
+                    </span>
+                    <span className="text-gray-300">→</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </main>
     </div>
   );
