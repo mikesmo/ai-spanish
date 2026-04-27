@@ -1,7 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo } from "react";
+import {
+  buildDeckFingerprint,
+  createInMemoryProgressStore,
+  createSessionEngine,
+} from "@ai-spanish/logic";
 import { useMobileSessionLogQuery } from "../../hooks/useMobileSessionLogQuery";
+import { useLessonQuery } from "../../hooks/useLessonQuery";
 import {
   SessionHistoryLogView,
   SessionHistoryStatsBar,
@@ -14,11 +21,45 @@ interface Props {
 
 const LESSON_IDS = ["1", "2"];
 
-const noopGetLiveSlotsAhead = (): null => null;
-
 export function MobileSessionLogClient({ lessonId, lessonTitle }: Props) {
   const { data, isLoading, isError } = useMobileSessionLogQuery(lessonId);
+  const { data: phrases } = useLessonQuery(lessonId);
   const entries = data?.entries ?? [];
+
+  /**
+   * Hydrate a throwaway session engine from the latest checkpoint whenever
+   * both the deck and checkpoint are available and their fingerprints match.
+   * This lets `getLiveSlotsAhead` reuse the real `getQueuePosition` logic from
+   * the engine rather than duplicating queue-position rules on the frontend.
+   */
+  const hydratedEngine = useMemo(() => {
+    const cp = data?.latestCheckpoint;
+    if (!cp || !phrases || phrases.length === 0) return null;
+
+    // Validate deck fingerprint if the checkpoint carries one.
+    if (cp.deckFingerprint !== undefined) {
+      const webFingerprint = buildDeckFingerprint(phrases);
+      if (cp.deckFingerprint !== webFingerprint) return null;
+    }
+
+    try {
+      const store = createInMemoryProgressStore();
+      return createSessionEngine(phrases, store, {
+        initialCheckpoint: cp,
+        getCompletedLessonCount: () => cp.completedLessonCount,
+      });
+    } catch {
+      return null;
+    }
+  }, [data?.latestCheckpoint, phrases]);
+
+  const getLiveSlotsAhead = useMemo(
+    () =>
+      hydratedEngine
+        ? (phraseId: string) => hydratedEngine.getQueuePosition(phraseId)
+        : () => null,
+    [hydratedEngine],
+  );
 
   return (
     <div className="min-h-screen bg-gray-50 font-mono text-sm">
@@ -43,7 +84,9 @@ export function MobileSessionLogClient({ lessonId, lessonTitle }: Props) {
           )}
           {!isLoading && !isError && (
             <span className="ml-auto text-xs text-gray-400">
-              Updates every ~2s
+              {hydratedEngine
+                ? "Updates every ~2s · session (now) live"
+                : "Updates every ~2s"}
             </span>
           )}
         </div>
@@ -73,9 +116,9 @@ export function MobileSessionLogClient({ lessonId, lessonTitle }: Props) {
           />
           <SessionHistoryLogView
             history={entries}
-            getLiveSlotsAhead={noopGetLiveSlotsAhead}
-            queueVersion={0}
-            completedLessonCount={0}
+            getLiveSlotsAhead={getLiveSlotsAhead}
+            queueVersion={entries.length}
+            completedLessonCount={data?.latestCheckpoint?.completedLessonCount ?? 0}
             emptyStateMessage={`No entries yet for ${lessonTitle}. Start a lesson on the mobile app — entries appear here within ~2s of each phrase interaction.`}
           />
         </div>

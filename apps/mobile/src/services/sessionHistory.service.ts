@@ -1,18 +1,19 @@
-import type { HistoryEntry } from "@ai-spanish/logic";
+import type { HistoryEntry, SessionCheckpointParsed } from "@ai-spanish/logic";
 
 const WEB_ORIGIN = process.env.EXPO_PUBLIC_WEB_ORIGIN;
 
 /**
- * Posts a single HistoryEntry to the web app's dev-only session-history
- * endpoint. Only call this in dev builds (__DEV__); the endpoint returns 404
- * in production.
+ * Posts a single HistoryEntry (plus the current session checkpoint) to the
+ * web app's dev-only session-history endpoint. Only call this in dev builds
+ * (__DEV__); the endpoint returns 404 in production.
  *
- * Failures are non-fatal—returns false and logs a warning rather than
- * throwing, so a network issue never interrupts the lesson flow.
+ * Failures are non-fatal — returns and logs a warning rather than throwing,
+ * so a network issue never interrupts the lesson flow.
  */
 export async function postSessionHistoryEntry(
   lessonId: string,
   entry: HistoryEntry,
+  checkpoint?: SessionCheckpointParsed,
 ): Promise<void> {
   if (!WEB_ORIGIN) {
     console.warn(
@@ -27,7 +28,7 @@ export async function postSessionHistoryEntry(
     const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lessonId, entry }),
+      body: JSON.stringify({ lessonId, entry, checkpoint }),
     });
 
     if (!response.ok) {

@@ -3,6 +3,7 @@ import type { ReduceProgressContext } from './mastery';
 import type { PhraseEvent } from './events';
 import type { Phrase } from './types';
 import type { ProgressStore } from './progressStore';
+import type { SessionCheckpointParsed } from './schemas/sessionCheckpoint';
 
 /** Cap on how many times a single phrase can be requeued within a session. */
 export const MAX_REINSERTS_PER_PHRASE_PER_SESSION = 2;
@@ -70,6 +71,28 @@ export interface SessionEngine {
    * for UI surfaces that want to show "this phrase will reappear in N cards".
    */
   getQueuePosition(phraseId: string): number | null;
+  /**
+   * Produce a serializable snapshot of engine + store state that can be
+   * persisted and later passed back as `initialCheckpoint` to recreate
+   * an identical engine via `createSessionEngine`.
+   */
+  exportCheckpoint(meta: {
+    lessonId: string;
+    completedLessonCount: number;
+    deckFingerprint?: string;
+  }): SessionCheckpointParsed;
+}
+
+/**
+ * Builds the canonical deck fingerprint: sorted phrase ids joined with commas.
+ * Pass this when exporting a checkpoint so the consumer can detect deck mismatches.
+ */
+export function buildDeckFingerprint(deck: Phrase[]): string {
+  return deck
+    .map((p) => p.id)
+    .slice()
+    .sort()
+    .join(',');
 }
 
 function insertAt<T>(arr: T[], index: number, item: T): T[] {
@@ -83,6 +106,12 @@ export interface CreateSessionEngineOptions {
    * in `reduceProgress`. Defaults to always `0` when omitted.
    */
   getCompletedLessonCount?: () => number;
+  /**
+   * When provided the engine is hydrated from this checkpoint instead of
+   * starting fresh from `deck`. Every phrase id in the checkpoint must exist
+   * in `deck`; throws if any id is unrecognised.
+   */
+  initialCheckpoint?: SessionCheckpointParsed;
 }
 
 /**
@@ -97,10 +126,42 @@ export function createSessionEngine(
 ): SessionEngine {
   const getCompletedLessonCount =
     options.getCompletedLessonCount ?? (() => 0);
-  let queue: Phrase[] = [...deck];
-  let currentPhraseId: string | null = null;
-  const reinsertCount = new Map<string, number>();
   const deckById = new Map(deck.map((p) => [p.id, p]));
+
+  // --- Hydrate from checkpoint or start fresh ---
+  let queue: Phrase[];
+  let currentPhraseId: string | null;
+  const reinsertCount = new Map<string, number>();
+
+  const cp = options.initialCheckpoint;
+  if (cp) {
+    // Validate every id referenced in the checkpoint exists in this deck.
+    for (const id of cp.queuePhraseIds) {
+      if (!deckById.has(id)) {
+        throw new Error(
+          `createSessionEngine: checkpoint queuePhraseIds contains unknown phrase id "${id}"`,
+        );
+      }
+    }
+    if (cp.currentPresentedPhraseId !== null && !deckById.has(cp.currentPresentedPhraseId)) {
+      throw new Error(
+        `createSessionEngine: checkpoint currentPresentedPhraseId "${cp.currentPresentedPhraseId}" not found in deck`,
+      );
+    }
+
+    queue = cp.queuePhraseIds.map((id) => deckById.get(id)!);
+    currentPhraseId = cp.currentPresentedPhraseId;
+    for (const [id, count] of Object.entries(cp.reinsertCount)) {
+      reinsertCount.set(id, count);
+    }
+    store.clear();
+    for (const p of cp.progress) {
+      store.put(p);
+    }
+  } else {
+    queue = [...deck];
+    currentPhraseId = null;
+  }
 
   const reinsert = (phrase: Phrase, slotsAhead: number) => {
     const used = reinsertCount.get(phrase.id) ?? 0;
@@ -156,6 +217,23 @@ export function createSessionEngine(
     getQueuePosition(phraseId) {
       const idx = queue.findIndex((p) => p.id === phraseId);
       return idx === -1 ? null : idx;
+    },
+
+    exportCheckpoint({ lessonId, completedLessonCount, deckFingerprint }) {
+      const reinsertCountRecord: Record<string, number> = {};
+      for (const [id, count] of reinsertCount) {
+        reinsertCountRecord[id] = count;
+      }
+      return {
+        schemaVersion: 1 as const,
+        lessonId,
+        queuePhraseIds: queue.map((p) => p.id),
+        currentPresentedPhraseId: currentPhraseId,
+        reinsertCount: reinsertCountRecord,
+        progress: store.all(),
+        completedLessonCount,
+        ...(deckFingerprint !== undefined ? { deckFingerprint } : {}),
+      };
     },
   };
 }

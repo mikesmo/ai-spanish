@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useEffect, useRef } from "react";
 import {
+  buildDeckFingerprint,
   getAisSpeakingViewModel,
   getLessonTitle,
   getUserRecordingViewModel,
@@ -40,16 +41,23 @@ export const PhraseDisplay = ({
   }, [display.currentPhrase, bindCurrentPhrase]);
 
   const syncedLengthRef = useRef(0);
+  // Stable fingerprint computed once per mount (deck identity is fixed).
+  const deckFingerprintRef = useRef(buildDeckFingerprint(phrases));
   useEffect(() => {
     if (!__DEV__) return;
     const { history } = session;
     const newCount = history.length;
     if (newCount <= syncedLengthRef.current) return;
+    const checkpoint = session.getSessionCheckpoint({
+      lessonId,
+      completedLessonCount: session.completedLessonCount,
+      deckFingerprint: deckFingerprintRef.current,
+    });
     for (let i = syncedLengthRef.current; i < newCount; i++) {
-      void postSessionHistoryEntry(lessonId, history[i]).catch(() => {});
+      void postSessionHistoryEntry(lessonId, history[i], checkpoint).catch(() => {});
     }
     syncedLengthRef.current = newCount;
-  }, [session.history, lessonId]);
+  }, [session.history, lessonId, session]);
 
   const ais = getAisSpeakingViewModel({
     status: display.status,

@@ -393,3 +393,105 @@ describe('getQueuePosition', () => {
     expect(engine.getQueuePosition('nope')).toBeNull();
   });
 });
+
+describe('exportCheckpoint / initialCheckpoint round-trip', () => {
+  it('restores queue order and remaining count exactly', () => {
+    const deck = [phrase('a'), phrase('b'), phrase('c')];
+    const store = createInMemoryProgressStore();
+    const engine = createSessionEngine(deck, store);
+
+    engine.pickNext(); // current = a, queue = [b, c]
+    const cp = engine.exportCheckpoint({ lessonId: '1', completedLessonCount: 0 });
+
+    const store2 = createInMemoryProgressStore();
+    const engine2 = createSessionEngine(deck, store2, { initialCheckpoint: cp });
+
+    expect(engine2.remaining()).toBe(2);
+    expect(engine2.getCurrentPresentedPhraseId()).toBe('a');
+    expect(engine2.getQueuePosition('b')).toBe(0);
+    expect(engine2.getQueuePosition('c')).toBe(1);
+    expect(engine2.getQueuePosition('a')).toBeNull(); // current card is off queue
+  });
+
+  it('restores reinsert counts so the cap is preserved', () => {
+    const deck = [phrase('x'), phrase('y'), phrase('z')];
+    const store = createInMemoryProgressStore();
+    const engine = createSessionEngine(deck, store);
+
+    // Two weak attempts on 'x' to exhaust the reinsert cap
+    engine.pickNext(); // x
+    engine.onEvent(attempt('x', { accuracyScore: 0, isAccuracySuccess: false, success: false }));
+    // x is now reinserted; pick until we see x again
+    while (engine.getCurrentPresentedPhraseId() !== 'x') {
+      engine.pickNext();
+    }
+    engine.onEvent(attempt('x', { accuracyScore: 0, isAccuracySuccess: false, success: false }));
+    // x has been reinserted MAX_REINSERTS_PER_PHRASE_PER_SESSION times
+
+    const cp = engine.exportCheckpoint({ lessonId: '1', completedLessonCount: 0 });
+    const xCount = cp.reinsertCount['x'] ?? 0;
+    expect(xCount).toBe(MAX_REINSERTS_PER_PHRASE_PER_SESSION);
+
+    const store2 = createInMemoryProgressStore();
+    const engine2 = createSessionEngine(deck, store2, { initialCheckpoint: cp });
+    // Verify restored engine respects the cap
+    const cpRound2 = engine2.exportCheckpoint({ lessonId: '1', completedLessonCount: 0 });
+    expect(cpRound2.reinsertCount['x']).toBe(MAX_REINSERTS_PER_PHRASE_PER_SESSION);
+  });
+
+  it('restores progress store so queue positions reflect previous scores', () => {
+    const deck = [phrase('p'), phrase('q')];
+    const store = createInMemoryProgressStore();
+    const engine = createSessionEngine(deck, store);
+    engine.pickNext(); // p
+    engine.onEvent(attempt('p', { accuracyScore: 0.5, isAccuracySuccess: true, success: false }));
+
+    const cp = engine.exportCheckpoint({ lessonId: '1', completedLessonCount: 0 });
+
+    const store2 = createInMemoryProgressStore();
+    const engine2 = createSessionEngine(deck, store2, { initialCheckpoint: cp });
+
+    // Progress for p should be in restored store
+    const restored = store2.get('p');
+    expect(restored).not.toBeNull();
+    expect(restored!.masteryScore).toBeGreaterThan(0);
+    expect(restored!.phraseId).toBe('p');
+  });
+
+  it('throws when checkpoint contains an unknown phrase id', () => {
+    const deck = [phrase('a'), phrase('b')];
+    const store = createInMemoryProgressStore();
+    const engine = createSessionEngine(deck, store);
+    engine.pickNext();
+    const cp = engine.exportCheckpoint({ lessonId: '1', completedLessonCount: 0 });
+    const badCp = { ...cp, queuePhraseIds: ['UNKNOWN'] };
+
+    const store2 = createInMemoryProgressStore();
+    expect(() =>
+      createSessionEngine(deck, store2, { initialCheckpoint: badCp }),
+    ).toThrow(/unknown phrase id/);
+  });
+
+  it('includes deckFingerprint when provided', () => {
+    const deck = [phrase('a'), phrase('b')];
+    const store = createInMemoryProgressStore();
+    const engine = createSessionEngine(deck, store);
+    const fingerprint = 'a,b';
+    const cp = engine.exportCheckpoint({ lessonId: '1', completedLessonCount: 0, deckFingerprint: fingerprint });
+    expect(cp.deckFingerprint).toBe(fingerprint);
+  });
+
+  it('restores a session with no prior pickNext (queue = full deck)', () => {
+    const deck = [phrase('a'), phrase('b')];
+    const store = createInMemoryProgressStore();
+    const engine = createSessionEngine(deck, store);
+    const cp = engine.exportCheckpoint({ lessonId: '1', completedLessonCount: 0 });
+    expect(cp.currentPresentedPhraseId).toBeNull();
+
+    const store2 = createInMemoryProgressStore();
+    const engine2 = createSessionEngine(deck, store2, { initialCheckpoint: cp });
+    expect(engine2.remaining()).toBe(2);
+    expect(engine2.getCurrentPresentedPhraseId()).toBeNull();
+    expect(engine2.pickNext()?.id).toBe('a');
+  });
+});

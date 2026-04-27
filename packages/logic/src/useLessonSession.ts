@@ -5,10 +5,15 @@ import {
   getDefaultLearningPipelineDebug,
   logSessionEnginePhraseMismatch,
 } from './learningPipelineDebug';
-import { createSessionEngine, type SessionEngine } from './sessionEngine';
+import {
+  buildDeckFingerprint,
+  createSessionEngine,
+  type SessionEngine,
+} from './sessionEngine';
 import { createInMemoryProgressStore } from './progressStore';
 import type { Phrase } from './types';
 import type { PhraseEvent } from './events';
+import type { SessionCheckpointParsed } from './schemas/sessionCheckpoint';
 
 /**
  * Emitted with `onEvent` after `engine.onEvent` so consumers do not rely on a
@@ -46,6 +51,13 @@ export interface UseLessonSessionOptions {
    * in the progress store. Default 0. Host should bump between runs and persist.
    */
   completedLessonCount?: number;
+  /**
+   * When provided the engine is hydrated from this snapshot instead of
+   * starting fresh. Every phrase id in the checkpoint must exist in `deck`;
+   * the hook throws if any id is unrecognised. Pass `null` to clear a stored
+   * checkpoint (treated as missing).
+   */
+  initialCheckpoint?: SessionCheckpointParsed | null;
 }
 
 export interface UseLessonSessionResult {
@@ -87,6 +99,16 @@ export interface UseLessonSessionResult {
    * not in the remaining queue (dropped / already-drawn / never-enqueued).
    */
   getLiveSlotsAhead: (phraseId: string) => number | null;
+  /**
+   * Snapshot of the current engine + progress store state. Pass back as
+   * `initialCheckpoint` to resume the session from this point.
+   * `deckFingerprint` is auto-computed from `deck` if not overridden.
+   */
+  getSessionCheckpoint: (meta: {
+    lessonId: string;
+    completedLessonCount: number;
+    deckFingerprint?: string;
+  }) => SessionCheckpointParsed;
 }
 
 /**
@@ -103,7 +125,7 @@ export const useLessonSession = (
     throw new Error('useLessonSession: deck must contain at least one phrase');
   }
 
-  const { onEvent, onPresentationStart, completedLessonCount = 0 } = options;
+  const { onEvent, onPresentationStart, completedLessonCount = 0, initialCheckpoint } = options;
 
   const completedLessonCountRef = useRef(completedLessonCount);
   completedLessonCountRef.current = completedLessonCount;
@@ -112,11 +134,12 @@ export const useLessonSession = (
   // once per mount; we do not rebuild when `deck` identity changes (the
   // engine owns queue state that would be lost on rebuild). Consumers that
   // need to switch decks should remount this component.
+  const storeRef = useRef(createInMemoryProgressStore());
   const engineRef = useRef<SessionEngine | null>(null);
   if (engineRef.current === null) {
-    const store = createInMemoryProgressStore();
-    engineRef.current = createSessionEngine(deck, store, {
+    engineRef.current = createSessionEngine(deck, storeRef.current, {
       getCompletedLessonCount: () => completedLessonCountRef.current,
+      initialCheckpoint: initialCheckpoint ?? undefined,
     });
   }
 
@@ -127,18 +150,42 @@ export const useLessonSession = (
    * phrase and the engine can disagree — `onEvent` then skips requeue
    * (`event.phraseId !== currentPhraseId`) and `getQueuePosition` is null.
    * Guard so `pickNext` runs at most once for the first card.
+   *
+   * When resuming from a checkpoint that has a `currentPresentedPhraseId`, we
+   * don't need to call `pickNext` at all — the current card is already known.
    */
+  const deckById = useRef(new Map(deck.map((p) => [p.id, p]))).current;
   const firstPhraseRef = useRef<Phrase | null>(null);
+
   if (firstPhraseRef.current === null) {
-    const first = engineRef.current!.pickNext();
-    if (!first) {
-      throw new Error('useLessonSession: engine returned no phrases');
+    if (initialCheckpoint?.currentPresentedPhraseId) {
+      // Resume: restore the in-progress card from the checkpoint without
+      // calling pickNext (which would advance the queue).
+      const resumed = deckById.get(initialCheckpoint.currentPresentedPhraseId);
+      if (!resumed) {
+        throw new Error(
+          `useLessonSession: checkpoint currentPresentedPhraseId "${initialCheckpoint.currentPresentedPhraseId}" not found in deck`,
+        );
+      }
+      firstPhraseRef.current = resumed;
+    } else {
+      const first = engineRef.current!.pickNext();
+      if (!first) {
+        throw new Error('useLessonSession: engine returned no phrases');
+      }
+      firstPhraseRef.current = first;
     }
-    firstPhraseRef.current = first;
   }
-  const [currentPhrase, setCurrentPhrase] = useState<Phrase>(firstPhraseRef.current);
+
+  const isInitiallyComplete =
+    initialCheckpoint !== null &&
+    initialCheckpoint !== undefined &&
+    initialCheckpoint.currentPresentedPhraseId === null &&
+    initialCheckpoint.queuePhraseIds.length === 0;
+
+  const [currentPhrase, setCurrentPhrase] = useState<Phrase>(firstPhraseRef.current!);
   const [presentationVersion, setPresentationVersion] = useState(1);
-  const [isComplete, setIsComplete] = useState(false);
+  const [isComplete, setIsComplete] = useState(isInitiallyComplete);
   const [remaining, setRemaining] = useState<number>(() =>
     engineRef.current!.remaining(),
   );
@@ -185,6 +232,18 @@ export const useLessonSession = (
     return engineRef.current?.getQueuePosition(phraseId) ?? null;
   }, []);
 
+  const getSessionCheckpoint = useCallback(
+    (meta: { lessonId: string; completedLessonCount: number; deckFingerprint?: string }) => {
+      const engine = engineRef.current!;
+      return engine.exportCheckpoint({
+        ...meta,
+        deckFingerprint: meta.deckFingerprint ?? buildDeckFingerprint(deck),
+      });
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [deck],
+  );
+
   // Stable 1-element array keyed on currentPhrase identity; avoids a
   // useMemo dep since the reference only changes when the phrase does.
   const phrasesRef = useRef<[Phrase]>([currentPhrase]);
@@ -202,5 +261,6 @@ export const useLessonSession = (
     remaining,
     isComplete,
     getLiveSlotsAhead,
+    getSessionCheckpoint,
   };
 };

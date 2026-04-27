@@ -8,31 +8,48 @@
  * store return 404 in production (NODE_ENV !== 'development').
  */
 
-import type { HistoryEntryParsed } from '@ai-spanish/logic';
+import type { HistoryEntryParsed, SessionCheckpointParsed } from '@ai-spanish/logic';
 
-const store = new Map<string, HistoryEntryParsed[]>();
+const entryStore = new Map<string, HistoryEntryParsed[]>();
+const checkpointStore = new Map<string, SessionCheckpointParsed>();
 
 export function appendSessionHistoryEntry(
   lessonId: string,
   entry: HistoryEntryParsed,
 ): void {
-  const existing = store.get(lessonId);
+  const existing = entryStore.get(lessonId);
   if (existing) {
     existing.push(entry);
   } else {
-    store.set(lessonId, [entry]);
+    entryStore.set(lessonId, [entry]);
   }
 }
 
 /** Returns a copy of the stored entries for a lesson (empty array if none). */
 export function getLessonHistory(lessonId: string): HistoryEntryParsed[] {
-  return [...(store.get(lessonId) ?? [])];
+  return [...(entryStore.get(lessonId) ?? [])];
+}
+
+export function setLatestCheckpoint(
+  lessonId: string,
+  checkpoint: SessionCheckpointParsed,
+): void {
+  checkpointStore.set(lessonId, checkpoint);
+}
+
+/** Returns the last checkpoint posted for this lesson, or `null` if none. */
+export function getLatestCheckpoint(
+  lessonId: string,
+): SessionCheckpointParsed | null {
+  return checkpointStore.get(lessonId) ?? null;
 }
 
 export function clearLessonHistory(lessonId: string): void {
-  store.delete(lessonId);
+  entryStore.delete(lessonId);
+  checkpointStore.delete(lessonId);
 }
 
 export function clearAllSessionHistory(): void {
-  store.clear();
+  entryStore.clear();
+  checkpointStore.clear();
 }

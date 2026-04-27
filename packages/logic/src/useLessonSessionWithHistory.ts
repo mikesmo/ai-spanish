@@ -13,6 +13,7 @@ import {
   type HistoryEntry,
   type UseSessionHistoryResult,
 } from './useSessionHistory';
+import type { SessionCheckpointParsed } from './schemas/sessionCheckpoint';
 
 export interface UseLessonSessionWithHistoryResult
   extends CoreUseLessonSessionResult {
@@ -28,14 +29,25 @@ export interface UseLessonSessionWithHistoryResult
   completedLessonCount: number;
 }
 
+export interface UseLessonSessionWithHistoryOptions {
+  /**
+   * When provided the session engine is hydrated from this snapshot instead of
+   * starting fresh. Pass `null` to explicitly clear a stored checkpoint.
+   */
+  initialCheckpoint?: SessionCheckpointParsed | null;
+}
+
 /**
  * Lesson host hook: composes `useLessonSession` with `useSessionHistory` so
  * every phrase event is mirrored into `history` (web sidebar, mobile, etc.).
  */
 export const useLessonSessionWithHistory = (
   deck: Phrase[],
+  opts: UseLessonSessionWithHistoryOptions = {},
 ): UseLessonSessionWithHistoryResult => {
-  const [completedLessonCount, setCompletedLessonCount] = useState(0);
+  const [completedLessonCount, setCompletedLessonCount] = useState(
+    opts.initialCheckpoint?.completedLessonCount ?? 0,
+  );
   const lessonCompletionHandledRef = useRef(false);
   const {
     history: historyEntries,
@@ -56,6 +68,7 @@ export const useLessonSessionWithHistory = (
     onEvent,
     onPresentationStart,
     completedLessonCount,
+    initialCheckpoint: opts.initialCheckpoint,
   });
 
   useEffect(() => {

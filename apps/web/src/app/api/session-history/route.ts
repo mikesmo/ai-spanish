@@ -1,9 +1,11 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { historyEntrySchema } from '@ai-spanish/logic';
+import { historyEntrySchema, sessionCheckpointSchema } from '@ai-spanish/logic';
 import {
   appendSessionHistoryEntry,
   getLessonHistory,
+  getLatestCheckpoint,
+  setLatestCheckpoint,
 } from '@/lib/sessionHistoryStore';
 
 const DEV_ONLY = NextResponse.json(
@@ -48,6 +50,15 @@ export async function POST(request: NextRequest) {
   const lessonId = lessonIdResult.data;
   const entry = entryResult.data;
   appendSessionHistoryEntry(lessonId, entry);
+
+  // Checkpoint is optional — older mobile builds may not send it yet.
+  if (raw['checkpoint'] !== undefined) {
+    const checkpointResult = sessionCheckpointSchema.safeParse(raw['checkpoint']);
+    if (checkpointResult.success) {
+      setLatestCheckpoint(lessonId, checkpointResult.data);
+    }
+  }
+
   const totalForLesson = getLessonHistory(lessonId).length;
 
   return NextResponse.json({ lessonId, totalForLesson }, { status: 201 });
@@ -65,5 +76,6 @@ export async function GET(request: NextRequest) {
   }
 
   const entries = getLessonHistory(lesson);
-  return NextResponse.json({ lessonId: lesson, entries });
+  const latestCheckpoint = getLatestCheckpoint(lesson);
+  return NextResponse.json({ lessonId: lesson, entries, latestCheckpoint });
 }
