@@ -614,6 +614,12 @@ interface RowProps {
   entry: HistoryEntry;
   liveSlotsAhead: number | null;
   completedLessonCount: number;
+  /**
+   * True when this is the most recent history entry for this phrase in the
+   * current session. When false, `session (log)` and `session (now)` are
+   * blanked out — a later entry for the same phrase supersedes these values.
+   */
+  isLatestForPhrase: boolean;
 }
 
 const HistoryRow = ({
@@ -621,6 +627,7 @@ const HistoryRow = ({
   entry,
   liveSlotsAhead,
   completedLessonCount,
+  isLatestForPhrase,
 }: RowProps): JSX.Element => {
   const [expanded, setExpanded] = useState(false);
   const { event, phrase, scoreSummary } = entry;
@@ -701,16 +708,26 @@ const HistoryRow = ({
               )}
             </span>
             <span
-              title="In-session distance captured at the moment this event was logged. Mirrors the session engine's Pimsleur requeue: REPEAT_SOON for weak attempts/reveals, REPEAT_LATER for stabilizing attempts, '—' for mastered (dropped) or practice."
+              title={
+                isLatestForPhrase
+                  ? "In-session distance captured at the moment this event was logged. Mirrors the session engine's Pimsleur requeue: REPEAT_SOON for weak attempts/reveals, REPEAT_LATER for stabilizing attempts, '—' for mastered (dropped) or practice."
+                  : "Superseded — a later entry exists for this phrase in this session"
+              }
               className="text-[10px] text-gray-500 tabular-nums"
             >
-              session (log): {formatSlotsAhead(entry.slotsAheadAtEvent)}
+              session (log):{" "}
+              {isLatestForPhrase ? formatSlotsAhead(entry.slotsAheadAtEvent) : "—"}
             </span>
             <span
-              title="Current distance to this phrase in the remaining session queue. Ticks down as cards play and goes to '—' once the phrase is re-drawn or dropped."
+              title={
+                isLatestForPhrase
+                  ? "Current distance to this phrase in the remaining session queue. Ticks down as cards play and goes to '—' once the phrase is re-drawn or dropped."
+                  : "Superseded — a later entry exists for this phrase in this session"
+              }
               className="text-[10px] text-gray-500 tabular-nums"
             >
-              session (now): {formatSlotsAhead(liveSlotsAhead)}
+              session (now):{" "}
+              {isLatestForPhrase ? formatSlotsAhead(liveSlotsAhead) : "—"}
             </span>
           </div>
         </td>
@@ -1137,6 +1154,14 @@ export const SessionHistoryLogView = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [history, queueVersion, getLiveSlotsAhead]);
 
+  const latestEntryIdByPhraseId = useMemo(() => {
+    const map = new Map<string, string>(); // phraseId → entry.id
+    for (const entry of history) {
+      map.set(entry.phrase.id, entry.id); // later entries overwrite earlier ones
+    }
+    return map;
+  }, [history]);
+
   return (
     <div className={className}>
       {history.length === 0 ? (
@@ -1165,6 +1190,7 @@ export const SessionHistoryLogView = ({
                 entry={entry}
                 liveSlotsAhead={liveSlotsByPhraseId.get(entry.phrase.id) ?? null}
                 completedLessonCount={completedLessonCount}
+                isLatestForPhrase={latestEntryIdByPhraseId.get(entry.phrase.id) === entry.id}
               />
             ))}
           </tbody>
