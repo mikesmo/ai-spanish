@@ -1,11 +1,12 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useEffect } from "react";
 import {
   getAisSpeakingViewModel,
   getLessonTitle,
   getUserRecordingViewModel,
   runPhraseFeedbackNext,
   s3LessonFolderForTranscriptLessonId,
-  useLessonSession,
+  useLessonSessionWithHistory,
   usePhraseDisplayWithDeck,
 } from "@ai-spanish/logic";
 import { useSTT, useS3TTS } from "@ai-spanish/ai";
@@ -23,7 +24,7 @@ export const PhraseDisplay = ({
 }: PhraseDisplayProps): JSX.Element => {
   const tts = useS3TTS();
   const stt = useSTT();
-  const session = useLessonSession(phrases);
+  const session = useLessonSessionWithHistory(phrases);
   const lessonTitle = getLessonTitle(lessonId);
 
   const { display } = usePhraseDisplayWithDeck(phrases, session, stt, tts, {
@@ -31,6 +32,11 @@ export const PhraseDisplay = ({
     playRecordingPrimingAudio,
     s3LessonSegment: s3LessonFolderForTranscriptLessonId(lessonId),
   });
+
+  const { bindCurrentPhrase } = session;
+  useEffect(() => {
+    bindCurrentPhrase(display.currentPhrase);
+  }, [display.currentPhrase, bindCurrentPhrase]);
 
   const ais = getAisSpeakingViewModel({
     status: display.status,

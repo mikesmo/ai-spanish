@@ -30,14 +30,12 @@ import {
   type AccuracyBreakdown,
   type Attempt,
   type FluencyBreakdown,
+  type HistoryEntry,
   type PracticeAttempt,
+  type ScoreSummary,
+  type StabilityBreakdownSnapshot,
   type WordMeta,
 } from "@ai-spanish/logic";
-import type {
-  HistoryEntry,
-  ScoreSummary,
-  StabilityBreakdownSnapshot,
-} from "../../hooks/useSessionHistory";
 
 interface HistorySidebarProps {
   history: HistoryEntry[];

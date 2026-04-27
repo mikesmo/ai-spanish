@@ -8,12 +8,12 @@ import {
   getLessonTitle,
   runPhraseFeedbackNext,
   s3LessonFolderForTranscriptLessonId,
+  useLessonSessionWithHistory,
   usePhraseDisplayWithDeck,
 } from "@ai-spanish/logic";
 import { useS3TTS, useSTT } from "@ai-spanish/ai";
 import { playRecordingPrimingAudio } from "@/lib/playRecordingPrimingAudio";
 import { playSuccessChime } from "@/lib/playSuccessChime";
-import { useLessonSession } from "@/app/hooks/useLessonSession";
 import { AISpeaking } from "./components/AISpeaking";
 import { UserFeedback } from "./components/UserFeedback";
 import { UserRecording } from "./components/UserRecording";
@@ -26,7 +26,7 @@ export const PhraseDisplay = ({
 }: PhraseDisplayProps): JSX.Element => {
   const tts = useS3TTS();
   const stt = useSTT();
-  const session = useLessonSession(phrases);
+  const session = useLessonSessionWithHistory(phrases);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const lessonTitle = getLessonTitle(lessonId);
 

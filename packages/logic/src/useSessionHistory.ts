@@ -1,17 +1,15 @@
-"use client";
+'use client';
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState } from 'react';
+import { isAccuracySuccess } from './accuracy';
 import {
   getDefaultLearningPipelineDebug,
-  isAccuracySuccess,
   logSessionHistoryAppend,
-  reduceProgress,
-  type Phrase,
-  type PhraseEvent,
-  type PhraseEventContext,
-  type PhraseProgress,
-  type ReduceProgressContext,
-} from "@ai-spanish/logic";
+} from './learningPipelineDebug';
+import { reduceProgress, type ReduceProgressContext } from './mastery';
+import type { PhraseEvent } from './events';
+import type { Phrase, PhraseProgress } from './types';
+import type { PhraseEventContext } from './useLessonSession';
 
 export interface ScoreSummary {
   accuracy: number;
@@ -25,7 +23,7 @@ export interface ScoreSummary {
 export interface StabilityBreakdownSnapshot {
   before: number;
   after: number;
-  kind: "attempt_ema" | "reveal_decay" | "practice_unchanged";
+  kind: 'attempt_ema' | 'reveal_decay' | 'practice_unchanged';
   emaInput?: 0 | 1;
 }
 
@@ -67,7 +65,7 @@ export interface UseSessionHistoryResult {
   history: HistoryEntry[];
   /**
    * Called from `useLessonSession` after the engine has applied the event.
-   * `ctx` is required when wiring through the web lesson host.
+   * `ctx` is required when wiring through a lesson host.
    */
   onPhraseEvent: (event: PhraseEvent, ctx: PhraseEventContext) => void;
   /**
@@ -87,11 +85,9 @@ export interface UseSessionHistoryResult {
 }
 
 const generateId = (): string => {
-  if (
-    typeof crypto !== "undefined" &&
-    typeof crypto.randomUUID === "function"
-  ) {
-    return crypto.randomUUID();
+  const g = globalThis as { crypto?: { randomUUID?: () => string } };
+  if (typeof g.crypto?.randomUUID === 'function') {
+    return g.crypto.randomUUID();
   }
   return `h_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 };
@@ -104,7 +100,7 @@ const generateId = (): string => {
  * (engine truth). Practice attempts do not change stored progress — mastery
  * before and after match — but accuracy/fluency still reflect the retry for
  * display. Each entry carries `stabilityBreakdown` and mastery before/after
- * for the sidebar.
+ * for the sidebar or other consumers.
  *
  * @param completedLessonCount Lessons fully completed before this lesson run;
  *   must match the value passed into `useLessonSession` / the session engine.
@@ -134,93 +130,93 @@ export const useSessionHistory = (
 
   const onPhraseEvent = useCallback(
     (event: PhraseEvent, ctx: PhraseEventContext): void => {
-    const phrase = phraseRef.current;
-    if (!phrase) return;
+      const phrase = phraseRef.current;
+      if (!phrase) return;
 
-    const reduceCtx: ReduceProgressContext = {
-      completedLessonCount: completedLessonCountRef.current,
-    };
-    const prevProgress = progressByPhraseRef.current.get(phrase.id) ?? null;
-    const nextProgress = reduceProgress(prevProgress, event, reduceCtx);
-    progressByPhraseRef.current.set(phrase.id, nextProgress);
-
-    const stabilityBefore = prevProgress?.stabilityScore ?? 0;
-    const masteryBefore = prevProgress?.masteryScore ?? 0;
-    const masteryAfter = nextProgress.masteryScore;
-
-    let stabilityBreakdown: StabilityBreakdownSnapshot;
-    if (event.eventType === "attempt") {
-      stabilityBreakdown = {
-        kind: "attempt_ema",
-        before: stabilityBefore,
-        after: nextProgress.stabilityScore,
-        emaInput: event.isAccuracySuccess ? 1 : 0,
+      const reduceCtx: ReduceProgressContext = {
+        completedLessonCount: completedLessonCountRef.current,
       };
-    } else if (event.eventType === "reveal") {
-      stabilityBreakdown = {
-        kind: "reveal_decay",
-        before: stabilityBefore,
-        after: nextProgress.stabilityScore,
-      };
-    } else {
-      stabilityBreakdown = {
-        kind: "practice_unchanged",
-        before: stabilityBefore,
-        after: nextProgress.stabilityScore,
-      };
-    }
+      const prevProgress = progressByPhraseRef.current.get(phrase.id) ?? null;
+      const nextProgress = reduceProgress(prevProgress, event, reduceCtx);
+      progressByPhraseRef.current.set(phrase.id, nextProgress);
 
-    let scoreSummary: ScoreSummary | null = null;
-    if (event.eventType === "attempt") {
-      scoreSummary = {
-        accuracy: event.accuracyScore,
-        fluency: event.fluencyScore,
-        mastery: masteryAfter,
-        isAccuracySuccess: event.isAccuracySuccess,
-      };
-    } else if (event.eventType === "practice") {
-      const acc = event.accuracyBreakdown.accuracy;
-      scoreSummary = {
-        accuracy: acc,
-        fluency: event.fluencyScore,
-        mastery: masteryAfter,
-        isAccuracySuccess: isAccuracySuccess(acc),
-      };
-    }
+      const stabilityBefore = prevProgress?.stabilityScore ?? 0;
+      const masteryBefore = prevProgress?.masteryScore ?? 0;
+      const masteryAfter = nextProgress.masteryScore;
 
-    const slotsAheadAtEvent = ctx.slotsAheadAtEvent;
+      let stabilityBreakdown: StabilityBreakdownSnapshot;
+      if (event.eventType === 'attempt') {
+        stabilityBreakdown = {
+          kind: 'attempt_ema',
+          before: stabilityBefore,
+          after: nextProgress.stabilityScore,
+          emaInput: event.isAccuracySuccess ? 1 : 0,
+        };
+      } else if (event.eventType === 'reveal') {
+        stabilityBreakdown = {
+          kind: 'reveal_decay',
+          before: stabilityBefore,
+          after: nextProgress.stabilityScore,
+        };
+      } else {
+        stabilityBreakdown = {
+          kind: 'practice_unchanged',
+          before: stabilityBefore,
+          after: nextProgress.stabilityScore,
+        };
+      }
 
-    if (getDefaultLearningPipelineDebug()) {
-      const transcriptStr =
-        event.eventType === "reveal"
-          ? ""
-          : (event as { transcript: string[] }).transcript.join(" ");
-      logSessionHistoryAppend({
-        eventType: event.eventType,
-        phraseId: phrase.id,
-        transcriptPreview: transcriptStr,
+      let scoreSummary: ScoreSummary | null = null;
+      if (event.eventType === 'attempt') {
+        scoreSummary = {
+          accuracy: event.accuracyScore,
+          fluency: event.fluencyScore,
+          mastery: masteryAfter,
+          isAccuracySuccess: event.isAccuracySuccess,
+        };
+      } else if (event.eventType === 'practice') {
+        const acc = event.accuracyBreakdown.accuracy;
+        scoreSummary = {
+          accuracy: acc,
+          fluency: event.fluencyScore,
+          mastery: masteryAfter,
+          isAccuracySuccess: isAccuracySuccess(acc),
+        };
+      }
+
+      const slotsAheadAtEvent = ctx.slotsAheadAtEvent;
+
+      if (getDefaultLearningPipelineDebug()) {
+        const transcriptStr =
+          event.eventType === 'reveal'
+            ? ''
+            : (event as { transcript: string[] }).transcript.join(' ');
+        logSessionHistoryAppend({
+          eventType: event.eventType,
+          phraseId: phrase.id,
+          transcriptPreview: transcriptStr,
+          dueOnLessonSessionIndex: nextProgress.dueOnLessonSessionIndex,
+          slotsSessionLog: ctx.slotsAheadAtEvent,
+          slotsSessionNow: ctx.liveSlotsAhead,
+        });
+      }
+
+      const entry: HistoryEntry = {
+        id: generateId(),
+        event,
+        phrase,
+        scoreSummary,
+        stabilityBreakdown,
+        masteryBefore,
+        masteryAfter,
+        isRepeatedPresentation: currentIsRepeatRef.current,
         dueOnLessonSessionIndex: nextProgress.dueOnLessonSessionIndex,
-        slotsSessionLog: ctx.slotsAheadAtEvent,
-        slotsSessionNow: ctx.liveSlotsAhead,
-      });
-    }
+        slotsAheadAtEvent,
+      };
 
-    const entry: HistoryEntry = {
-      id: generateId(),
-      event,
-      phrase,
-      scoreSummary,
-      stabilityBreakdown,
-      masteryBefore,
-      masteryAfter,
-      isRepeatedPresentation: currentIsRepeatRef.current,
-      dueOnLessonSessionIndex: nextProgress.dueOnLessonSessionIndex,
-      slotsAheadAtEvent,
-    };
-
-    setHistory((prev) => [...prev, entry]);
-  },
-  [],
+      setHistory((prev) => [...prev, entry]);
+    },
+    [],
   );
 
   const bindCurrentPhrase = useCallback(

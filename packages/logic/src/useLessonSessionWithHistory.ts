@@ -1,24 +1,25 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { Phrase } from './types';
+import type { PhraseEvent } from './events';
 import {
   useLessonSession as useCoreLessonSession,
-  type Phrase,
-  type PhraseEvent,
   type PhraseEventContext,
   type UseLessonSessionResult as CoreUseLessonSessionResult,
-} from "@ai-spanish/logic";
+} from './useLessonSession';
 import {
   useSessionHistory,
   type HistoryEntry,
   type UseSessionHistoryResult,
-} from "./useSessionHistory";
+} from './useSessionHistory';
 
-export interface UseLessonSessionResult extends CoreUseLessonSessionResult {
-  /** Session history plumbing surfaced for the sidebar. */
+export interface UseLessonSessionWithHistoryResult
+  extends CoreUseLessonSessionResult {
+  /** Session history: in-memory log for debug UI or future surfaces. */
   history: HistoryEntry[];
-  clearHistory: UseSessionHistoryResult["clearHistory"];
-  bindCurrentPhrase: UseSessionHistoryResult["bindCurrentPhrase"];
+  clearHistory: UseSessionHistoryResult['clearHistory'];
+  bindCurrentPhrase: UseSessionHistoryResult['bindCurrentPhrase'];
   /**
    * Lessons fully completed before this run. Bumps once when the queue drains;
    * pass to session history / sidebar for SRS copy. Persist between visits in
@@ -28,14 +29,12 @@ export interface UseLessonSessionResult extends CoreUseLessonSessionResult {
 }
 
 /**
- * Web-specific lesson host hook. Composes the shared `useLessonSession`
- * core (engine + progress store) with the local `useSessionHistory` so the
- * sidebar can observe every phrase event. The mobile app uses the core
- * hook directly without history plumbing.
+ * Lesson host hook: composes `useLessonSession` with `useSessionHistory` so
+ * every phrase event is mirrored into `history` (web sidebar, mobile, etc.).
  */
-export const useLessonSession = (
+export const useLessonSessionWithHistory = (
   deck: Phrase[],
-): UseLessonSessionResult => {
+): UseLessonSessionWithHistoryResult => {
   const [completedLessonCount, setCompletedLessonCount] = useState(0);
   const lessonCompletionHandledRef = useRef(false);
   const {

@@ -92,8 +92,8 @@ export interface UseLessonSessionResult {
 /**
  * Core session hook shared by web + mobile. Owns the session engine +
  * in-memory progress store for a given deck, and exposes the slim surface
- * `usePhraseDisplay` needs. Session-history / sidebar plumbing lives in a
- * web-only wrapper that composes this hook.
+ * `usePhraseDisplay` needs. For a per-event `HistoryEntry` log (sidebar,
+ * debug), compose with `useLessonSessionWithHistory`.
  */
 export const useLessonSession = (
   deck: Phrase[],

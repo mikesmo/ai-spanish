@@ -43,6 +43,15 @@ export type {
   UseLessonSessionOptions,
   UseLessonSessionResult,
 } from './useLessonSession';
+export { useSessionHistory } from './useSessionHistory';
+export type {
+  HistoryEntry,
+  ScoreSummary,
+  StabilityBreakdownSnapshot,
+  UseSessionHistoryResult,
+} from './useSessionHistory';
+export { useLessonSessionWithHistory } from './useLessonSessionWithHistory';
+export type { UseLessonSessionWithHistoryResult } from './useLessonSessionWithHistory';
 export {
   getDefaultLearningPipelineDebug,
   logSessionHistoryAppend,
