@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+  </head>
+  <body>
+    <h3>Play Sound</h3>
+
+    <button onclick="playSound()">▶ Play</button>
+
+    <script>
+      function playSound() {
+        const url = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3";
+
+        const audio = new Audio(url);
+        audio.play();
+      }
+    </script>
+  </body>
+</html>
