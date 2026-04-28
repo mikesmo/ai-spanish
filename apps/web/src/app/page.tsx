@@ -1,5 +1,6 @@
 import { lessons } from "@ai-spanish/logic";
 import Link from "next/link";
+import { SignOutButton } from "./components/SignOutButton";
 
 const isDev = process.env.NODE_ENV === "development";
 
@@ -7,9 +8,15 @@ export default function Home(): JSX.Element {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-white">
       <main className="w-full max-w-[390px] mx-auto px-8 py-16">
-        <h1 className="text-2xl font-semibold text-gray-900 text-center mb-2">
-          AI Spanish
-        </h1>
+        <div className="mb-2 flex w-full items-center justify-between gap-3">
+          <span className="w-14 shrink-0" aria-hidden />
+          <h1 className="flex-1 text-center text-2xl font-semibold text-gray-900">
+            AI Spanish
+          </h1>
+          <div className="flex w-14 shrink-0 justify-end">
+            <SignOutButton />
+          </div>
+        </div>
         <p className="text-sm text-gray-500 text-center mb-10">
           Choose a lesson to practice
         </p>

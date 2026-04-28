@@ -7,6 +7,7 @@ import {
   getLatestCheckpoint,
   setLatestCheckpoint,
 } from '@/lib/sessionHistoryStore';
+import { assertApiUser } from '@/lib/auth/assert-api-user';
 
 const DEV_ONLY = NextResponse.json(
   { error: 'Not found' },
@@ -17,6 +18,9 @@ const lessonIdSchema = z.string().min(1);
 
 export async function POST(request: NextRequest) {
   if (process.env.NODE_ENV !== 'development') return DEV_ONLY;
+
+  const auth = await assertApiUser();
+  if (!auth.ok) return auth.response;
 
   let body: unknown;
   try {
@@ -66,6 +70,9 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   if (process.env.NODE_ENV !== 'development') return DEV_ONLY;
+
+  const auth = await assertApiUser();
+  if (!auth.ok) return auth.response;
 
   const lesson = request.nextUrl.searchParams.get('lesson');
   if (!lesson || lesson.trim() === '') {

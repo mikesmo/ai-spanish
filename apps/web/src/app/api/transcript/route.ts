@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { assertApiUser } from '@/lib/auth/assert-api-user';
 
 const DEFAULT_LESSON = '1';
 const VALID_LESSON_IDS = new Set(['1', '2']);
@@ -13,6 +14,9 @@ function resolveLessonId(raw: string | null): string {
 }
 
 export async function GET(request: NextRequest) {
+  const auth = await assertApiUser();
+  if (!auth.ok) return auth.response;
+
   try {
     const lessonId = resolveLessonId(
       request.nextUrl.searchParams.get('lesson'),

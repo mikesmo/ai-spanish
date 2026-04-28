@@ -6,6 +6,7 @@ import {
   normalizeAudioContentPrefix,
   normalizeLessonSegment,
 } from '@ai-spanish/logic';
+import { assertApiUser } from '@/lib/auth/assert-api-user';
 
 /**
  * Allowed segment values — must stay in sync with tts-batch parser job id formula:
@@ -29,13 +30,12 @@ function isAllowedSegment(s: string): s is Segment {
  * Returns a short-lived presigned S3 URL for the requested audio clip.
  * The S3 key is derived as: {prefix}[/{lesson}]/audio/{phrase}-{segment}.mp3
  *
- * AUTH PLACEHOLDER: No authentication is enforced in this development phase.
- * TODO: When Supabase Auth (or another auth provider) is ready, validate the
- * session JWT here before generating the presigned URL, e.g.:
- *   const session = await getServerSession(request);
- *   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+ * Requires a valid Supabase session (see middleware and assertApiUser).
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
+  const auth = await assertApiUser();
+  if (!auth.ok) return auth.response;
+
   const { searchParams } = request.nextUrl;
   const phraseRaw = searchParams.get('phrase');
   const segment = searchParams.get('segment');

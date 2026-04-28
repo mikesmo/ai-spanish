@@ -1,5 +1,6 @@
 import { DeepgramError, createClient } from "@deepgram/sdk";
 import { NextResponse, type NextRequest } from "next/server";
+import { assertApiUser } from "@/lib/auth/assert-api-user";
 
 export const revalidate = 0;
 
@@ -10,6 +11,9 @@ export async function GET(request: NextRequest) {
       key: process.env.DEEPGRAM_API_KEY ?? "",
     });
   }
+
+  const auth = await assertApiUser();
+  if (!auth.ok) return auth.response;
 
   // gotta use the request object to invalidate the cache every request :vomit:
   const url = request.url;
