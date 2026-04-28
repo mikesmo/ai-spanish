@@ -140,7 +140,7 @@
     "index": 6,
     "English": {
       "first-intro": "Listen and repeat the word for 'English.'",
-      "second-intro": "How do you say 'English'",
+      "second-intro": "How do you say the word for 'English'",
       "question": "English"
     },
     "Spanish": {
@@ -1182,8 +1182,8 @@
     "name": "usted-es",
     "index": 44,
     "English": {
-      "first-intro": "How would you say 'You are'—subject and verb together?",
-      "second-intro": "How do you say 'You are'",
+      "first-intro": "How would you say in a formal manner: 'You are'",
+      "second-intro": "How do you say formally 'You are'",
       "question": "You are"
     },
     "Spanish": {
@@ -1208,7 +1208,7 @@
     "name": "usted-es-britanico",
     "index": 45,
     "English": {
-      "first-intro": "How she state 'You are British'?",
+      "first-intro": "How would she say 'You are British'?",
       "second-intro": "How does she say 'You are British'",
       "question": "You are British"
     },

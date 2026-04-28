@@ -30,14 +30,6 @@ export function buildTtsJobs(phrases: Phrase[]): TtsJob[] {
         voice: getVoiceForLanguage('en'),
       });
     }
-    if (isNonEmpty(phrase.English.question)) {
-      jobs.push({
-        id: `${i}-en-question`,
-        language: 'en',
-        text: phrase.English.question,
-        voice: getVoiceForLanguage('en'),
-      });
-    }
     if (isNonEmpty(phrase.Spanish.answer)) {
       jobs.push({
         id: `${i}-es-answer`,
