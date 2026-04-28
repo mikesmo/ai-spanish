@@ -1,6 +1,6 @@
 function onOpen() {
   SpreadsheetApp.getUi()
-    .createMenu("Audio Player")
+    .createMenu("AI Spanish")
     .addItem("Open Sidebar", "showSidebar")
     .addToUi();
 }
