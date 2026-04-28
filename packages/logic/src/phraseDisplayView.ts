@@ -38,11 +38,11 @@ export type UserRecordingViewModel = {
 };
 
 /**
- * The smallest N distinct {@link Phrase.order} values present in `deck` (lesson file order).
+ * The smallest N distinct {@link Phrase.index} values present in `deck` (lesson file order).
  */
 export function getFirstNLessonOrdersInDeck(deck: Phrase[], phraseCount: number): Set<number> {
   if (phraseCount <= 0 || deck.length === 0) return new Set();
-  const sortedUnique = [...new Set(deck.map((p) => p.order))].sort((a, b) => a - b);
+  const sortedUnique = [...new Set(deck.map((p) => p.index))].sort((a, b) => a - b);
   return new Set(sortedUnique.slice(0, phraseCount));
 }
 
@@ -69,7 +69,7 @@ export function getUserRecordingViewModel(input: {
   const showSpanishTranslation = getFirstNLessonOrdersInDeck(
     lessonDeck,
     SPANISH_ON_RECORDING_FIRST_PHRASE_COUNT,
-  ).has(currentPhrase.order);
+  ).has(currentPhrase.index);
   return {
     englishText: currentPhrase.English.question,
     spanishLine:

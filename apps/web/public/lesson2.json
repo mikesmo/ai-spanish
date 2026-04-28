@@ -1,39 +1,39 @@
 [
   {
-    "id": "donde-se-pueden-comprar-manzanas",
-    "order": 0,
+    "index": 0,
+    "name": "juego-a-videojuegos-de-futbol",
     "type": "new",
     "English": {
-      "first-intro": "You ask someone: 'Where can apples be bought?'",
-      "second-intro": "How would you ask someone: 'Where can apples be bought?'",
-      "question": "Where can apples be bought?"
+      "first-intro": "You are an American tourist visiting Spain, chatting with your friend Miguel about football and family. He is curious about what you watch and play back home. Here is how you say: I play football video games",
+      "second-intro": "Say: I play football video games",
+      "question": "I play football video games"
     },
     "Spanish": {
-      "grammar": "",
-      "answer": "¿Dónde se pueden comprar manzanas?",
+      "grammar": "present tense",
+      "answer": "Juego a videojuegos de fútbol",
       "words": [
         {
-          "word": "dónde",
-          "type": "adverb",
-          "weight": 1.5
-        },
-        {
-          "word": "se",
-          "type": "pronoun",
-          "weight": 1.5
-        },
-        {
-          "word": "pueden",
+          "word": "Juego",
           "type": "verb",
-          "weight": 3
+          "weight": 3.0
         },
         {
-          "word": "comprar",
-          "type": "verb",
-          "weight": 3
+          "word": "a",
+          "type": "preposition",
+          "weight": 1.0
         },
         {
-          "word": "manzanas",
+          "word": "videojuegos",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "de",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "fútbol",
           "type": "noun",
           "weight": 2.5
         }
@@ -41,32 +41,1366 @@
     }
   },
   {
-    "id": "puedes-comprarlas-en-la-tienda-de-comestibles",
-    "order": 1,
-    "type": "combination",
+    "index": 1,
+    "name": "yo-tambien-veo-el-futbol-en-la-tele-de-vez-en-cuando",
+    "type": "new",
     "English": {
-      "first-intro": "They respond: 'You can buy them at the grocery store'",
-      "second-intro": "How would they respond: 'You can buy them at the grocery store'",
-      "question": "You can buy them at the grocery store"
+      "first-intro": "You also want to tell Miguel about your football habits. Listen and repeat: I also watch football on TV from time to time",
+      "second-intro": "Say: I also watch football on TV from time to time",
+      "question": "I also watch football on TV from time to time"
     },
     "Spanish": {
-      "grammar": "",
-      "answer": "Puedes comprarlas en la tienda de comestibles",
+      "grammar": "present tense, también / tampoco",
+      "answer": "Yo también veo el fútbol en la tele de vez en cuando",
       "words": [
         {
-          "word": "puedes",
-          "type": "verb",
-          "weight": 3
+          "word": "Yo",
+          "type": "pronoun",
+          "weight": 1.5
         },
         {
-          "word": "comprarlas",
+          "word": "también",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "veo",
           "type": "verb",
-          "weight": 3
+          "weight": 3.0
+        },
+        {
+          "word": "el",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "fútbol",
+          "type": "noun",
+          "weight": 2.5
         },
         {
           "word": "en",
           "type": "preposition",
-          "weight": 1
+          "weight": 1.0
+        },
+        {
+          "word": "la",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "tele",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "de",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "vez",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "en",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "cuando",
+          "type": "conjunction",
+          "weight": 1.0
+        }
+      ]
+    }
+  },
+  {
+    "index": 2,
+    "name": "mi-hijo-a-menudo-ve-el-futbol-conmigo",
+    "type": "combination",
+    "English": {
+      "first-intro": "Now put it together, how would you say: my son often watches football with me",
+      "second-intro": "Now try to say: my son often watches football with me",
+      "question": "my son often watches football with me"
+    },
+    "Spanish": {
+      "grammar": "present tense, possessive adjective",
+      "answer": "Mi hijo a menudo ve el fútbol conmigo",
+      "words": [
+        {
+          "word": "Mi",
+          "type": "determiner",
+          "weight": 0.5
+        },
+        {
+          "word": "hijo",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "a",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "menudo",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "ve",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "el",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "fútbol",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "conmigo",
+          "type": "pronoun",
+          "weight": 1.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 3,
+    "name": "verlo",
+    "type": "new",
+    "English": {
+      "first-intro": "This is the phrase for: to watch it",
+      "second-intro": "How do you say: to watch it",
+      "question": "to watch it"
+    },
+    "Spanish": {
+      "grammar": "infinitive + object pronoun",
+      "answer": "Verlo",
+      "words": [
+        {
+          "word": "Verlo",
+          "type": "verb",
+          "weight": 3.0
+        }
+      ]
+    }
+  },
+  {
+    "index": 4,
+    "name": "nos-gusta-verlo-juntos",
+    "type": "combination",
+    "English": {
+      "first-intro": "Using what you have learned, tell Miguel: we like to watch it together",
+      "second-intro": "Put it together: we like to watch it together",
+      "question": "we like to watch it together"
+    },
+    "Spanish": {
+      "grammar": "gustar with indirect object, infinitive + object pronoun",
+      "answer": "Nos gusta verlo juntos",
+      "words": [
+        {
+          "word": "Nos",
+          "type": "pronoun",
+          "weight": 1.5
+        },
+        {
+          "word": "gusta",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "verlo",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "juntos",
+          "type": "adverb",
+          "weight": 1.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 5,
+    "name": "y-juego-a-videojuegos-de-futbol-con-mi-hijo",
+    "type": "combination",
+    "English": {
+      "first-intro": "Add what you do with your son, how would you say: and I play football video games with my son",
+      "second-intro": "Add: and I play football video games with my son",
+      "question": "and I play football video games with my son"
+    },
+    "Spanish": {
+      "grammar": "present tense",
+      "answer": "Y juego a videojuegos de fútbol con mi hijo",
+      "words": [
+        {
+          "word": "Y",
+          "type": "conjunction",
+          "weight": 1.0
+        },
+        {
+          "word": "juego",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "a",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "videojuegos",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "de",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "fútbol",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "con",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "mi",
+          "type": "determiner",
+          "weight": 0.5
+        },
+        {
+          "word": "hijo",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 6,
+    "name": "es-popular-en-estados-unidos",
+    "type": "new",
+    "English": {
+      "first-intro": "Miguel asks about football back home. Here is the question: is it popular in the United States?",
+      "second-intro": "Ask: is it popular in the United States?",
+      "question": "is it popular in the United States?"
+    },
+    "Spanish": {
+      "grammar": "question word, present tense",
+      "answer": "¿Es popular en Estados Unidos?",
+      "words": [
+        {
+          "word": "Es",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "popular",
+          "type": "adjective",
+          "weight": 2.0
+        },
+        {
+          "word": "en",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "Estados",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "Unidos",
+          "type": "adjective",
+          "weight": 2.0
+        }
+      ]
+    }
+  },
+  {
+    "index": 7,
+    "name": "no-tan-popular-como-aqui",
+    "type": "combination",
+    "English": {
+      "first-intro": "Answer him by comparing the two places: not as popular as here",
+      "second-intro": "Answer him: not as popular as here",
+      "question": "not as popular as here"
+    },
+    "Spanish": {
+      "grammar": "negation, tan ... como",
+      "answer": "No tan popular como aquí",
+      "words": [
+        {
+          "word": "No",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "tan",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "popular",
+          "type": "adjective",
+          "weight": 2.0
+        },
+        {
+          "word": "como",
+          "type": "conjunction",
+          "weight": 1.0
+        },
+        {
+          "word": "aquí",
+          "type": "adverb",
+          "weight": 1.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 8,
+    "name": "y-a-tu-sobrino-menor",
+    "type": "new",
+    "English": {
+      "first-intro": "Miguel shifts to your family and asks about your younger nephew: and what about your younger nephew?",
+      "second-intro": "Ask: and what about your younger nephew?",
+      "question": "and what about your younger nephew?"
+    },
+    "Spanish": {
+      "grammar": "question word, a + person clarifier, comparative menor/mayor",
+      "answer": "¿Y a tu sobrino menor?",
+      "words": [
+        {
+          "word": "Y",
+          "type": "conjunction",
+          "weight": 1.0
+        },
+        {
+          "word": "a",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "tu",
+          "type": "determiner",
+          "weight": 0.5
+        },
+        {
+          "word": "sobrino",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "menor",
+          "type": "adjective",
+          "weight": 2.0
+        }
+      ]
+    }
+  },
+  {
+    "index": 9,
+    "name": "a-el-le-gusta",
+    "type": "new",
+    "English": {
+      "first-intro": "He follows up about your nephew, asking: does he like (it)?",
+      "second-intro": "Ask about him: does he like (it)?",
+      "question": "does he like (it)?"
+    },
+    "Spanish": {
+      "grammar": "question word, a + person clarifier, gustar with indirect object",
+      "answer": "¿A él le gusta?",
+      "words": [
+        {
+          "word": "A",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "él",
+          "type": "pronoun",
+          "weight": 1.5
+        },
+        {
+          "word": "le",
+          "type": "pronoun",
+          "weight": 1.5
+        },
+        {
+          "word": "gusta",
+          "type": "verb",
+          "weight": 3.0
+        }
+      ]
+    }
+  },
+  {
+    "index": 10,
+    "name": "a-el-le-gusta-el-futbol",
+    "type": "combination",
+    "English": {
+      "first-intro": "Now make the question specific, how would you ask: does he like football?",
+      "second-intro": "Ask: does he like football?",
+      "question": "does he like football?"
+    },
+    "Spanish": {
+      "grammar": "question word, a + person clarifier, gustar with indirect object",
+      "answer": "¿A él le gusta el fútbol?",
+      "words": [
+        {
+          "word": "A",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "él",
+          "type": "pronoun",
+          "weight": 1.5
+        },
+        {
+          "word": "le",
+          "type": "pronoun",
+          "weight": 1.5
+        },
+        {
+          "word": "gusta",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "el",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "fútbol",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 11,
+    "name": "no-juega-al-futbol",
+    "type": "combination",
+    "English": {
+      "first-intro": "Tell Miguel the answer about your younger nephew: he doesn’t play football",
+      "second-intro": "Say: he doesn’t play football",
+      "question": "he doesn’t play football"
+    },
+    "Spanish": {
+      "grammar": "negation, present tense",
+      "answer": "No juega al fútbol",
+      "words": [
+        {
+          "word": "No",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "juega",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "al",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "fútbol",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 12,
+    "name": "lo-ve-en-la-tele",
+    "type": "combination",
+    "English": {
+      "first-intro": "Add what he does instead: he watches it on TV",
+      "second-intro": "Say: he watches it on TV",
+      "question": "he watches it on TV"
+    },
+    "Spanish": {
+      "grammar": "direct object pronoun, present tense",
+      "answer": "Lo ve en la tele",
+      "words": [
+        {
+          "word": "Lo",
+          "type": "pronoun",
+          "weight": 1.5
+        },
+        {
+          "word": "ve",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "en",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "la",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "tele",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 13,
+    "name": "pero-a-menudo-lo-ve-en-la-tele",
+    "type": "combination",
+    "English": {
+      "first-intro": "Now include the contrast and frequency: but he often watches it on TV",
+      "second-intro": "Add the contrast: but he often watches it on TV",
+      "question": "but he often watches it on TV"
+    },
+    "Spanish": {
+      "grammar": "direct object pronoun, present tense",
+      "answer": "Pero a menudo lo ve en la tele",
+      "words": [
+        {
+          "word": "Pero",
+          "type": "conjunction",
+          "weight": 1.0
+        },
+        {
+          "word": "a",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "menudo",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "lo",
+          "type": "pronoun",
+          "weight": 1.5
+        },
+        {
+          "word": "ve",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "en",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "la",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "tele",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 14,
+    "name": "ahora-mismo-mi-sobrino-mayor-esta-viendo-un-partido-de-futbol-en-la-tele",
+    "type": "new",
+    "English": {
+      "first-intro": "Your older nephew is watching a match right now. Here is how you say: right now my older nephew is watching a football match on TV",
+      "second-intro": "Say: right now my older nephew is watching a football match on TV",
+      "question": "right now my older nephew is watching a football match on TV"
+    },
+    "Spanish": {
+      "grammar": "estar + gerund, possessive adjective, comparative menor/mayor",
+      "answer": "Ahora mismo, mi sobrino mayor está viendo un partido de fútbol en la tele",
+      "words": [
+        {
+          "word": "Ahora",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "mismo",
+          "type": "adjective",
+          "weight": 2.0
+        },
+        {
+          "word": "mi",
+          "type": "determiner",
+          "weight": 0.5
+        },
+        {
+          "word": "sobrino",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "mayor",
+          "type": "adjective",
+          "weight": 2.0
+        },
+        {
+          "word": "está",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "viendo",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "un",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "partido",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "de",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "fútbol",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "en",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "la",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "tele",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 15,
+    "name": "lo-esta-viendo",
+    "type": "combination",
+    "English": {
+      "first-intro": "Shorten that idea and say: he is watching it",
+      "second-intro": "Say: he is watching it",
+      "question": "he is watching it"
+    },
+    "Spanish": {
+      "grammar": "estar + gerund, direct object pronoun",
+      "answer": "Lo está viendo",
+      "words": [
+        {
+          "word": "Lo",
+          "type": "pronoun",
+          "weight": 1.5
+        },
+        {
+          "word": "está",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "viendo",
+          "type": "verb",
+          "weight": 3.0
+        }
+      ]
+    }
+  },
+  {
+    "index": 16,
+    "name": "y-el-menor-tambien-ve-mucho-futbol",
+    "type": "combination",
+    "English": {
+      "first-intro": "Add what the younger one does too: and the younger one also watches a lot of football",
+      "second-intro": "Add: and the younger one also watches a lot of football",
+      "question": "and the younger one also watches a lot of football"
+    },
+    "Spanish": {
+      "grammar": "present tense, también / tampoco, comparative menor/mayor",
+      "answer": "Y el menor también ve mucho fútbol",
+      "words": [
+        {
+          "word": "Y",
+          "type": "conjunction",
+          "weight": 1.0
+        },
+        {
+          "word": "el",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "menor",
+          "type": "adjective",
+          "weight": 2.0
+        },
+        {
+          "word": "también",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "ve",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "mucho",
+          "type": "adjective",
+          "weight": 2.0
+        },
+        {
+          "word": "fútbol",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 17,
+    "name": "un-equipo",
+    "type": "new",
+    "English": {
+      "first-intro": "You and Miguel are now browsing a sports shop for football shirts. The first item to name is: a team",
+      "second-intro": "How do you say: a team",
+      "question": "a team"
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "Un equipo",
+      "words": [
+        {
+          "word": "Un",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "equipo",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 18,
+    "name": "un-equipo-de-futbol",
+    "type": "combination",
+    "English": {
+      "first-intro": "Build on that phrase, how would you say: a football team",
+      "second-intro": "Say: a football team",
+      "question": "a football team"
+    },
+    "Spanish": {
+      "grammar": "de + noun",
+      "answer": "Un equipo de fútbol",
+      "words": [
+        {
+          "word": "Un",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "equipo",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "de",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "fútbol",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 19,
+    "name": "una-camiseta-de-un-equipo-de-futbol",
+    "type": "combination",
+    "English": {
+      "first-intro": "Now put the idea into a shirt: the football team shirt",
+      "second-intro": "Say: the football team shirt",
+      "question": "the football team shirt"
+    },
+    "Spanish": {
+      "grammar": "de + noun",
+      "answer": "Una camiseta de un equipo de fútbol",
+      "words": [
+        {
+          "word": "Una",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "camiseta",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "de",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "un",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "equipo",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "de",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "fútbol",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 20,
+    "name": "donde-puedo-comprar-una-camiseta-de-un-equipo-de-futbol",
+    "type": "combination",
+    "English": {
+      "first-intro": "Ask Miguel where to buy it, how would you say: where can I buy a T-shirt of a football team?",
+      "second-intro": "Ask: where can I buy a T-shirt of a football team?",
+      "question": "where can I buy a T-shirt of a football team?"
+    },
+    "Spanish": {
+      "grammar": "question word, poder + infinitive, de + noun",
+      "answer": "¿Dónde puedo comprar una camiseta de un equipo de fútbol?",
+      "words": [
+        {
+          "word": "Dónde",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "puedo",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "comprar",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "una",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "camiseta",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "de",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "un",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "equipo",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "de",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "fútbol",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 21,
+    "name": "hay-una-tienda-de-articulos-deportivos",
+    "type": "new",
+    "English": {
+      "first-intro": "Miguel answers with a nearby option: there’s a sporting goods store",
+      "second-intro": "Say: there’s a sporting goods store",
+      "question": "there’s a sporting goods store"
+    },
+    "Spanish": {
+      "grammar": "hay, de + noun",
+      "answer": "Hay una tienda de artículos deportivos",
+      "words": [
+        {
+          "word": "Hay",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "una",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "tienda",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "de",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "artículos",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "deportivos",
+          "type": "adjective",
+          "weight": 2.0
+        }
+      ]
+    }
+  },
+  {
+    "index": 22,
+    "name": "a-solo-3-calles-de-aqui",
+    "type": "combination",
+    "English": {
+      "first-intro": "He adds how close it is: only three blocks from here",
+      "second-intro": "Add: only three blocks from here",
+      "question": "only three blocks from here"
+    },
+    "Spanish": {
+      "grammar": "de + noun",
+      "answer": "A solo 3 calles de aquí",
+      "words": [
+        {
+          "word": "A",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "solo",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "3",
+          "type": "determiner",
+          "weight": 0.5
+        },
+        {
+          "word": "calles",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "de",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "aquí",
+          "type": "adverb",
+          "weight": 1.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 23,
+    "name": "alli-puede-comprar-articulos-deportivos",
+    "type": "combination",
+    "English": {
+      "first-intro": "Miguel politely tells you what you can do there: there you can buy sporting goods",
+      "second-intro": "Say politely: there you can buy sporting goods",
+      "question": "there you can buy sporting goods"
+    },
+    "Spanish": {
+      "grammar": "poder + infinitive, present tense",
+      "answer": "Allí puede comprar artículos deportivos",
+      "words": [
+        {
+          "word": "Allí",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "puede",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "comprar",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "artículos",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "deportivos",
+          "type": "adjective",
+          "weight": 2.0
+        }
+      ]
+    }
+  },
+  {
+    "index": 24,
+    "name": "la-camiseta-de-un-equipo-de-futbol-es-para-mi-hijo-mayor",
+    "type": "new",
+    "English": {
+      "first-intro": "Explain who the shirt is for: the football team shirt is for my older son",
+      "second-intro": "Say: the football team shirt is for my older son",
+      "question": "the football team shirt is for my older son"
+    },
+    "Spanish": {
+      "grammar": "para + person, possessive adjective, comparative menor/mayor",
+      "answer": "La camiseta de un equipo de fútbol es para mi hijo mayor",
+      "words": [
+        {
+          "word": "La",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "camiseta",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "de",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "un",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "equipo",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "de",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "fútbol",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "es",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "para",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "mi",
+          "type": "determiner",
+          "weight": 0.5
+        },
+        {
+          "word": "hijo",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "mayor",
+          "type": "adjective",
+          "weight": 2.0
+        }
+      ]
+    }
+  },
+  {
+    "index": 25,
+    "name": "a-el-le-gusta-mucho-el-futbol",
+    "type": "combination",
+    "English": {
+      "first-intro": "Say why the shirt makes sense: he likes football a lot",
+      "second-intro": "Say: he likes football a lot",
+      "question": "he likes football a lot"
+    },
+    "Spanish": {
+      "grammar": "a + person clarifier, gustar with indirect object",
+      "answer": "A él le gusta mucho el fútbol",
+      "words": [
+        {
+          "word": "A",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "él",
+          "type": "pronoun",
+          "weight": 1.5
+        },
+        {
+          "word": "le",
+          "type": "pronoun",
+          "weight": 1.5
+        },
+        {
+          "word": "gusta",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "mucho",
+          "type": "adjective",
+          "weight": 2.0
+        },
+        {
+          "word": "el",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "fútbol",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 26,
+    "name": "quizas-pueda-comprar-algo",
+    "type": "combination",
+    "English": {
+      "first-intro": "You start thinking aloud, how would you say: maybe I can buy something",
+      "second-intro": "Try saying: maybe I can buy something",
+      "question": "maybe I can buy something"
+    },
+    "Spanish": {
+      "grammar": "subjunctive with quizás, poder + infinitive",
+      "answer": "Quizás pueda comprar algo",
+      "words": [
+        {
+          "word": "Quizás",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "pueda",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "comprar",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "algo",
+          "type": "pronoun",
+          "weight": 1.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 27,
+    "name": "quizas-pueda-comprar-algo-para-mi-hijo-menor",
+    "type": "new",
+    "English": {
+      "first-intro": "Now you think about your younger son, who has different interests. Try saying: maybe I can buy something for my younger son",
+      "second-intro": "Say: maybe I can buy something for my younger son",
+      "question": "maybe I can buy something for my younger son"
+    },
+    "Spanish": {
+      "grammar": "subjunctive with quizás, poder + infinitive, para + person",
+      "answer": "Quizás pueda comprar algo para mi hijo menor",
+      "words": [
+        {
+          "word": "Quizás",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "pueda",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "comprar",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "algo",
+          "type": "pronoun",
+          "weight": 1.5
+        },
+        {
+          "word": "para",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "mi",
+          "type": "determiner",
+          "weight": 0.5
+        },
+        {
+          "word": "hijo",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "menor",
+          "type": "adjective",
+          "weight": 2.0
+        }
+      ]
+    }
+  },
+  {
+    "index": 28,
+    "name": "quizas-haya",
+    "type": "new",
+    "English": {
+      "first-intro": "Here is a useful way to begin a guess: maybe there is",
+      "second-intro": "How do you say: maybe there is",
+      "question": "maybe there is"
+    },
+    "Spanish": {
+      "grammar": "subjunctive with quizás, hay",
+      "answer": "Quizás haya",
+      "words": [
+        {
+          "word": "Quizás",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "haya",
+          "type": "verb",
+          "weight": 3.0
+        }
+      ]
+    }
+  },
+  {
+    "index": 29,
+    "name": "quizas-haya-algo",
+    "type": "combination",
+    "English": {
+      "first-intro": "Extend that guess, how would you say: maybe there’s something",
+      "second-intro": "Say: maybe there’s something",
+      "question": "maybe there’s something"
+    },
+    "Spanish": {
+      "grammar": "subjunctive with quizás, hay",
+      "answer": "Quizás haya algo",
+      "words": [
+        {
+          "word": "Quizás",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "haya",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "algo",
+          "type": "pronoun",
+          "weight": 1.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 30,
+    "name": "en-la-tienda-de-articulos-deportivos",
+    "type": "combination",
+    "English": {
+      "first-intro": "Place the idea in the shop: in the sporting goods store",
+      "second-intro": "Say: in the sporting goods store",
+      "question": "in the sporting goods store"
+    },
+    "Spanish": {
+      "grammar": "de + noun",
+      "answer": "En la tienda de artículos deportivos",
+      "words": [
+        {
+          "word": "En",
+          "type": "preposition",
+          "weight": 1.0
         },
         {
           "word": "la",
@@ -81,170 +1415,426 @@
         {
           "word": "de",
           "type": "preposition",
-          "weight": 1
+          "weight": 1.0
         },
         {
-          "word": "comestibles",
+          "word": "artículos",
           "type": "noun",
           "weight": 2.5
+        },
+        {
+          "word": "deportivos",
+          "type": "adjective",
+          "weight": 2.0
         }
       ]
     }
   },
   {
-    "id": "no-esta-lejos",
-    "order": 2,
-    "type": "new",
+    "index": 31,
+    "name": "quizas-haya-algo-para-mi-hijo-menor",
+    "type": "combination",
     "English": {
-      "first-intro": "This is how you say 'It's not far'",
-      "second-intro": "Then, how would they say 'It's not far'",
-      "question": "It's not far"
+      "first-intro": "Put it all together for your younger son: maybe there’s something for my younger son",
+      "second-intro": "Put it together: maybe there’s something for my younger son",
+      "question": "maybe there’s something for my younger son"
     },
     "Spanish": {
-      "grammar": "",
-      "answer": "No está lejos",
+      "grammar": "subjunctive with quizás, hay, para + person",
+      "answer": "Quizás haya algo para mi hijo menor",
       "words": [
+        {
+          "word": "Quizás",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "haya",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "algo",
+          "type": "pronoun",
+          "weight": 1.5
+        },
+        {
+          "word": "para",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "mi",
+          "type": "determiner",
+          "weight": 0.5
+        },
+        {
+          "word": "hijo",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "menor",
+          "type": "adjective",
+          "weight": 2.0
+        }
+      ]
+    }
+  },
+  {
+    "index": 32,
+    "name": "a-el-no-le-gusta-el-futbol",
+    "type": "combination",
+    "English": {
+      "first-intro": "Clarify the reason, how would you say: as for him, he doesn’t like football",
+      "second-intro": "Say: as for him, he doesn’t like football",
+      "question": "as for him, he doesn’t like football"
+    },
+    "Spanish": {
+      "grammar": "negation, a + person clarifier, gustar with indirect object",
+      "answer": "A él no le gusta el fútbol",
+      "words": [
+        {
+          "word": "A",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "él",
+          "type": "pronoun",
+          "weight": 1.5
+        },
         {
           "word": "no",
           "type": "adverb",
           "weight": 1.5
         },
         {
-          "word": "está",
-          "type": "verb",
-          "weight": 3
+          "word": "le",
+          "type": "pronoun",
+          "weight": 1.5
         },
         {
-          "word": "lejos",
-          "type": "adverb",
-          "weight": 1.5
+          "word": "gusta",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "el",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "fútbol",
+          "type": "noun",
+          "weight": 2.5
         }
       ]
     }
   },
   {
-    "id": "tengo-que-ir-al-banco",
-    "order": 3,
-    "type": "new",
+    "index": 33,
+    "name": "a-el-no-le-gusta",
+    "type": "combination",
     "English": {
-      "first-intro": "How woudld you say: 'I have to go to the bank'",
-      "second-intro": "You now say 'I have to go to the bank'",
-      "question": "I have to go to the bank"
+      "first-intro": "Shorten the idea about him: he doesn’t like (it)",
+      "second-intro": "Say: he doesn’t like (it)",
+      "question": "he doesn’t like (it)"
+    },
+    "Spanish": {
+      "grammar": "negation, a + person clarifier, gustar with indirect object",
+      "answer": "A él no le gusta",
+      "words": [
+        {
+          "word": "A",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "él",
+          "type": "pronoun",
+          "weight": 1.5
+        },
+        {
+          "word": "no",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "le",
+          "type": "pronoun",
+          "weight": 1.5
+        },
+        {
+          "word": "gusta",
+          "type": "verb",
+          "weight": 3.0
+        }
+      ]
+    }
+  },
+  {
+    "index": 34,
+    "name": "pescar",
+    "type": "combination",
+    "English": {
+      "first-intro": "The hobby you want to mention is fishing. How would you say: to fish",
+      "second-intro": "How do you say: to fish",
+      "question": "to fish"
     },
     "Spanish": {
       "grammar": "",
-      "answer": "Tengo que ir al banco",
+      "answer": "Pescar",
       "words": [
         {
-          "word": "tengo",
+          "word": "Pescar",
           "type": "verb",
-          "weight": 3
-        },
+          "weight": 3.0
+        }
+      ]
+    }
+  },
+  {
+    "index": 35,
+    "name": "pero-le-gusta-pescar",
+    "type": "combination",
+    "English": {
+      "first-intro": "Add the contrast about your younger son: but he likes to fish",
+      "second-intro": "Add: but he likes to fish",
+      "question": "but he likes to fish"
+    },
+    "Spanish": {
+      "grammar": "gustar with indirect object, present tense",
+      "answer": "Pero le gusta pescar",
+      "words": [
         {
-          "word": "que",
+          "word": "Pero",
           "type": "conjunction",
-          "weight": 1
+          "weight": 1.0
         },
         {
-          "word": "ir",
+          "word": "le",
+          "type": "pronoun",
+          "weight": 1.5
+        },
+        {
+          "word": "gusta",
           "type": "verb",
-          "weight": 3
+          "weight": 3.0
         },
         {
-          "word": "al",
-          "type": "article",
-          "weight": 0.5
-        },
-        {
-          "word": "banco",
-          "type": "noun",
-          "weight": 2.5
+          "word": "pescar",
+          "type": "verb",
+          "weight": 3.0
         }
       ]
     }
   },
   {
-    "id": "necesito-enviar-una-carta",
-    "order": 4,
+    "index": 36,
+    "name": "para-pescar",
     "type": "new",
     "English": {
-      "first-intro": "You now say: 'I need to send a letter'",
-      "second-intro": "Say 'I need to send a letter'",
-      "question": "I need to send a letter"
+      "first-intro": "Here is the phrase you need for a fishing gift: for fishing",
+      "second-intro": "How do you say: for fishing",
+      "question": "for fishing"
     },
     "Spanish": {
-      "grammar": "",
-      "answer": "Necesito enviar una carta",
+      "grammar": "para + infinitive",
+      "answer": "Para pescar",
       "words": [
         {
-          "word": "necesito",
+          "word": "Para",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "pescar",
           "type": "verb",
-          "weight": 3
-        },
-        {
-          "word": "enviar",
-          "type": "verb",
-          "weight": 3
-        },
-        {
-          "word": "una",
-          "type": "article",
-          "weight": 0.5
-        },
-        {
-          "word": "carta",
-          "type": "noun",
-          "weight": 2.5
+          "weight": 3.0
         }
       ]
     }
   },
   {
-    "id": "ahora-mismo",
-    "order": 5,
-    "type": "new",
+    "index": 37,
+    "name": "quizas-haya-algo-para-pescar",
+    "type": "combination",
     "English": {
-      "first-intro": "This is how you say 'Right now'",
-      "second-intro": "Say 'Right now'",
-      "question": "Right now"
+      "first-intro": "Now say what the store might have: maybe there’s something for fishing",
+      "second-intro": "Try saying: maybe there’s something for fishing",
+      "question": "maybe there’s something for fishing"
     },
     "Spanish": {
-      "grammar": "",
-      "answer": "Ahora mismo",
+      "grammar": "subjunctive with quizás, hay, para + infinitive",
+      "answer": "Quizás haya algo para pescar",
       "words": [
         {
-          "word": "ahora",
+          "word": "Quizás",
           "type": "adverb",
           "weight": 1.5
         },
         {
-          "word": "mismo",
-          "type": "adjective",
-          "weight": 2
-        }
-      ]
-    }
-  },
-  {
-    "id": "quieres-algo",
-    "order": 6,
-    "type": "new",
-    "English": {
-      "first-intro": "You now ask: 'Do you want anything?'",
-      "second-intro": "How would you say: 'Do you want anything?'",
-      "question": "Do you want anything?"
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "¿Quieres algo?",
-      "words": [
-        {
-          "word": "quieres",
+          "word": "haya",
           "type": "verb",
-          "weight": 3
+          "weight": 3.0
         },
         {
           "word": "algo",
+          "type": "pronoun",
+          "weight": 1.5
+        },
+        {
+          "word": "para",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "pescar",
+          "type": "verb",
+          "weight": 3.0
+        }
+      ]
+    }
+  },
+  {
+    "index": 38,
+    "name": "nadar",
+    "type": "new",
+    "English": {
+      "first-intro": "Your daughter has her own hobby. Listen and repeat: to swim",
+      "second-intro": "How do you say: to swim",
+      "question": "to swim"
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "Nadar",
+      "words": [
+        {
+          "word": "Nadar",
+          "type": "verb",
+          "weight": 3.0
+        }
+      ]
+    }
+  },
+  {
+    "index": 39,
+    "name": "y-a-mi-hija-le-gusta-nadar",
+    "type": "combination",
+    "English": {
+      "first-intro": "Tell Miguel about your daughter: and my daughter likes to swim",
+      "second-intro": "Say: and my daughter likes to swim",
+      "question": "and my daughter likes to swim"
+    },
+    "Spanish": {
+      "grammar": "a + person clarifier, gustar with indirect object",
+      "answer": "Y a mi hija le gusta nadar",
+      "words": [
+        {
+          "word": "Y",
+          "type": "conjunction",
+          "weight": 1.0
+        },
+        {
+          "word": "a",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "mi",
+          "type": "determiner",
+          "weight": 0.5
+        },
+        {
+          "word": "hija",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "le",
+          "type": "pronoun",
+          "weight": 1.5
+        },
+        {
+          "word": "gusta",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "nadar",
+          "type": "verb",
+          "weight": 3.0
+        }
+      ]
+    }
+  },
+  {
+    "index": 40,
+    "name": "quizas-haya-algo-para-ella-tambien",
+    "type": "combination",
+    "English": {
+      "first-intro": "Say that the shop may have a gift for her as well: maybe there’s something for her too",
+      "second-intro": "Say: maybe there’s something for her too",
+      "question": "maybe there’s something for her too"
+    },
+    "Spanish": {
+      "grammar": "subjunctive with quizás, hay, para + person",
+      "answer": "Quizás haya algo para ella también",
+      "words": [
+        {
+          "word": "Quizás",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "haya",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "algo",
+          "type": "pronoun",
+          "weight": 1.5
+        },
+        {
+          "word": "para",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "ella",
+          "type": "pronoun",
+          "weight": 1.5
+        },
+        {
+          "word": "también",
+          "type": "adverb",
+          "weight": 1.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 41,
+    "name": "para-ella",
+    "type": "new",
+    "English": {
+      "first-intro": "Here is the short phrase: for her",
+      "second-intro": "How do you say: for her",
+      "question": "for her"
+    },
+    "Spanish": {
+      "grammar": "para + person",
+      "answer": "Para ella",
+      "words": [
+        {
+          "word": "Para",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "ella",
           "type": "pronoun",
           "weight": 1.5
         }
@@ -252,60 +1842,199 @@
     }
   },
   {
-    "id": "no-pero-te-recomiendo-que-te-lleves-la-chaqueta",
-    "order": 7,
-    "type": "combination",
+    "index": 42,
+    "name": "y-para-usted",
+    "type": "new",
     "English": {
-      "first-intro": "They respond: 'No, but I recommend you take your jacket'",
-      "second-intro": "How does the person respond: 'No, but I recommend you take your jacket'",
-      "question": "No, but I recommend you take your jacket"
+      "first-intro": "Miguel turns the question back to you politely: and for you?",
+      "second-intro": "Ask politely: and for you?",
+      "question": "and for you?"
+    },
+    "Spanish": {
+      "grammar": "question word",
+      "answer": "¿Y para usted?",
+      "words": [
+        {
+          "word": "Y",
+          "type": "conjunction",
+          "weight": 1.0
+        },
+        {
+          "word": "para",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "usted",
+          "type": "pronoun",
+          "weight": 1.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 43,
+    "name": "un-recuerdo",
+    "type": "new",
+    "English": {
+      "first-intro": "The shop reminds him of tourist gifts. Here is how you say: a souvenir",
+      "second-intro": "How do you say: a souvenir",
+      "question": "a souvenir"
     },
     "Spanish": {
       "grammar": "",
-      "answer": "No, pero te recomiendo que te lleves la chaqueta",
+      "answer": "Un recuerdo",
       "words": [
         {
-          "word": "no",
+          "word": "Un",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "recuerdo",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 44,
+    "name": "no-quiere-un-recuerdo-de-espana",
+    "type": "combination",
+    "English": {
+      "first-intro": "Miguel asks whether you want one, how would he say: don’t you want a souvenir of Spain?",
+      "second-intro": "Ask: don’t you want a souvenir of Spain?",
+      "question": "don’t you want a souvenir of Spain?"
+    },
+    "Spanish": {
+      "grammar": "question word, de + noun, negation",
+      "answer": "¿No quiere un recuerdo de España?",
+      "words": [
+        {
+          "word": "No",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "quiere",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "un",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "recuerdo",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "de",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "España",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 45,
+    "name": "quizas-una-foto-de-una-bailaora",
+    "type": "combination",
+    "English": {
+      "first-intro": "He suggests another souvenir idea: maybe a photo of a flamenco dancer?",
+      "second-intro": "Suggest: maybe a photo of a flamenco dancer?",
+      "question": "maybe a photo of a flamenco dancer?"
+    },
+    "Spanish": {
+      "grammar": "question word, de + noun",
+      "answer": "¿Quizás una foto de una bailaora?",
+      "words": [
+        {
+          "word": "Quizás",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "una",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "foto",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "de",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "una",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "bailaora",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 46,
+    "name": "no-pero-necesito-algo-para-mi-mujer",
+    "type": "combination",
+    "English": {
+      "first-intro": "Tell him no, because you are shopping for your wife: no, but I need something for my wife",
+      "second-intro": "Answer him: no, but I need something for my wife",
+      "question": "no, but I need something for my wife"
+    },
+    "Spanish": {
+      "grammar": "negation, present tense, para + person",
+      "answer": "No, pero necesito algo para mi mujer",
+      "words": [
+        {
+          "word": "No",
           "type": "adverb",
           "weight": 1.5
         },
         {
           "word": "pero",
           "type": "conjunction",
-          "weight": 1
+          "weight": 1.0
         },
         {
-          "word": "te",
+          "word": "necesito",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "algo",
           "type": "pronoun",
           "weight": 1.5
         },
         {
-          "word": "recomiendo",
-          "type": "verb",
-          "weight": 3
+          "word": "para",
+          "type": "preposition",
+          "weight": 1.0
         },
         {
-          "word": "que",
-          "type": "conjunction",
-          "weight": 1
-        },
-        {
-          "word": "te",
-          "type": "pronoun",
-          "weight": 1.5
-        },
-        {
-          "word": "lleves",
-          "type": "verb",
-          "weight": 3
-        },
-        {
-          "word": "la",
-          "type": "article",
+          "word": "mi",
+          "type": "determiner",
           "weight": 0.5
         },
         {
-          "word": "chaqueta",
+          "word": "mujer",
           "type": "noun",
           "weight": 2.5
         }
@@ -313,199 +2042,76 @@
     }
   },
   {
-    "id": "esta-nevando-mucho",
-    "order": 8,
+    "index": 47,
+    "name": "alcachofas-y-esparragos",
     "type": "new",
     "English": {
-      "first-intro": "This is how you say 'It's snowing a lot'",
-      "second-intro": "Then, how do they say 'It's snowing a lot'",
-      "question": "It's snowing a lot"
+      "first-intro": "The errand widens into dinner shopping at a market. The first groceries to name are: artichokes and asparagus",
+      "second-intro": "Say: artichokes and asparagus",
+      "question": "artichokes and asparagus"
     },
     "Spanish": {
       "grammar": "",
-      "answer": "Está nevando mucho",
+      "answer": "Alcachofas y espárragos",
       "words": [
         {
-          "word": "está",
-          "type": "verb",
-          "weight": 3
+          "word": "Alcachofas",
+          "type": "noun",
+          "weight": 2.5
         },
         {
-          "word": "nevando",
-          "type": "verb",
-          "weight": 3
-        },
-        {
-          "word": "mucho",
-          "type": "adverb",
-          "weight": 1.5
-        }
-      ]
-    }
-  },
-  {
-    "id": "me-viene-bien-porque",
-    "order": 9,
-    "type": "new",
-    "English": {
-      "first-intro": "You then tell them: 'That suits me well because…'",
-      "second-intro": "Say 'That suits me well because…'",
-      "question": "That suits me well because…"
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "Me viene bien porque…",
-      "words": [
-        {
-          "word": "me",
-          "type": "pronoun",
-          "weight": 1.5
-        },
-        {
-          "word": "viene",
-          "type": "verb",
-          "weight": 3
-        },
-        {
-          "word": "bien",
-          "type": "adverb",
-          "weight": 1.5
-        },
-        {
-          "word": "porque",
+          "word": "y",
           "type": "conjunction",
-          "weight": 1
+          "weight": 1.0
+        },
+        {
+          "word": "espárragos",
+          "type": "noun",
+          "weight": 2.5
         }
       ]
     }
   },
   {
-    "id": "quiero-enviar-una-carta-a-francia",
-    "order": 10,
+    "index": 48,
+    "name": "necesito-comprar-verduras-alcachofas-y-esparragos",
     "type": "combination",
     "English": {
-      "first-intro": "Try to say: 'I want to send a letter to France'",
-      "second-intro": "Then say 'I want to send a letter to France'",
-      "question": "I want to send a letter to France"
+      "first-intro": "Tell Miguel what you need to buy: I need to buy vegetables, artichokes and asparagus",
+      "second-intro": "Say: I need to buy vegetables, artichokes and asparagus",
+      "question": "I need to buy vegetables, artichokes and asparagus"
     },
     "Spanish": {
-      "grammar": "",
-      "answer": "Quiero enviar una carta a Francia",
+      "grammar": "present tense",
+      "answer": "Necesito comprar verduras, alcachofas y espárragos",
       "words": [
         {
-          "word": "quiero",
+          "word": "Necesito",
           "type": "verb",
-          "weight": 3
-        },
-        {
-          "word": "enviar",
-          "type": "verb",
-          "weight": 3
-        },
-        {
-          "word": "una",
-          "type": "article",
-          "weight": 0.5
-        },
-        {
-          "word": "carta",
-          "type": "noun",
-          "weight": 2.5
-        },
-        {
-          "word": "a",
-          "type": "preposition",
-          "weight": 1
-        },
-        {
-          "word": "francia",
-          "type": "noun",
-          "weight": 2.5
-        }
-      ]
-    }
-  },
-  {
-    "id": "puedo-venir-contigo",
-    "order": 11,
-    "type": "new",
-    "English": {
-      "first-intro": "Tell the person: 'I can come with you'",
-      "second-intro": "Say 'I can come with you'",
-      "question": "I can come with you"
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "Puedo venir contigo",
-      "words": [
-        {
-          "word": "puedo",
-          "type": "verb",
-          "weight": 3
-        },
-        {
-          "word": "venir",
-          "type": "verb",
-          "weight": 3
-        },
-        {
-          "word": "contigo",
-          "type": "pronoun",
-          "weight": 1.5
-        }
-      ]
-    }
-  },
-  {
-    "id": "voy-a-la-libreria-a-comprar-una-novela",
-    "order": 12,
-    "type": "combination",
-    "English": {
-      "first-intro": "Now try to say: 'I'm going to the bookstore to buy a novel'",
-      "second-intro": "Now say 'I'm going to the bookstore to buy a novel'",
-      "question": "I'm going to the bookstore to buy a novel"
-    },
-    "Spanish": {
-      "grammar": "",
-      "answer": "Voy a la librería a comprar una novela",
-      "words": [
-        {
-          "word": "voy",
-          "type": "verb",
-          "weight": 3
-        },
-        {
-          "word": "a",
-          "type": "preposition",
-          "weight": 1
-        },
-        {
-          "word": "la",
-          "type": "article",
-          "weight": 0.5
-        },
-        {
-          "word": "librería",
-          "type": "noun",
-          "weight": 2.5
-        },
-        {
-          "word": "a",
-          "type": "preposition",
-          "weight": 1
+          "weight": 3.0
         },
         {
           "word": "comprar",
           "type": "verb",
-          "weight": 3
+          "weight": 3.0
         },
         {
-          "word": "una",
-          "type": "article",
-          "weight": 0.5
+          "word": "verduras",
+          "type": "noun",
+          "weight": 2.5
         },
         {
-          "word": "novela",
+          "word": "alcachofas",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "y",
+          "type": "conjunction",
+          "weight": 1.0
+        },
+        {
+          "word": "espárragos",
           "type": "noun",
           "weight": 2.5
         }
@@ -513,35 +2119,2612 @@
     }
   },
   {
-    "id": "tengo-que-comprar-bebidas",
-    "order": 13,
-    "type": "combination",
+    "index": 49,
+    "name": "para-cenar-en-casa-de-mi-amigo",
+    "type": "new",
     "English": {
-      "first-intro": "Can you say: 'I have to buy drinks'?",
-      "second-intro": "Say 'I have to buy drinks'",
-      "question": "I have to buy drinks"
+      "first-intro": "Explain why you need them: for a dinner at the house of my friend",
+      "second-intro": "Say: for a dinner at the house of my friend",
+      "question": "for a dinner at the house of my friend"
     },
     "Spanish": {
-      "grammar": "",
-      "answer": "Tengo que comprar bebidas",
+      "grammar": "para + infinitive, de + noun",
+      "answer": "Para cenar, en casa de mi amigo",
       "words": [
+        {
+          "word": "Para",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "cenar",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "en",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "casa",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "de",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "mi",
+          "type": "determiner",
+          "weight": 0.5
+        },
+        {
+          "word": "amigo",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 50,
+    "name": "yo-tengo-que-ir-tambien-de-compras",
+    "type": "new",
+    "English": {
+      "first-intro": "Miguel says he also has an errand: I have to go shopping too",
+      "second-intro": "Say: I have to go shopping too",
+      "question": "I have to go shopping too"
+    },
+    "Spanish": {
+      "grammar": "tener que + infinitive, también / tampoco",
+      "answer": "Yo tengo que ir también de compras",
+      "words": [
+        {
+          "word": "Yo",
+          "type": "pronoun",
+          "weight": 1.5
+        },
         {
           "word": "tengo",
           "type": "verb",
-          "weight": 3
+          "weight": 3.0
         },
         {
           "word": "que",
           "type": "conjunction",
-          "weight": 1
+          "weight": 1.0
+        },
+        {
+          "word": "ir",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "también",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "de",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "compras",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 51,
+    "name": "para-comprar-recuerdos",
+    "type": "combination",
+    "English": {
+      "first-intro": "You guess the purpose and ask him: in order to buy souvenirs?",
+      "second-intro": "Ask: in order to buy souvenirs?",
+      "question": "in order to buy souvenirs?"
+    },
+    "Spanish": {
+      "grammar": "question word, para + infinitive",
+      "answer": "¿Para comprar recuerdos?",
+      "words": [
+        {
+          "word": "Para",
+          "type": "preposition",
+          "weight": 1.0
         },
         {
           "word": "comprar",
           "type": "verb",
-          "weight": 3
+          "weight": 3.0
         },
         {
-          "word": "bebidas",
+          "word": "recuerdos",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 52,
+    "name": "no-para-comprar-regalos",
+    "type": "combination",
+    "English": {
+      "first-intro": "He corrects you and says: no, in order to buy gifts",
+      "second-intro": "Answer: no, in order to buy gifts",
+      "question": "no, in order to buy gifts"
+    },
+    "Spanish": {
+      "grammar": "negation, para + infinitive",
+      "answer": "No, para comprar regalos",
+      "words": [
+        {
+          "word": "No",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "para",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "comprar",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "regalos",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 53,
+    "name": "voy-a-ir-a-una-tienda-de-articulos-deportivos",
+    "type": "combination",
+    "English": {
+      "first-intro": "Miguel tells you where he is going: I’m going to go to a sporting goods store",
+      "second-intro": "Say: I’m going to go to a sporting goods store",
+      "question": "I’m going to go to a sporting goods store"
+    },
+    "Spanish": {
+      "grammar": "ir a + infinitive, de + noun",
+      "answer": "Voy a ir a una tienda de artículos deportivos",
+      "words": [
+        {
+          "word": "Voy",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "a",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "ir",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "a",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "una",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "tienda",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "de",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "artículos",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "deportivos",
+          "type": "adjective",
+          "weight": 2.0
+        }
+      ]
+    }
+  },
+  {
+    "index": 54,
+    "name": "a-mi-hijo-mayor-le-gusta-el-futbol",
+    "type": "combination",
+    "English": {
+      "first-intro": "He explains why the sports shop makes sense: my older son likes football",
+      "second-intro": "Say: my older son likes football",
+      "question": "my older son likes football"
+    },
+    "Spanish": {
+      "grammar": "a + person clarifier, gustar with indirect object, possessive adjective",
+      "answer": "A mi hijo mayor le gusta el fútbol",
+      "words": [
+        {
+          "word": "A",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "mi",
+          "type": "determiner",
+          "weight": 0.5
+        },
+        {
+          "word": "hijo",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "mayor",
+          "type": "adjective",
+          "weight": 2.0
+        },
+        {
+          "word": "le",
+          "type": "pronoun",
+          "weight": 1.5
+        },
+        {
+          "word": "gusta",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "el",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "fútbol",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 55,
+    "name": "quizas-haya-regalos-para-mis-hijos-en-la-tienda",
+    "type": "combination",
+    "English": {
+      "first-intro": "Miguel thinks the store may help him, how would he say: maybe there are gifts for my children in the store",
+      "second-intro": "Try saying: maybe there are gifts for my children in the store",
+      "question": "maybe there are gifts for my children in the store"
+    },
+    "Spanish": {
+      "grammar": "subjunctive with quizás, hay, possessive adjective",
+      "answer": "Quizás haya regalos para mis hijos en la tienda",
+      "words": [
+        {
+          "word": "Quizás",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "haya",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "regalos",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "para",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "mis",
+          "type": "determiner",
+          "weight": 0.5
+        },
+        {
+          "word": "hijos",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "en",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "la",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "tienda",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 56,
+    "name": "y-para-su-mujer-necesita-algo-para-ella",
+    "type": "combination",
+    "English": {
+      "first-intro": "You ask Miguel about his wife: and for your wife, do you need something for her?",
+      "second-intro": "Ask him: and for your wife, do you need something for her?",
+      "question": "and for your wife, do you need something for her?"
+    },
+    "Spanish": {
+      "grammar": "question word, possessive adjective, para + person",
+      "answer": "Y para su mujer, ¿necesita algo para ella?",
+      "words": [
+        {
+          "word": "Y",
+          "type": "conjunction",
+          "weight": 1.0
+        },
+        {
+          "word": "para",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "su",
+          "type": "determiner",
+          "weight": 0.5
+        },
+        {
+          "word": "mujer",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "necesita",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "algo",
+          "type": "pronoun",
+          "weight": 1.5
+        },
+        {
+          "word": "para",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "ella",
+          "type": "pronoun",
+          "weight": 1.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 57,
+    "name": "no-se-que",
+    "type": "new",
+    "English": {
+      "first-intro": "Miguel is unsure what to choose. Here is how he says: I don’t know what",
+      "second-intro": "Say: I don’t know what",
+      "question": "I don’t know what"
+    },
+    "Spanish": {
+      "grammar": "present tense, negation",
+      "answer": "No sé qué",
+      "words": [
+        {
+          "word": "No",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "sé",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "qué",
+          "type": "determiner",
+          "weight": 0.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 58,
+    "name": "si-pero-no-se-que",
+    "type": "combination",
+    "English": {
+      "first-intro": "Now have him answer more fully: yes, but I don’t know what",
+      "second-intro": "Answer: yes, but I don’t know what",
+      "question": "yes, but I don’t know what"
+    },
+    "Spanish": {
+      "grammar": "negation, present tense",
+      "answer": "Sí, pero no sé qué",
+      "words": [
+        {
+          "word": "Sí",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "pero",
+          "type": "conjunction",
+          "weight": 1.0
+        },
+        {
+          "word": "no",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "sé",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "qué",
+          "type": "determiner",
+          "weight": 0.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 59,
+    "name": "una-bufanda",
+    "type": "new",
+    "English": {
+      "first-intro": "The gift search turns to Miguel's wife. Here is one idea: a scarf",
+      "second-intro": "How do you say: a scarf",
+      "question": "a scarf"
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "Una bufanda",
+      "words": [
+        {
+          "word": "Una",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "bufanda",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 60,
+    "name": "quizas-una-bufanda",
+    "type": "combination",
+    "English": {
+      "first-intro": "Suggest the gift to him: maybe a scarf",
+      "second-intro": "Suggest: maybe a scarf",
+      "question": "maybe a scarf"
+    },
+    "Spanish": {
+      "grammar": "subjunctive with quizás",
+      "answer": "Quizás una bufanda",
+      "words": [
+        {
+          "word": "Quizás",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "una",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "bufanda",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 61,
+    "name": "una-bufanda-roja",
+    "type": "combination",
+    "English": {
+      "first-intro": "Make that gift more specific: a red scarf",
+      "second-intro": "Say: a red scarf",
+      "question": "a red scarf"
+    },
+    "Spanish": {
+      "grammar": "adjective agreement",
+      "answer": "Una bufanda roja",
+      "words": [
+        {
+          "word": "Una",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "bufanda",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "roja",
+          "type": "adjective",
+          "weight": 2.0
+        }
+      ]
+    }
+  },
+  {
+    "index": 62,
+    "name": "a-mi-mujer-le-gusta-el-color-rojo",
+    "type": "combination",
+    "English": {
+      "first-intro": "Miguel explains her taste: my wife likes the color red",
+      "second-intro": "Say: my wife likes the color red",
+      "question": "my wife likes the color red"
+    },
+    "Spanish": {
+      "grammar": "a + person clarifier, gustar with indirect object, possessive adjective",
+      "answer": "A mi mujer le gusta el color rojo",
+      "words": [
+        {
+          "word": "A",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "mi",
+          "type": "determiner",
+          "weight": 0.5
+        },
+        {
+          "word": "mujer",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "le",
+          "type": "pronoun",
+          "weight": 1.5
+        },
+        {
+          "word": "gusta",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "el",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "color",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "rojo",
+          "type": "adjective",
+          "weight": 2.0
+        }
+      ]
+    }
+  },
+  {
+    "index": 63,
+    "name": "o-una-pulsera-de-plata",
+    "type": "new",
+    "English": {
+      "first-intro": "Offer another gift idea: or a silver bracelet",
+      "second-intro": "Say: or a silver bracelet",
+      "question": "or a silver bracelet"
+    },
+    "Spanish": {
+      "grammar": "de + noun",
+      "answer": "O una pulsera de plata",
+      "words": [
+        {
+          "word": "O",
+          "type": "conjunction",
+          "weight": 1.0
+        },
+        {
+          "word": "una",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "pulsera",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "de",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "plata",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 64,
+    "name": "que-tal-una-bufanda-roja-bonita-y-una-pulsera",
+    "type": "combination",
+    "English": {
+      "first-intro": "Ask Miguel about combining the ideas: how about a pretty red scarf and a bracelet?",
+      "second-intro": "Ask: how about a pretty red scarf and a bracelet?",
+      "question": "how about a pretty red scarf and a bracelet?"
+    },
+    "Spanish": {
+      "grammar": "question word, adjective agreement",
+      "answer": "¿Qué tal una bufanda roja bonita y una pulsera?",
+      "words": [
+        {
+          "word": "Qué",
+          "type": "determiner",
+          "weight": 0.5
+        },
+        {
+          "word": "tal",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "una",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "bufanda",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "roja",
+          "type": "adjective",
+          "weight": 2.0
+        },
+        {
+          "word": "bonita",
+          "type": "adjective",
+          "weight": 2.0
+        },
+        {
+          "word": "y",
+          "type": "conjunction",
+          "weight": 1.0
+        },
+        {
+          "word": "una",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "pulsera",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 65,
+    "name": "quizas-voy-a-pensarlo",
+    "type": "combination",
+    "English": {
+      "first-intro": "Miguel hesitates before deciding: maybe I am going to think about it",
+      "second-intro": "Say: maybe I am going to think about it",
+      "question": "maybe I am going to think about it"
+    },
+    "Spanish": {
+      "grammar": "ir a + infinitive, infinitive + object pronoun, subjunctive with quizás",
+      "answer": "Quizás, voy a pensarlo",
+      "words": [
+        {
+          "word": "Quizás",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "voy",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "a",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "pensarlo",
+          "type": "verb",
+          "weight": 3.0
+        }
+      ]
+    }
+  },
+  {
+    "index": 66,
+    "name": "busco-una-camiseta-de-un-equipo-de-futbol",
+    "type": "combination",
+    "English": {
+      "first-intro": "Back in the sports shop, tell the clerk what you need: I’m looking for a T-shirt of a football team",
+      "second-intro": "Tell the clerk: I’m looking for a T-shirt of a football team",
+      "question": "I’m looking for a T-shirt of a football team"
+    },
+    "Spanish": {
+      "grammar": "present tense, de + noun",
+      "answer": "Busco una camiseta de un equipo de fútbol",
+      "words": [
+        {
+          "word": "Busco",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "una",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "camiseta",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "de",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "un",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "equipo",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "de",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "fútbol",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 67,
+    "name": "de-que-talla",
+    "type": "new",
+    "English": {
+      "first-intro": "The clerk asks for the size: what size?",
+      "second-intro": "Ask: what size?",
+      "question": "what size?"
+    },
+    "Spanish": {
+      "grammar": "question word, de + noun",
+      "answer": "¿De qué talla?",
+      "words": [
+        {
+          "word": "De",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "qué",
+          "type": "determiner",
+          "weight": 0.5
+        },
+        {
+          "word": "talla",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 68,
+    "name": "probablemente-la-talla-m",
+    "type": "new",
+    "English": {
+      "first-intro": "Answer with the likely size: probably size m",
+      "second-intro": "Say: probably size m",
+      "question": "probably size m"
+    },
+    "Spanish": {
+      "grammar": "de + noun",
+      "answer": "Probablemente, la talla m",
+      "words": [
+        {
+          "word": "Probablemente",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "la",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "talla",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "m",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 69,
+    "name": "un-opcion",
+    "type": "new",
+    "English": {
+      "first-intro": "The clerk starts talking about choices. Here is the word for: an option",
+      "second-intro": "How do you say: an option",
+      "question": "an option"
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "Un Opcion",
+      "words": [
+        {
+          "word": "Un",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "Opcion",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 70,
+    "name": "muchas-opciones",
+    "type": "new",
+    "English": {
+      "first-intro": "Now learn the phrase: many options",
+      "second-intro": "Say: many options",
+      "question": "many options"
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "Muchas opciones",
+      "words": [
+        {
+          "word": "Muchas",
+          "type": "determiner",
+          "weight": 0.5
+        },
+        {
+          "word": "opciones",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 71,
+    "name": "en-la-talla-m-hay-muchas-opciones",
+    "type": "new",
+    "English": {
+      "first-intro": "The clerk tells you about availability: in size m there are many choices",
+      "second-intro": "Say: in size m there are many choices",
+      "question": "in size m there are many choices"
+    },
+    "Spanish": {
+      "grammar": "hay, de + noun",
+      "answer": "En la talla m hay muchas opciones",
+      "words": [
+        {
+          "word": "En",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "la",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "talla",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "m",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "hay",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "muchas",
+          "type": "determiner",
+          "weight": 0.5
+        },
+        {
+          "word": "opciones",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 72,
+    "name": "en-esos-colores-hay-muchas-opciones",
+    "type": "combination",
+    "English": {
+      "first-intro": "She adds that the colors are available too: in those colors there are many options",
+      "second-intro": "Add: in those colors there are many options",
+      "question": "in those colors there are many options"
+    },
+    "Spanish": {
+      "grammar": "hay, demonstrative",
+      "answer": "En esos colores, hay muchas opciones",
+      "words": [
+        {
+          "word": "En",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "esos",
+          "type": "determiner",
+          "weight": 0.5
+        },
+        {
+          "word": "colores",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "hay",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "muchas",
+          "type": "determiner",
+          "weight": 0.5
+        },
+        {
+          "word": "opciones",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 73,
+    "name": "el-equipo-espanol-amarillo-y-rojo",
+    "type": "combination",
+    "English": {
+      "first-intro": "Describe the team colors you mean: the Spanish team, yellow and red",
+      "second-intro": "Say: the Spanish team, yellow and red",
+      "question": "the Spanish team, yellow and red"
+    },
+    "Spanish": {
+      "grammar": "de + noun",
+      "answer": "El equipo español, amarillo y rojo",
+      "words": [
+        {
+          "word": "El",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "equipo",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "español",
+          "type": "adjective",
+          "weight": 2.0
+        },
+        {
+          "word": "amarillo",
+          "type": "adjective",
+          "weight": 2.0
+        },
+        {
+          "word": "y",
+          "type": "conjunction",
+          "weight": 1.0
+        },
+        {
+          "word": "rojo",
+          "type": "adjective",
+          "weight": 2.0
+        }
+      ]
+    }
+  },
+  {
+    "index": 74,
+    "name": "hay-muchas-opciones-en-amarillo-y-rojo",
+    "type": "combination",
+    "English": {
+      "first-intro": "Now say the store has many choices in those colors: there are many options in yellow and red",
+      "second-intro": "Say: there are many options in yellow and red",
+      "question": "there are many options in yellow and red"
+    },
+    "Spanish": {
+      "grammar": "hay",
+      "answer": "Hay muchas opciones en amarillo y rojo",
+      "words": [
+        {
+          "word": "Hay",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "muchas",
+          "type": "determiner",
+          "weight": 0.5
+        },
+        {
+          "word": "opciones",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "en",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "amarillo",
+          "type": "adjective",
+          "weight": 2.0
+        },
+        {
+          "word": "y",
+          "type": "conjunction",
+          "weight": 1.0
+        },
+        {
+          "word": "rojo",
+          "type": "adjective",
+          "weight": 2.0
+        }
+      ]
+    }
+  },
+  {
+    "index": 75,
+    "name": "que-quieres-hacer-manana",
+    "type": "combination",
+    "English": {
+      "first-intro": "Later, you and Miguel plan the next day. Ask him: what do you want to do tomorrow?",
+      "second-intro": "Ask him: what do you want to do tomorrow?",
+      "question": "what do you want to do tomorrow?"
+    },
+    "Spanish": {
+      "grammar": "question word, present tense",
+      "answer": "¿Qué quieres hacer mañana?",
+      "words": [
+        {
+          "word": "Qué",
+          "type": "determiner",
+          "weight": 0.5
+        },
+        {
+          "word": "quieres",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "hacer",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "mañana",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 76,
+    "name": "no-lo-se-y-tu",
+    "type": "combination",
+    "English": {
+      "first-intro": "Miguel answers and turns the question back: I don’t know, and you?",
+      "second-intro": "Answer: I don’t know, and you?",
+      "question": "I don’t know, and you?"
+    },
+    "Spanish": {
+      "grammar": "direct object pronoun, negation, tag question ¿y tú?",
+      "answer": "No lo sé, ¿y tú?",
+      "words": [
+        {
+          "word": "No",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "lo",
+          "type": "pronoun",
+          "weight": 1.5
+        },
+        {
+          "word": "sé",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "y",
+          "type": "conjunction",
+          "weight": 1.0
+        },
+        {
+          "word": "tú",
+          "type": "pronoun",
+          "weight": 1.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 77,
+    "name": "varias-opciones",
+    "type": "combination",
+    "English": {
+      "first-intro": "You mention there are several choices: various options",
+      "second-intro": "Say: various options",
+      "question": "various options"
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "Varias opciones",
+      "words": [
+        {
+          "word": "Varias",
+          "type": "determiner",
+          "weight": 0.5
+        },
+        {
+          "word": "opciones",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 78,
+    "name": "tenemos-varias-opciones",
+    "type": "combination",
+    "English": {
+      "first-intro": "Say that you both have choices: we have various options",
+      "second-intro": "Say: we have various options",
+      "question": "we have various options"
+    },
+    "Spanish": {
+      "grammar": "present tense",
+      "answer": "Tenemos varias opciones",
+      "words": [
+        {
+          "word": "Tenemos",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "varias",
+          "type": "determiner",
+          "weight": 0.5
+        },
+        {
+          "word": "opciones",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 79,
+    "name": "que-tal-un-partido-de-futbol",
+    "type": "combination",
+    "English": {
+      "first-intro": "Suggest one idea to Miguel: how about a football match?",
+      "second-intro": "Suggest: how about a football match?",
+      "question": "how about a football match?"
+    },
+    "Spanish": {
+      "grammar": "question word, de + noun",
+      "answer": "¿Qué tal un partido de fútbol?",
+      "words": [
+        {
+          "word": "Qué",
+          "type": "determiner",
+          "weight": 0.5
+        },
+        {
+          "word": "tal",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "un",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "partido",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "de",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "fútbol",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 80,
+    "name": "no-hace-demasiado-calor",
+    "type": "new",
+    "English": {
+      "first-intro": "Miguel rejects that plan because of the weather: no, it’s too hot",
+      "second-intro": "Answer: no, it’s too hot",
+      "question": "no, it’s too hot"
+    },
+    "Spanish": {
+      "grammar": "negation, present tense",
+      "answer": "No, hace demasiado calor",
+      "words": [
+        {
+          "word": "No",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "hace",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "demasiado",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "calor",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 81,
+    "name": "cuales-son-las-otras-opciones",
+    "type": "combination",
+    "English": {
+      "first-intro": "He asks what else you could do: what are the other options?",
+      "second-intro": "Ask: what are the other options?",
+      "question": "what are the other options?"
+    },
+    "Spanish": {
+      "grammar": "question word, present tense",
+      "answer": "¿Cuáles son las otras opciones?",
+      "words": [
+        {
+          "word": "Cuáles",
+          "type": "determiner",
+          "weight": 0.5
+        },
+        {
+          "word": "son",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "las",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "otras",
+          "type": "determiner",
+          "weight": 0.5
+        },
+        {
+          "word": "opciones",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 82,
+    "name": "cuales",
+    "type": "combination",
+    "English": {
+      "first-intro": "Shorten that question to: which?",
+      "second-intro": "Ask: which?",
+      "question": "which?"
+    },
+    "Spanish": {
+      "grammar": "question word",
+      "answer": "¿Cuáles?",
+      "words": [
+        {
+          "word": "Cuáles",
+          "type": "determiner",
+          "weight": 0.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 83,
+    "name": "podriamos-ir-a-un-parque-o-a-la-playa",
+    "type": "combination",
+    "English": {
+      "first-intro": "Offer two alternatives: we could go to a park or to the beach",
+      "second-intro": "Say: we could go to a park or to the beach",
+      "question": "we could go to a park or to the beach"
+    },
+    "Spanish": {
+      "grammar": "poder + infinitive, present tense",
+      "answer": "Podríamos ir a un parque o a la playa",
+      "words": [
+        {
+          "word": "Podríamos",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "ir",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "a",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "un",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "parque",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "o",
+          "type": "conjunction",
+          "weight": 1.0
+        },
+        {
+          "word": "a",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "la",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "playa",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 84,
+    "name": "tu-decides",
+    "type": "new",
+    "English": {
+      "first-intro": "Tell Miguel the choice is his: you decide",
+      "second-intro": "Say: you decide",
+      "question": "you decide"
+    },
+    "Spanish": {
+      "grammar": "present tense",
+      "answer": "Tú decides",
+      "words": [
+        {
+          "word": "Tú",
+          "type": "pronoun",
+          "weight": 1.5
+        },
+        {
+          "word": "decides",
+          "type": "verb",
+          "weight": 3.0
+        }
+      ]
+    }
+  },
+  {
+    "index": 85,
+    "name": "dile-a-ella-que-decida",
+    "type": "new",
+    "English": {
+      "first-intro": "Miguel points to Elena, your travel companion. Here is how he says: tell her to decide",
+      "second-intro": "Tell him: tell her to decide",
+      "question": "tell her to decide"
+    },
+    "Spanish": {
+      "grammar": "imperative, subjunctive with que, a + person clarifier",
+      "answer": "Dile a ella que decida",
+      "words": [
+        {
+          "word": "Dile",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "a",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "ella",
+          "type": "pronoun",
+          "weight": 1.5
+        },
+        {
+          "word": "que",
+          "type": "conjunction",
+          "weight": 1.0
+        },
+        {
+          "word": "decida",
+          "type": "verb",
+          "weight": 3.0
+        }
+      ]
+    }
+  },
+  {
+    "index": 86,
+    "name": "vale-vamos-a-la-playa",
+    "type": "combination",
+    "English": {
+      "first-intro": "Elena chooses, and you agree: ok, let’s go to the beach",
+      "second-intro": "Say: ok, let’s go to the beach",
+      "question": "ok, let’s go to the beach"
+    },
+    "Spanish": {
+      "grammar": "present tense, ir a + infinitive",
+      "answer": "Vale, vamos a la playa",
+      "words": [
+        {
+          "word": "Vale",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "vamos",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "a",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "la",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "playa",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 87,
+    "name": "podemos-nadar-y-tu-puedes-pescar",
+    "type": "combination",
+    "English": {
+      "first-intro": "Say what each of you can do there: we can swim and you can fish",
+      "second-intro": "Say: we can swim and you can fish",
+      "question": "we can swim and you can fish"
+    },
+    "Spanish": {
+      "grammar": "poder + infinitive, present tense",
+      "answer": "Podemos nadar y tú puedes pescar",
+      "words": [
+        {
+          "word": "Podemos",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "nadar",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "y",
+          "type": "conjunction",
+          "weight": 1.0
+        },
+        {
+          "word": "tú",
+          "type": "pronoun",
+          "weight": 1.5
+        },
+        {
+          "word": "puedes",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "pescar",
+          "type": "verb",
+          "weight": 3.0
+        }
+      ]
+    }
+  },
+  {
+    "index": 88,
+    "name": "y-yo-puedo-ponerme-mi-banador-nuevo",
+    "type": "new",
+    "English": {
+      "first-intro": "The beach plan is set, and you are getting ready. Say: and I can put on my new bathing suit",
+      "second-intro": "Say: and I can put on my new bathing suit",
+      "question": "and I can put on my new bathing suit"
+    },
+    "Spanish": {
+      "grammar": "reflexive verb, poder + infinitive, possessive adjective",
+      "answer": "Y yo puedo ponerme mi bañador nuevo",
+      "words": [
+        {
+          "word": "Y",
+          "type": "conjunction",
+          "weight": 1.0
+        },
+        {
+          "word": "yo",
+          "type": "pronoun",
+          "weight": 1.5
+        },
+        {
+          "word": "puedo",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "ponerme",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "mi",
+          "type": "determiner",
+          "weight": 0.5
+        },
+        {
+          "word": "bañador",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "nuevo",
+          "type": "adjective",
+          "weight": 2.0
+        }
+      ]
+    }
+  },
+  {
+    "index": 89,
+    "name": "mi-banador-rojo-nuevo",
+    "type": "combination",
+    "English": {
+      "first-intro": "Describe it more fully: my new red bathing suit",
+      "second-intro": "Say: my new red bathing suit",
+      "question": "my new red bathing suit"
+    },
+    "Spanish": {
+      "grammar": "possessive adjective, adjective order",
+      "answer": "Mi bañador rojo nuevo",
+      "words": [
+        {
+          "word": "Mi",
+          "type": "determiner",
+          "weight": 0.5
+        },
+        {
+          "word": "bañador",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "rojo",
+          "type": "adjective",
+          "weight": 2.0
+        },
+        {
+          "word": "nuevo",
+          "type": "adjective",
+          "weight": 2.0
+        }
+      ]
+    }
+  },
+  {
+    "index": 90,
+    "name": "puedo-ponerme-mi-banador-rojo-nuevo",
+    "type": "combination",
+    "English": {
+      "first-intro": "Put the full idea together: I can put on my new red bathing suit",
+      "second-intro": "Say: I can put on my new red bathing suit",
+      "question": "I can put on my new red bathing suit"
+    },
+    "Spanish": {
+      "grammar": "reflexive verb, poder + infinitive, possessive adjective",
+      "answer": "Puedo ponerme mi bañador rojo nuevo",
+      "words": [
+        {
+          "word": "Puedo",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "ponerme",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "mi",
+          "type": "determiner",
+          "weight": 0.5
+        },
+        {
+          "word": "bañador",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "rojo",
+          "type": "adjective",
+          "weight": 2.0
+        },
+        {
+          "word": "nuevo",
+          "type": "adjective",
+          "weight": 2.0
+        }
+      ]
+    }
+  },
+  {
+    "index": 91,
+    "name": "ir-a-la-playa-es-una-buena-opcion",
+    "type": "combination",
+    "English": {
+      "first-intro": "Say why the plan works: going to the beach is a good option",
+      "second-intro": "Say: going to the beach is a good option",
+      "question": "going to the beach is a good option"
+    },
+    "Spanish": {
+      "grammar": "ir a + infinitive, present tense",
+      "answer": "Ir a la playa es una buena opción",
+      "words": [
+        {
+          "word": "Ir",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "a",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "la",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "playa",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "es",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "una",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "buena",
+          "type": "adjective",
+          "weight": 2.0
+        },
+        {
+          "word": "opción",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 92,
+    "name": "hay-varias-playas-bonitas",
+    "type": "new",
+    "English": {
+      "first-intro": "Miguel mentions the area has choices: there are various beautiful beaches",
+      "second-intro": "Say: there are various beautiful beaches",
+      "question": "there are various beautiful beaches"
+    },
+    "Spanish": {
+      "grammar": "hay, adjective agreement",
+      "answer": "Hay varias playas bonitas",
+      "words": [
+        {
+          "word": "Hay",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "varias",
+          "type": "determiner",
+          "weight": 0.5
+        },
+        {
+          "word": "playas",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "bonitas",
+          "type": "adjective",
+          "weight": 2.0
+        }
+      ]
+    }
+  },
+  {
+    "index": 93,
+    "name": "hay-varias-playas-bonitas-cerca-de-aqui",
+    "type": "combination",
+    "English": {
+      "first-intro": "Add where they are: there are various beautiful beaches near here",
+      "second-intro": "Say: there are various beautiful beaches near here",
+      "question": "there are various beautiful beaches near here"
+    },
+    "Spanish": {
+      "grammar": "hay, de + noun, adjective agreement",
+      "answer": "Hay varias playas bonitas cerca de aquí",
+      "words": [
+        {
+          "word": "Hay",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "varias",
+          "type": "determiner",
+          "weight": 0.5
+        },
+        {
+          "word": "playas",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "bonitas",
+          "type": "adjective",
+          "weight": 2.0
+        },
+        {
+          "word": "cerca",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "de",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "aquí",
+          "type": "adverb",
+          "weight": 1.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 94,
+    "name": "tu-decides-que-playa",
+    "type": "combination",
+    "English": {
+      "first-intro": "Tell Miguel he can choose the specific beach: you decide what beach",
+      "second-intro": "Say: you decide what beach",
+      "question": "you decide what beach"
+    },
+    "Spanish": {
+      "grammar": "question word, present tense",
+      "answer": "Tú decides qué playa",
+      "words": [
+        {
+          "word": "Tú",
+          "type": "pronoun",
+          "weight": 1.5
+        },
+        {
+          "word": "decides",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "qué",
+          "type": "determiner",
+          "weight": 0.5
+        },
+        {
+          "word": "playa",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 95,
+    "name": "pescado",
+    "type": "new",
+    "English": {
+      "first-intro": "Miguel starts thinking about lunch after fishing. Here is the food word: fish (in reference to food)",
+      "second-intro": "How do you say: fish (in reference to food)",
+      "question": "fish (in reference to food)"
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "Pescado",
+      "words": [
+        {
+          "word": "Pescado",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 96,
+    "name": "si-tengo-suerte",
+    "type": "new",
+    "English": {
+      "first-intro": "He adds a hopeful phrase: if I’m lucky",
+      "second-intro": "Say: if I’m lucky",
+      "question": "if I’m lucky"
+    },
+    "Spanish": {
+      "grammar": "si + present",
+      "answer": "Si tengo suerte",
+      "words": [
+        {
+          "word": "Si",
+          "type": "conjunction",
+          "weight": 1.0
+        },
+        {
+          "word": "tengo",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "suerte",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 97,
+    "name": "vamos-a-comer-pescado",
+    "type": "combination",
+    "English": {
+      "first-intro": "Say what you might eat later: we’re going to eat fish",
+      "second-intro": "Say: we’re going to eat fish",
+      "question": "we’re going to eat fish"
+    },
+    "Spanish": {
+      "grammar": "ir a + infinitive",
+      "answer": "Vamos a comer pescado",
+      "words": [
+        {
+          "word": "Vamos",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "a",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "comer",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "pescado",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 98,
+    "name": "si-tengo-suerte-vamos-a-comer-pescado",
+    "type": "combination",
+    "English": {
+      "first-intro": "Put the condition and plan together: if I’m lucky, we’re going to eat fish",
+      "second-intro": "Put it together: if I’m lucky, we’re going to eat fish",
+      "question": "if I’m lucky, we’re going to eat fish"
+    },
+    "Spanish": {
+      "grammar": "si + present, ir a + infinitive",
+      "answer": "Si tengo suerte, vamos a comer pescado",
+      "words": [
+        {
+          "word": "Si",
+          "type": "conjunction",
+          "weight": 1.0
+        },
+        {
+          "word": "tengo",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "suerte",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "vamos",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "a",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "comer",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "pescado",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 99,
+    "name": "me-gusta-pescar-y-nadar",
+    "type": "combination",
+    "English": {
+      "first-intro": "Tell Miguel about your hobbies: I like to fish and to swim",
+      "second-intro": "Say: I like to fish and to swim",
+      "question": "I like to fish and to swim"
+    },
+    "Spanish": {
+      "grammar": "gustar with indirect object, present tense",
+      "answer": "Me gusta pescar y nadar",
+      "words": [
+        {
+          "word": "Me",
+          "type": "pronoun",
+          "weight": 1.5
+        },
+        {
+          "word": "gusta",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "pescar",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "y",
+          "type": "conjunction",
+          "weight": 1.0
+        },
+        {
+          "word": "nadar",
+          "type": "verb",
+          "weight": 3.0
+        }
+      ]
+    }
+  },
+  {
+    "index": 100,
+    "name": "puedo-nadar-en-el-hotel",
+    "type": "combination",
+    "English": {
+      "first-intro": "Say you have another swimming option: I can swim at the hotel",
+      "second-intro": "Say: I can swim at the hotel",
+      "question": "I can swim at the hotel"
+    },
+    "Spanish": {
+      "grammar": "poder + infinitive, present tense",
+      "answer": "Puedo nadar en el hotel",
+      "words": [
+        {
+          "word": "Puedo",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "nadar",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "en",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "el",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "hotel",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 101,
+    "name": "tienen-una-piscina-grande",
+    "type": "new",
+    "English": {
+      "first-intro": "You remember the hotel facilities. Here is how to say: they have a big swimming pool",
+      "second-intro": "Say: they have a big swimming pool",
+      "question": "they have a big swimming pool"
+    },
+    "Spanish": {
+      "grammar": "present tense",
+      "answer": "Tienen una piscina grande",
+      "words": [
+        {
+          "word": "Tienen",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "una",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "piscina",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "grande",
+          "type": "adjective",
+          "weight": 2.0
+        }
+      ]
+    }
+  },
+  {
+    "index": 102,
+    "name": "pero-prefiero-ir-a-la-playa",
+    "type": "combination",
+    "English": {
+      "first-intro": "Contrast the hotel pool with your preference: but I prefer to go to the beach",
+      "second-intro": "Say: but I prefer to go to the beach",
+      "question": "but I prefer to go to the beach"
+    },
+    "Spanish": {
+      "grammar": "present tense, ir a + infinitive",
+      "answer": "Pero prefiero ir a la playa",
+      "words": [
+        {
+          "word": "Pero",
+          "type": "conjunction",
+          "weight": 1.0
+        },
+        {
+          "word": "prefiero",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "ir",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "a",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "la",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "playa",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 103,
+    "name": "te-alojas",
+    "type": "new",
+    "English": {
+      "first-intro": "Miguel asks about where you are staying. First learn: you’re staying (there)",
+      "second-intro": "How do you say: you’re staying (there)",
+      "question": "you’re staying (there)"
+    },
+    "Spanish": {
+      "grammar": "reflexive verb, present tense",
+      "answer": "Te alojas",
+      "words": [
+        {
+          "word": "Te",
+          "type": "pronoun",
+          "weight": 1.5
+        },
+        {
+          "word": "alojas",
+          "type": "verb",
+          "weight": 3.0
+        }
+      ]
+    }
+  },
+  {
+    "index": 104,
+    "name": "en-que-hotel-te-alojas",
+    "type": "combination",
+    "English": {
+      "first-intro": "Now have Miguel ask the full question: what hotel are you staying at?",
+      "second-intro": "Ask: what hotel are you staying at?",
+      "question": "what hotel are you staying at?"
+    },
+    "Spanish": {
+      "grammar": "question word, reflexive verb, present tense",
+      "answer": "¿En qué hotel te alojas?",
+      "words": [
+        {
+          "word": "En",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "qué",
+          "type": "determiner",
+          "weight": 0.5
+        },
+        {
+          "word": "hotel",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "te",
+          "type": "pronoun",
+          "weight": 1.5
+        },
+        {
+          "word": "alojas",
+          "type": "verb",
+          "weight": 3.0
+        }
+      ]
+    }
+  },
+  {
+    "index": 105,
+    "name": "estoy-en-el-hotel-hilton",
+    "type": "combination",
+    "English": {
+      "first-intro": "Answer him with your hotel: I’m at the Hilton Hotel",
+      "second-intro": "Answer: I’m at the Hilton Hotel",
+      "question": "I’m at the Hilton Hotel"
+    },
+    "Spanish": {
+      "grammar": "present tense",
+      "answer": "Estoy en el hotel Hilton",
+      "words": [
+        {
+          "word": "Estoy",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "en",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "el",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "hotel",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "Hilton",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 106,
+    "name": "ah-si-lo-conozco",
+    "type": "new",
+    "English": {
+      "first-intro": "Miguel recognizes it and replies: oh yes, I know it",
+      "second-intro": "Say: oh yes, I know it",
+      "question": "oh yes, I know it"
+    },
+    "Spanish": {
+      "grammar": "direct object pronoun, present tense",
+      "answer": "Ah, sí, lo conozco",
+      "words": [
+        {
+          "word": "Ah",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "sí",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "lo",
+          "type": "pronoun",
+          "weight": 1.5
+        },
+        {
+          "word": "conozco",
+          "type": "verb",
+          "weight": 3.0
+        }
+      ]
+    }
+  },
+  {
+    "index": 107,
+    "name": "es-un-hotel-muy-bueno",
+    "type": "combination",
+    "English": {
+      "first-intro": "He adds his opinion of it: it’s a very good hotel",
+      "second-intro": "Say: it’s a very good hotel",
+      "question": "it’s a very good hotel"
+    },
+    "Spanish": {
+      "grammar": "present tense, adjective agreement",
+      "answer": "Es un hotel muy bueno",
+      "words": [
+        {
+          "word": "Es",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "un",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "hotel",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "muy",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "bueno",
+          "type": "adjective",
+          "weight": 2.0
+        }
+      ]
+    }
+  },
+  {
+    "index": 108,
+    "name": "hay-un-acuario-grande-en-el-vestibulo",
+    "type": "new",
+    "English": {
+      "first-intro": "Miguel remembers one detail about the hotel: there’s a big aquarium in the lobby",
+      "second-intro": "Say: there’s a big aquarium in the lobby",
+      "question": "there’s a big aquarium in the lobby"
+    },
+    "Spanish": {
+      "grammar": "hay, adjective agreement",
+      "answer": "Hay un acuario grande en el vestíbulo",
+      "words": [
+        {
+          "word": "Hay",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "un",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "acuario",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "grande",
+          "type": "adjective",
+          "weight": 2.0
+        },
+        {
+          "word": "en",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "el",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "vestíbulo",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 109,
+    "name": "esta-noche-hay-un-festival-de-flamenco-en-el-hotel",
+    "type": "new",
+    "English": {
+      "first-intro": "That evening, the conversation returns to the hotel. Here is how you say: tonight there’s a flamenco festival at the hotel",
+      "second-intro": "Say: tonight there’s a flamenco festival at the hotel",
+      "question": "tonight there’s a flamenco festival at the hotel"
+    },
+    "Spanish": {
+      "grammar": "hay, de + noun, demonstrative",
+      "answer": "Esta noche hay un festival de flamenco en el hotel",
+      "words": [
+        {
+          "word": "Esta",
+          "type": "determiner",
+          "weight": 0.5
+        },
+        {
+          "word": "noche",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "hay",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "un",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "festival",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "de",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "flamenco",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "en",
+          "type": "preposition",
+          "weight": 1.0
+        },
+        {
+          "word": "el",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "hotel",
+          "type": "noun",
+          "weight": 2.5
+        }
+      ]
+    }
+  },
+  {
+    "index": 110,
+    "name": "la-bailaora-es-muy-conocida",
+    "type": "new",
+    "English": {
+      "first-intro": "Miguel tells you about the performer: the flamenco dancer is very well known",
+      "second-intro": "Say: the flamenco dancer is very well known",
+      "question": "the flamenco dancer is very well known"
+    },
+    "Spanish": {
+      "grammar": "present tense, adjective agreement",
+      "answer": "La bailaora es muy conocida",
+      "words": [
+        {
+          "word": "La",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "bailaora",
+          "type": "noun",
+          "weight": 2.5
+        },
+        {
+          "word": "es",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "muy",
+          "type": "adverb",
+          "weight": 1.5
+        },
+        {
+          "word": "conocida",
+          "type": "adjective",
+          "weight": 2.0
+        }
+      ]
+    }
+  },
+  {
+    "index": 111,
+    "name": "me-gusta-el-flamenco",
+    "type": "combination",
+    "English": {
+      "first-intro": "Finish by saying how you feel about it: I like the flamenco",
+      "second-intro": "Say: I like the flamenco",
+      "question": "I like the flamenco"
+    },
+    "Spanish": {
+      "grammar": "gustar with indirect object, present tense",
+      "answer": "Me gusta el flamenco",
+      "words": [
+        {
+          "word": "Me",
+          "type": "pronoun",
+          "weight": 1.5
+        },
+        {
+          "word": "gusta",
+          "type": "verb",
+          "weight": 3.0
+        },
+        {
+          "word": "el",
+          "type": "article",
+          "weight": 0.5
+        },
+        {
+          "word": "flamenco",
           "type": "noun",
           "weight": 2.5
         }

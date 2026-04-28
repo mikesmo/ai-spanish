@@ -12,7 +12,7 @@ function isNonEmpty(text: string): boolean {
 export function buildTtsJobs(phrases: Phrase[]): TtsJob[] {
   const jobs: TtsJob[] = [];
   for (const phrase of phrases) {
-    const i = phrase.order;
+    const i = phrase.index;
     const firstIntro = phrase.English['first-intro'] ?? '';
     if (isNonEmpty(firstIntro)) {
       jobs.push({

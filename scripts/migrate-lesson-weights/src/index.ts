@@ -1,14 +1,16 @@
 #!/usr/bin/env node
 /**
- * Idempotent migration: annotates lesson1.json with stable phrase `id`s and
+ * Idempotent migration: annotates a lesson JSON with stable phrase `name`s and
  * per-word `weight`s derived from POS_WEIGHTS.
+ *
+ * Accepts legacy shapes (`id`/`order`) or current shape (`name`/`index`).
  *
  * Usage:
  *   npm run migrate:lesson1
  * or:
- *   tsx scripts/migrate-lesson-weights/src/index.ts [path/to/lesson1.json]
+ *   tsx scripts/migrate-lesson-weights/src/index.ts [path/to/lesson.json]
  *
- * Safe to re-run: if a phrase already has an `id` it is kept; weights are
+ * Safe to re-run: if a phrase already has `name` it is kept; weights are
  * recomputed from POS on every run (the canonical derivation).
  */
 import fs from 'node:fs/promises';
@@ -21,8 +23,13 @@ import {
 } from '@ai-spanish/logic';
 
 type LegacyWord = { word: string; type: string; weight?: number };
+
 type LegacyPhrase = {
   id?: string;
+  name?: string;
+  order?: number;
+  index?: number;
+  type?: 'new' | 'combination';
   English: {
     'first-intro'?: string;
     'second-intro': string;
@@ -65,32 +72,42 @@ async function main(): Promise<void> {
     throw new Error(`Expected an array in ${inputPath}`);
   }
 
-  const usedIds = new Set<string>();
-  const migrated = parsed.map((phrase, index) => {
-    const pos = phrase.Spanish?.answer ?? `phrase-${index}`;
-    let id = phrase.id ?? (slugify(pos) || `phrase-${index}`);
+  const usedNames = new Set<string>();
+  const migrated = parsed.map((phrase, loopIndex) => {
+    const pos = phrase.Spanish?.answer ?? `phrase-${loopIndex}`;
+    let name =
+      phrase.name ??
+      phrase.id ??
+      (slugify(pos) || `phrase-${loopIndex}`);
     let suffix = 2;
-    const base = id;
-    while (usedIds.has(id)) {
-      id = `${base}-${suffix++}`;
+    const base = name;
+    while (usedNames.has(name)) {
+      name = `${base}-${suffix++}`;
     }
-    usedIds.add(id);
+    usedNames.add(name);
+
+    const index = phrase.index ?? phrase.order ?? loopIndex;
+    if (!Number.isInteger(index) || index < 0) {
+      throw new Error(
+        `phrase[${loopIndex}] invalid index/order: ${String(index)}`,
+      );
+    }
 
     const words = phrase.Spanish.words.map((w, wi) => {
-      const type = assertKnownPos(
+      const posTag = assertKnownPos(
         w.type,
-        `phrase[${index}].Spanish.words[${wi}] ("${w.word}")`,
+        `phrase[${loopIndex}].Spanish.words[${wi}] ("${w.word}")`,
       );
       return {
         word: w.word,
-        type,
-        weight: POS_WEIGHTS[type],
+        type: posTag,
+        weight: POS_WEIGHTS[posTag],
       };
     });
 
-    return {
-      id,
-      order: index,
+    const row: Record<string, unknown> = {
+      name,
+      index,
       English: phrase.English,
       Spanish: {
         grammar: phrase.Spanish.grammar,
@@ -98,6 +115,10 @@ async function main(): Promise<void> {
         words,
       },
     };
+    if (phrase.type != null) {
+      row.type = phrase.type;
+    }
+    return row;
   });
 
   const result = transcriptResponseSchema.safeParse(migrated);

@@ -1,8 +1,7 @@
 [
   {
-    "id": "perdon",
-    "order": 0,
-    "type": "new",
+    "name": "perdon",
+    "index": 0,
     "English": {
       "first-intro": "You're a British visitor on the streets of Barcelona; you stop a young woman to get her attention, this is how you say 'excuse me'",
       "second-intro": "How do you say 'excuse me'",
@@ -18,12 +17,12 @@
           "weight": 2.5
         }
       ]
-    }
+    },
+    "type": "new"
   },
   {
-    "id": "senorita",
-    "order": 1,
-    "type": "new",
+    "name": "senorita",
+    "index": 1,
     "English": {
       "first-intro": "This is how you formally address a young woman in Spanish.",
       "second-intro": "How would you formally address a young woman",
@@ -39,12 +38,12 @@
           "weight": 2.5
         }
       ]
-    }
+    },
+    "type": "new"
   },
   {
-    "id": "senor",
-    "order": 2,
-    "type": "new",
+    "name": "senor",
+    "index": 2,
     "English": {
       "first-intro": "This is how you say 'sir' in Spanish.",
       "second-intro": "How do you say 'sir'",
@@ -60,12 +59,12 @@
           "weight": 2.5
         }
       ]
-    }
+    },
+    "type": "new"
   },
   {
-    "id": "perdon-senorita",
-    "order": 3,
-    "type": "combination",
+    "name": "perdon-senorita",
+    "index": 3,
     "English": {
       "first-intro": "Now put it together — how would you say 'excuse me, Miss'?",
       "second-intro": "How would you say 'excuse me, Miss'",
@@ -86,12 +85,12 @@
           "weight": 2.5
         }
       ]
-    }
+    },
+    "type": "combination"
   },
   {
-    "id": "perdon-senor",
-    "order": 4,
-    "type": "combination",
+    "name": "perdon-senor",
+    "index": 4,
     "English": {
       "first-intro": "You've been addressing the young woman; the man nearby is older — how do you say 'excuse me, sir'?",
       "second-intro": "How do you say 'excuse me, sir'",
@@ -112,12 +111,12 @@
           "weight": 2.5
         }
       ]
-    }
+    },
+    "type": "combination"
   },
   {
-    "id": "entiende",
-    "order": 5,
-    "type": "new",
+    "name": "entiende",
+    "index": 5,
     "English": {
       "first-intro": "This is how you formally ask one person, 'Do you understand?'",
       "second-intro": "How do you ask 'Do you understand?'",
@@ -133,12 +132,12 @@
           "weight": 3
         }
       ]
-    }
+    },
+    "type": "new"
   },
   {
-    "id": "ingles",
-    "order": 6,
-    "type": "new",
+    "name": "ingles",
+    "index": 6,
     "English": {
       "first-intro": "Listen and repeat the word for 'English.'",
       "second-intro": "How do you say 'English'",
@@ -154,12 +153,12 @@
           "weight": 2.5
         }
       ]
-    }
+    },
+    "type": "new"
   },
   {
-    "id": "entiende-ingles",
-    "order": 7,
-    "type": "combination",
+    "name": "entiende-ingles",
+    "index": 7,
     "English": {
       "first-intro": "Now put it together, how would you ask, 'Do you understand English?'",
       "second-intro": "How would you ask 'Do you understand English?'",
@@ -180,12 +179,12 @@
           "weight": 2.5
         }
       ]
-    }
+    },
+    "type": "combination"
   },
   {
-    "id": "perdon-entiende",
-    "order": 8,
-    "type": "combination",
+    "name": "perdon-entiende",
+    "index": 8,
     "English": {
       "first-intro": "You already know 'excuse me'; how would yoy say 'Excuse me, do you understand'?",
       "second-intro": "How do you say 'Excuse me, do you understand?'",
@@ -206,12 +205,12 @@
           "weight": 3
         }
       ]
-    }
+    },
+    "type": "combination"
   },
   {
-    "id": "perdon-entiende-ingles",
-    "order": 9,
-    "type": "combination",
+    "name": "perdon-entiende-ingles",
+    "index": 9,
     "English": {
       "first-intro": "She hasn't answered — how do you ask the full question: 'Excuse me, do you understand English?'",
       "second-intro": "How would you ask 'Excuse me, do you understand English?'",
@@ -237,12 +236,12 @@
           "weight": 2.5
         }
       ]
-    }
+    },
+    "type": "combination"
   },
   {
-    "id": "no",
-    "order": 10,
-    "type": "new",
+    "name": "no",
+    "index": 10,
     "English": {
       "first-intro": "The word 'no' works like English here for this pattern.",
       "second-intro": "How do you say 'No'",
@@ -258,12 +257,12 @@
           "weight": 1.5
         }
       ]
-    }
+    },
+    "type": "new"
   },
   {
-    "id": "no-senor",
-    "order": 11,
-    "type": "combination",
+    "name": "no-senor",
+    "index": 11,
     "English": {
       "first-intro": "The word 'no' is the same as in English, how would she then reply 'No, sir'?",
       "second-intro": "How do you say 'No, sir'",
@@ -284,12 +283,12 @@
           "weight": 2.5
         }
       ]
-    }
+    },
+    "type": "combination"
   },
   {
-    "id": "no-senorita",
-    "order": 12,
-    "type": "combination",
+    "name": "no-senorita",
+    "index": 12,
     "English": {
       "first-intro": "How do you say 'No, Miss'?",
       "second-intro": "How do you say 'No, Miss'",
@@ -310,12 +309,12 @@
           "weight": 2.5
         }
       ]
-    }
+    },
+    "type": "combination"
   },
   {
-    "id": "entiendo",
-    "order": 13,
-    "type": "new",
+    "name": "entiendo",
+    "index": 13,
     "English": {
       "first-intro": "This is how you say 'I understand.'",
       "second-intro": "How do you say 'I understand'?",
@@ -331,12 +330,12 @@
           "weight": 3
         }
       ]
-    }
+    },
+    "type": "new"
   },
   {
-    "id": "no-entiendo",
-    "order": 14,
-    "type": "combination",
+    "name": "no-entiendo",
+    "index": 14,
     "English": {
       "first-intro": "How would you say 'I don't understand'?",
       "second-intro": "How do you say 'I don't understand'?",
@@ -357,12 +356,12 @@
           "weight": 3
         }
       ]
-    }
+    },
+    "type": "combination"
   },
   {
-    "id": "entiendo-ingles",
-    "order": 15,
-    "type": "combination",
+    "name": "entiendo-ingles",
+    "index": 15,
     "English": {
       "first-intro": "How would you say 'I understand English'?",
       "second-intro": "How do you say 'I understand English'?",
@@ -383,12 +382,12 @@
           "weight": 2.5
         }
       ]
-    }
+    },
+    "type": "combination"
   },
   {
-    "id": "espanol",
-    "order": 16,
-    "type": "new",
+    "name": "espanol",
+    "index": 16,
     "English": {
       "first-intro": "Listen and repeat the name of the Spanish language.",
       "second-intro": "How do you say 'Spanish'",
@@ -404,12 +403,12 @@
           "weight": 2.5
         }
       ]
-    }
+    },
+    "type": "new"
   },
   {
-    "id": "entiende-espanol",
-    "order": 17,
-    "type": "combination",
+    "name": "entiende-espanol",
+    "index": 17,
     "English": {
       "first-intro": "She asked about English; how do you ask whether she understands Spanish?",
       "second-intro": "How would you ask 'Do you understand Spanish?'",
@@ -430,12 +429,12 @@
           "weight": 2.5
         }
       ]
-    }
+    },
+    "type": "combination"
   },
   {
-    "id": "si",
-    "order": 18,
-    "type": "new",
+    "name": "si",
+    "index": 18,
     "English": {
       "first-intro": "Here's how you say 'yes'",
       "second-intro": "How do you say 'yes'",
@@ -451,12 +450,12 @@
           "weight": 1.5
         }
       ]
-    }
+    },
+    "type": "new"
   },
   {
-    "id": "si-entiendo",
-    "order": 19,
-    "type": "combination",
+    "name": "si-entiendo",
+    "index": 19,
     "English": {
       "first-intro": "How would you say 'yes' and 'I understand'?",
       "second-intro": "How do you say 'Yes, I understand'?",
@@ -477,12 +476,12 @@
           "weight": 3
         }
       ]
-    }
+    },
+    "type": "combination"
   },
   {
-    "id": "si-entiendo-espanol",
-    "order": 20,
-    "type": "combination",
+    "name": "si-entiendo-espanol",
+    "index": 20,
     "English": {
       "first-intro": "She asks whether you understand Spanish — how do you reply 'Yes, I understand Spanish'?",
       "second-intro": "How do you say 'Yes, I understand Spanish'?",
@@ -508,12 +507,12 @@
           "weight": 2.5
         }
       ]
-    }
+    },
+    "type": "combination"
   },
   {
-    "id": "hablo",
-    "order": 21,
-    "type": "new",
+    "name": "hablo",
+    "index": 21,
     "English": {
       "first-intro": "This is how you say 'I speak.'",
       "second-intro": "Now say 'I speak'",
@@ -529,12 +528,12 @@
           "weight": 3
         }
       ]
-    }
+    },
+    "type": "new"
   },
   {
-    "id": "hablo-ingles",
-    "order": 22,
-    "type": "combination",
+    "name": "hablo-ingles",
+    "index": 22,
     "English": {
       "first-intro": "How would you say 'I speak English'?",
       "second-intro": "How do you say 'I speak English'?",
@@ -555,12 +554,12 @@
           "weight": 2.5
         }
       ]
-    }
+    },
+    "type": "combination"
   },
   {
-    "id": "hablo-espanol",
-    "order": 23,
-    "type": "combination",
+    "name": "hablo-espanol",
+    "index": 23,
     "English": {
       "first-intro": "She asks if you speak Spanish — how do you say 'I speak Spanish'?",
       "second-intro": "How do you say 'I speak Spanish'?",
@@ -581,12 +580,12 @@
           "weight": 2.5
         }
       ]
-    }
+    },
+    "type": "combination"
   },
   {
-    "id": "si-hablo-espanol",
-    "order": 24,
-    "type": "combination",
+    "name": "si-hablo-espanol",
+    "index": 24,
     "English": {
       "first-intro": "How would you tell her 'Yes, I speak Spanish'?",
       "second-intro": "How do you say 'Yes, I speak Spanish'?",
@@ -612,12 +611,12 @@
           "weight": 2.5
         }
       ]
-    }
+    },
+    "type": "combination"
   },
   {
-    "id": "no-hablo",
-    "order": 25,
-    "type": "combination",
+    "name": "no-hablo",
+    "index": 25,
     "English": {
       "first-intro": "How would you say 'I don't speak'?",
       "second-intro": "How do you say 'I don't speak'?",
@@ -638,12 +637,12 @@
           "weight": 3
         }
       ]
-    }
+    },
+    "type": "combination"
   },
   {
-    "id": "no-hablo-espanol",
-    "order": 26,
-    "type": "combination",
+    "name": "no-hablo-espanol",
+    "index": 26,
     "English": {
       "first-intro": "How do you extend that to 'I don't speak Spanish'?",
       "second-intro": "How do you say 'I don't speak Spanish'?",
@@ -669,12 +668,12 @@
           "weight": 2.5
         }
       ]
-    }
+    },
+    "type": "combination"
   },
   {
-    "id": "entiendo-espanol",
-    "order": 27,
-    "type": "combination",
+    "name": "entiendo-espanol",
+    "index": 27,
     "English": {
       "first-intro": "She asks 'do you understand Spanish?' — how do you reply 'I understand Spanish'?",
       "second-intro": "How do you say 'I understand Spanish'?",
@@ -695,12 +694,12 @@
           "weight": 2.5
         }
       ]
-    }
+    },
+    "type": "combination"
   },
   {
-    "id": "habla",
-    "order": 28,
-    "type": "new",
+    "name": "habla",
+    "index": 28,
     "English": {
       "first-intro": "Here's how you say 'you speak' in the formal manner.",
       "second-intro": "How do you say 'you speak' (formal)",
@@ -716,12 +715,12 @@
           "weight": 3
         }
       ]
-    }
+    },
+    "type": "new"
   },
   {
-    "id": "habla-ingles",
-    "order": 29,
-    "type": "combination",
+    "name": "habla-ingles",
+    "index": 29,
     "English": {
       "first-intro": "How would you ask 'Do you speak English'?",
       "second-intro": "How would you ask 'Do you speak English?'",
@@ -742,12 +741,12 @@
           "weight": 2.5
         }
       ]
-    }
+    },
+    "type": "combination"
   },
   {
-    "id": "habla-espanol",
-    "order": 30,
-    "type": "combination",
+    "name": "habla-espanol",
+    "index": 30,
     "English": {
       "first-intro": "She turns the question to Spanish — how would you ask 'Do you speak Spanish'?",
       "second-intro": "How would you ask 'Do you speak Spanish?'",
@@ -768,12 +767,12 @@
           "weight": 2.5
         }
       ]
-    }
+    },
+    "type": "combination"
   },
   {
-    "id": "no-hablo-ingles",
-    "order": 31,
-    "type": "combination",
+    "name": "no-hablo-ingles",
+    "index": 31,
     "English": {
       "first-intro": "She says she doesn't speak English — how does she say 'I don't speak English'?",
       "second-intro": "How do you say 'I don't speak English'?",
@@ -799,12 +798,12 @@
           "weight": 2.5
         }
       ]
-    }
+    },
+    "type": "combination"
   },
   {
-    "id": "un-poco",
-    "order": 32,
-    "type": "new",
+    "name": "un-poco",
+    "index": 32,
     "English": {
       "first-intro": "This is how you say 'a little.'",
       "second-intro": "Say 'a little'",
@@ -825,12 +824,12 @@
           "weight": 1.5
         }
       ]
-    }
+    },
+    "type": "new"
   },
   {
-    "id": "habla-un-poco",
-    "order": 33,
-    "type": "combination",
+    "name": "habla-un-poco",
+    "index": 33,
     "English": {
       "first-intro": "How would you ask 'Do you speak a little'?",
       "second-intro": "How would you ask 'Do you speak a little?'",
@@ -856,12 +855,12 @@
           "weight": 1.5
         }
       ]
-    }
+    },
+    "type": "combination"
   },
   {
-    "id": "hablo-un-poco",
-    "order": 34,
-    "type": "combination",
+    "name": "hablo-un-poco",
+    "index": 34,
     "English": {
       "first-intro": "How do you answer back 'I speak a little'?",
       "second-intro": "How do you say 'I speak a little'?",
@@ -887,12 +886,12 @@
           "weight": 1.5
         }
       ]
-    }
+    },
+    "type": "combination"
   },
   {
-    "id": "hablo-un-poco-de-espanol",
-    "order": 35,
-    "type": "combination",
+    "name": "hablo-un-poco-de-espanol",
+    "index": 35,
     "English": {
       "first-intro": "How do you say the full phrase 'I speak a little Spanish.'",
       "second-intro": "How do you say 'I speak a little Spanish'?",
@@ -928,12 +927,12 @@
           "weight": 2.5
         }
       ]
-    }
+    },
+    "type": "combination"
   },
   {
-    "id": "entiendo-un-poco",
-    "order": 36,
-    "type": "combination",
+    "name": "entiendo-un-poco",
+    "index": 36,
     "English": {
       "first-intro": "How would you say 'I understand a little'?",
       "second-intro": "How do you say 'I understand a little'?",
@@ -959,12 +958,12 @@
           "weight": 1.5
         }
       ]
-    }
+    },
+    "type": "combination"
   },
   {
-    "id": "entiendo-un-poco-de-espanol",
-    "order": 37,
-    "type": "combination",
+    "name": "entiendo-un-poco-de-espanol",
+    "index": 37,
     "English": {
       "first-intro": "How would you say 'I understand a little Spanish'?",
       "second-intro": "How do you say 'I understand a little Spanish'?",
@@ -1000,12 +999,12 @@
           "weight": 2.5
         }
       ]
-    }
+    },
+    "type": "combination"
   },
   {
-    "id": "entiende-un-poco",
-    "order": 38,
-    "type": "combination",
+    "name": "entiende-un-poco",
+    "index": 38,
     "English": {
       "first-intro": "How do you ask whether she understands even a little?",
       "second-intro": "How would you ask 'Do you understand a little?'",
@@ -1031,12 +1030,12 @@
           "weight": 1.5
         }
       ]
-    }
+    },
+    "type": "combination"
   },
   {
-    "id": "entiende-un-poco-de-ingles",
-    "order": 39,
-    "type": "combination",
+    "name": "entiende-un-poco-de-ingles",
+    "index": 39,
     "English": {
       "first-intro": "How would you ask 'Do you understand a little English'?",
       "second-intro": "How would you ask 'Do you understand a little English?'",
@@ -1072,12 +1071,12 @@
           "weight": 2.5
         }
       ]
-    }
+    },
+    "type": "combination"
   },
   {
-    "id": "entiendo-un-poco-de-ingles",
-    "order": 40,
-    "type": "combination",
+    "name": "entiendo-un-poco-de-ingles",
+    "index": 40,
     "English": {
       "first-intro": "She says she understands some — how does she say 'I understand a little English'?",
       "second-intro": "How do you say 'I understand a little English'?",
@@ -1113,12 +1112,12 @@
           "weight": 2.5
         }
       ]
-    }
+    },
+    "type": "combination"
   },
   {
-    "id": "britanico",
-    "order": 41,
-    "type": "new",
+    "name": "britanico",
+    "index": 41,
     "English": {
       "first-intro": "This is how you say 'British.'",
       "second-intro": "How do you say 'British'",
@@ -1134,12 +1133,12 @@
           "weight": 2
         }
       ]
-    }
+    },
+    "type": "new"
   },
   {
-    "id": "usted",
-    "order": 42,
-    "type": "new",
+    "name": "usted",
+    "index": 42,
     "English": {
       "first-intro": "Here is the formal word for 'you.'",
       "second-intro": "How do you say 'you'",
@@ -1155,12 +1154,12 @@
           "weight": 1.5
         }
       ]
-    }
+    },
+    "type": "new"
   },
   {
-    "id": "es",
-    "order": 43,
-    "type": "new",
+    "name": "es",
+    "index": 43,
     "English": {
       "first-intro": "This is how you say 'is' or 'are' in Spanish",
       "second-intro": "How do you say 'is'",
@@ -1176,12 +1175,12 @@
           "weight": 3
         }
       ]
-    }
+    },
+    "type": "new"
   },
   {
-    "id": "usted-es",
-    "order": 44,
-    "type": "combination",
+    "name": "usted-es",
+    "index": 44,
     "English": {
       "first-intro": "How would you say 'You are'—subject and verb together?",
       "second-intro": "How do you say 'You are'",
@@ -1202,12 +1201,12 @@
           "weight": 3
         }
       ]
-    }
+    },
+    "type": "combination"
   },
   {
-    "id": "usted-es-britanico",
-    "order": 45,
-    "type": "combination",
+    "name": "usted-es-britanico",
+    "index": 45,
     "English": {
       "first-intro": "How she state 'You are British'?",
       "second-intro": "How does she say 'You are British'",
@@ -1233,12 +1232,12 @@
           "weight": 2
         }
       ]
-    }
+    },
+    "type": "combination"
   },
   {
-    "id": "es-usted-britanico",
-    "order": 46,
-    "type": "combination",
+    "name": "es-usted-britanico",
+    "index": 46,
     "English": {
       "first-intro": "How do you ask that as a question: \"Are you British\"?",
       "second-intro": "How would you ask 'Are you British?'",
@@ -1264,12 +1263,12 @@
           "weight": 2
         }
       ]
-    }
+    },
+    "type": "combination"
   },
   {
-    "id": "si-senorita",
-    "order": 47,
-    "type": "combination",
+    "name": "si-senorita",
+    "index": 47,
     "English": {
       "first-intro": "Reply to her 'Yes, Miss.'",
       "second-intro": "How do you say 'Yes, Miss'",
@@ -1290,6 +1289,7 @@
           "weight": 2.5
         }
       ]
-    }
+    },
+    "type": "combination"
   }
 ]

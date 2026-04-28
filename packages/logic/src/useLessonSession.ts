@@ -154,7 +154,7 @@ export const useLessonSession = (
    * When resuming from a checkpoint that has a `currentPresentedPhraseId`, we
    * don't need to call `pickNext` at all — the current card is already known.
    */
-  const deckById = useRef(new Map(deck.map((p) => [p.id, p]))).current;
+  const deckById = useRef(new Map(deck.map((p) => [p.name, p]))).current;
   const firstPhraseRef = useRef<Phrase | null>(null);
 
   if (firstPhraseRef.current === null) {

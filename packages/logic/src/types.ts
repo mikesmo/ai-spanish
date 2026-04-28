@@ -11,9 +11,10 @@ export interface WordMeta {
 export type PhraseLessonType = 'new' | 'combination';
 
 export interface Phrase {
-  id: string;
+  /** Stable slug for the phrase (e.g. transcript key / logging). */
+  name: string;
   /** Phrase index in the lesson file; matches TTS audio id prefix (e.g. `3-en-question.mp3` → 3). */
-  order: number;
+  index: number;
   /**
    * Lesson card kind from JSON. When `'new'`, the first in-session
    * presentation may show a Spanish pronunciation example (audio + text) on
@@ -61,7 +62,7 @@ export interface SpokenWord {
 
 /**
  * `pronunciationExample` is used only for `Phrase.type === 'new'` on the
- * first presentation of that phrase id in the current session.
+ * first presentation of that phrase name in the current session.
  *
  * `recordingPriming` — after bootstrap TTS, optional clip before the mic opens
  * for the first three phrases in the deck on first presentation only (not on
@@ -199,7 +200,7 @@ export type PhraseDisplayAPI = {
    */
   hasUsedTryAgainOnCurrentCard: boolean;
   /**
-   * True the first time this phrase id is presented in the current session
+   * True the first time this phrase name is presented in the current session
    * (requeues / revisits are false). Drives on-screen English prompt hints.
    */
   isFirstSessionPresentationOfCurrentPhrase: boolean;

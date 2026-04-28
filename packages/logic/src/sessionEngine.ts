@@ -84,12 +84,12 @@ export interface SessionEngine {
 }
 
 /**
- * Builds the canonical deck fingerprint: sorted phrase ids joined with commas.
+ * Builds the canonical deck fingerprint: sorted phrase `name`s joined with commas.
  * Pass this when exporting a checkpoint so the consumer can detect deck mismatches.
  */
 export function buildDeckFingerprint(deck: Phrase[]): string {
   return deck
-    .map((p) => p.id)
+    .map((p) => p.name)
     .slice()
     .sort()
     .join(',');
@@ -108,7 +108,7 @@ export interface CreateSessionEngineOptions {
   getCompletedLessonCount?: () => number;
   /**
    * When provided the engine is hydrated from this checkpoint instead of
-   * starting fresh from `deck`. Every phrase id in the checkpoint must exist
+   * starting fresh from `deck`. Every phrase name in the checkpoint must exist
    * in `deck`; throws if any id is unrecognised.
    */
   initialCheckpoint?: SessionCheckpointParsed;
@@ -126,7 +126,7 @@ export function createSessionEngine(
 ): SessionEngine {
   const getCompletedLessonCount =
     options.getCompletedLessonCount ?? (() => 0);
-  const deckById = new Map(deck.map((p) => [p.id, p]));
+  const deckById = new Map(deck.map((p) => [p.name, p]));
 
   // --- Hydrate from checkpoint or start fresh ---
   let queue: Phrase[];
@@ -135,11 +135,11 @@ export function createSessionEngine(
 
   const cp = options.initialCheckpoint;
   if (cp) {
-    // Validate every id referenced in the checkpoint exists in this deck.
+    // Validate every phrase name referenced in the checkpoint exists in this deck.
     for (const id of cp.queuePhraseIds) {
       if (!deckById.has(id)) {
         throw new Error(
-          `createSessionEngine: checkpoint queuePhraseIds contains unknown phrase id "${id}"`,
+          `createSessionEngine: checkpoint queuePhraseIds contains unknown phrase name "${id}"`,
         );
       }
     }
@@ -164,16 +164,16 @@ export function createSessionEngine(
   }
 
   const reinsert = (phrase: Phrase, slotsAhead: number) => {
-    const used = reinsertCount.get(phrase.id) ?? 0;
+    const used = reinsertCount.get(phrase.name) ?? 0;
     if (used >= MAX_REINSERTS_PER_PHRASE_PER_SESSION) return;
-    reinsertCount.set(phrase.id, used + 1);
+    reinsertCount.set(phrase.name, used + 1);
     queue = insertAt(queue, slotsAhead, phrase);
   };
 
   return {
     pickNext() {
       const next = queue.shift() ?? null;
-      currentPhraseId = next?.id ?? null;
+      currentPhraseId = next?.name ?? null;
       return next;
     },
 
@@ -215,7 +215,7 @@ export function createSessionEngine(
     },
 
     getQueuePosition(phraseId) {
-      const idx = queue.findIndex((p) => p.id === phraseId);
+      const idx = queue.findIndex((p) => p.name === phraseId);
       return idx === -1 ? null : idx;
     },
 
@@ -227,7 +227,7 @@ export function createSessionEngine(
       return {
         schemaVersion: 1 as const,
         lessonId,
-        queuePhraseIds: queue.map((p) => p.id),
+        queuePhraseIds: queue.map((p) => p.name),
         currentPresentedPhraseId: currentPhraseId,
         reinsertCount: reinsertCountRecord,
         progress: store.all(),

@@ -59,7 +59,7 @@ export function buildLesson(
   const masteredPhrases: Phrase[] = [];
 
   for (const phrase of phrases) {
-    const progress = progressByPhrase.get(phrase.id);
+    const progress = progressByPhrase.get(phrase.name);
     if (!progress) {
       // Treat never-seen phrases as "weak" (lowest mastery).
       weakPhrases.push({ phrase, mastery: 0 });
@@ -87,9 +87,9 @@ export function buildLesson(
   const masteredPick = drawN(masteredPhrases, targetMastered, random);
 
   const chosen = new Set<string>([
-    ...scheduledPick.map((p) => p.id),
-    ...weakPick.map((p) => p.id),
-    ...masteredPick.map((p) => p.id),
+    ...scheduledPick.map((p) => p.name),
+    ...weakPick.map((p) => p.name),
+    ...masteredPick.map((p) => p.name),
   ]);
 
   // Backfill remaining slots from any bucket, preserving priority order.
@@ -99,32 +99,32 @@ export function buildLesson(
       ...scheduledPhrases.slice(targetScheduled),
       ...weakSorted.slice(targetWeak).map((x) => x.phrase),
       ...drawN(
-        masteredPhrases.filter((p) => !chosen.has(p.id)),
+        masteredPhrases.filter((p) => !chosen.has(p.name)),
         remaining,
         random,
       ),
     ];
     for (const phrase of leftovers) {
-      if (chosen.size - (chosen.has(phrase.id) ? 1 : 0) >= deckSize) break;
-      if (!chosen.has(phrase.id)) {
-        chosen.add(phrase.id);
+      if (chosen.size - (chosen.has(phrase.name) ? 1 : 0) >= deckSize) break;
+      if (!chosen.has(phrase.name)) {
+        chosen.add(phrase.name);
       }
       if (chosen.size >= deckSize) break;
     }
   }
 
-  const phraseById = new Map(phrases.map((p) => [p.id, p]));
+  const phraseByName = new Map(phrases.map((p) => [p.name, p]));
   const ordered: Phrase[] = [];
   const appendIfChosen = (p: Phrase) => {
-    if (chosen.has(p.id)) ordered.push(p);
+    if (chosen.has(p.name)) ordered.push(p);
   };
   scheduledPick.forEach(appendIfChosen);
   weakPick.forEach(appendIfChosen);
   masteredPick.forEach(appendIfChosen);
   // Any backfilled phrases that haven't been emitted yet.
   for (const id of chosen) {
-    if (!ordered.some((p) => p.id === id)) {
-      const p = phraseById.get(id);
+    if (!ordered.some((p) => p.name === id)) {
+      const p = phraseByName.get(id);
       if (p) ordered.push(p);
     }
   }

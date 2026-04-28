@@ -3,8 +3,8 @@ import { phraseSchema, transcriptResponseSchema } from '../schemas/phrase';
 import { POS_WEIGHTS } from '../weights';
 
 const minimalPhrase = {
-  id: 'a',
-  order: 0,
+  name: 'a',
+  index: 0,
   English: { 'first-intro': '', 'second-intro': 'i', question: 'q' },
   Spanish: {
     grammar: '',
@@ -38,9 +38,9 @@ describe('phraseSchema', () => {
 describe('transcriptResponseSchema', () => {
   it('accepts a lesson array with mixed phrase types', () => {
     const rows = [
-      { ...minimalPhrase, id: '1', order: 0, type: 'new' as const },
-      { ...minimalPhrase, id: '2', order: 1, type: 'combination' as const },
-      { ...minimalPhrase, id: '3', order: 2 },
+      { ...minimalPhrase, name: '1', index: 0, type: 'new' as const },
+      { ...minimalPhrase, name: '2', index: 1, type: 'combination' as const },
+      { ...minimalPhrase, name: '3', index: 2 },
     ];
     const parsed = transcriptResponseSchema.parse(rows);
     expect(parsed[0]!.type).toBe('new');

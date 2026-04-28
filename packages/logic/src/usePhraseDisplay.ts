@@ -326,7 +326,7 @@ export function usePhraseDisplay(
 
       const attempt: Attempt = {
         eventType: 'attempt',
-        phraseId: currentPhrase.id,
+        phraseId: currentPhrase.name,
         transcript: splitWords(finalCaption),
         missingWords: alignment.missing.map((w) => w.word),
         extraWords: alignment.extra.map((w) => w.word),
@@ -343,8 +343,8 @@ export function usePhraseDisplay(
       attemptEmittedRef.current = true;
       if (debugLearningPipelineRef.current) {
         logLearningAttempt({
-          phraseId: currentPhrase.id,
-          order: currentPhrase.order,
+          phraseId: currentPhrase.name,
+          index: currentPhrase.index,
           spanishTarget: spanishText,
           targetWords: target,
           transcript: finalCaption,
@@ -373,8 +373,8 @@ export function usePhraseDisplay(
       const fluency = computeFluency(words);
       if (debugLearningPipelineRef.current) {
         logLearningPractice({
-          phraseId: currentPhrase.id,
-          order: currentPhrase.order,
+          phraseId: currentPhrase.name,
+          index: currentPhrase.index,
           spanishTarget: spanishText,
           transcript: finalCaption,
           spokenWords: words,
@@ -385,7 +385,7 @@ export function usePhraseDisplay(
       }
       const practice: PracticeAttempt = {
         eventType: 'practice',
-        phraseId: currentPhrase.id,
+        phraseId: currentPhrase.name,
         transcript: splitWords(finalCaption),
         fluencyScore: fluency?.fluencyScore ?? null,
         timestamp: now,
@@ -400,11 +400,11 @@ export function usePhraseDisplay(
 
   const emitReveal = useCallback((now: number) => {
     if (debugLearningPipelineRef.current) {
-      logRevealEmitted(currentPhrase.id, currentPhrase.order);
+      logRevealEmitted(currentPhrase.name, currentPhrase.index);
     }
     const reveal: RevealEvent = {
       eventType: 'reveal',
-      phraseId: currentPhrase.id,
+      phraseId: currentPhrase.name,
       penaltyApplied: true,
       timestamp: now,
     };
@@ -470,7 +470,7 @@ export function usePhraseDisplay(
   const handleShowAnswer = useCallback(async () => {
     if (attemptEmittedRef.current) {
       if (debugLearningPipelineRef.current) {
-        logRevealSkipped(currentPhrase.id, currentPhrase.order);
+        logRevealSkipped(currentPhrase.name, currentPhrase.index);
       }
       await playAnswerAudio();
       return;
@@ -494,7 +494,7 @@ export function usePhraseDisplay(
       } else {
         attemptEmittedRef.current = true;
         if (debugLearningPipelineRef.current) {
-          logShowAnswerTryAgainNoProgress(currentPhrase.id, currentPhrase.order);
+          logShowAnswerTryAgainNoProgress(currentPhrase.name, currentPhrase.index);
         }
       }
     } else if (hasGradableSpeech) {
@@ -509,7 +509,7 @@ export function usePhraseDisplay(
 
     await playAnswerAudio();
   }, [
-    currentPhrase.id,
+    currentPhrase,
     emitAttempt,
     emitPracticeAttempt,
     emitReveal,
@@ -520,13 +520,13 @@ export function usePhraseDisplay(
   // useLayoutEffect so the async bootstrap and UI can read a stable
   // first/m repeat flag before paint and without duplicating this block.
   useLayoutEffect(() => {
-    const notifyKey = `${currentIndex}|${currentPhrase.id}|${presentationVersion ?? ''}`;
+    const notifyKey = `${currentIndex}|${currentPhrase.name}|${presentationVersion ?? ''}`;
     const shouldNotifyPresentation =
       lastPresentationNotifyKeyRef.current !== notifyKey;
-    const countStableKey = `${ttsPhraseIndex}|${currentPhrase.id}`;
+    const countStableKey = `${ttsPhraseIndex}|${currentPhrase.name}`;
     const isNewLogicalPosition =
       lastSessionCountKeyRef.current !== countStableKey;
-    const phraseId = currentPhrase.id;
+    const phraseId = currentPhrase.name;
     let isFirstSessionPresentation = false;
     if (shouldNotifyPresentation) {
       lastPresentationNotifyKeyRef.current = notifyKey;
@@ -558,7 +558,7 @@ export function usePhraseDisplay(
         isFirstSessionPresentation,
       };
     }
-  }, [currentIndex, currentPhrase.id, presentationVersion, ttsPhraseIndex]);
+  }, [currentIndex, currentPhrase, presentationVersion, ttsPhraseIndex]);
 
   // On phrase change: prefetch both audios, play English prompt, then auto-start recording.
   useEffect(() => {
@@ -573,8 +573,8 @@ export function usePhraseDisplay(
       logPhraseBoundary({
         fromIndex: prevIndexRef.current,
         toIndex: currentIndex,
-        order: currentPhrase.order,
-        phraseId: currentPhrase.id,
+        index: currentPhrase.index,
+        phraseId: currentPhrase.name,
         reason: prevIndexRef.current === null ? 'init' : 'next',
       });
     }
@@ -583,7 +583,7 @@ export function usePhraseDisplay(
     // strict-mode effect runs does not recompute from the map before it matches
     // layout and pick en-second-intro; fallback if keys drift (HMR, bug).
     const enB = currentPhrase.English;
-    const notifyKey = `${currentIndex}|${currentPhrase.id}|${
+    const notifyKey = `${currentIndex}|${currentPhrase.name}|${
       presentationVersion ?? ''
     }`;
     const fromLayout = introTtsForBootstrapRef.current;
@@ -596,7 +596,7 @@ export function usePhraseDisplay(
       const englishUseFirstIntroLocal =
         (enB['first-intro'] ?? '').trim() !== '';
       const n =
-        phraseIdPresentationCountRef.current.get(currentPhrase.id) ?? 0;
+        phraseIdPresentationCountRef.current.get(currentPhrase.name) ?? 0;
       isFirstSessionPresentation = n === 1;
       useFirstIntroClips =
         englishUseFirstIntroLocal &&
@@ -746,17 +746,17 @@ export function usePhraseDisplay(
     // Re-run on currentIndex change (linear navigation) AND on
     // presentationVersion bumps from a session engine so a requeued phrase
     // at the same index (or a one-element `phrases` array) still triggers a
-    // fresh bootstrap. currentPhrase.id is included so queue-driven hosts
-    // that swap the in-array identity without changing index also re-run.
+    // fresh bootstrap. `currentPhrase` identity (e.g. `name`) is included so
+    // queue-driven hosts that swap the in-array identity without changing index
+    // also re-run.
   }, [
     currentIndex,
-    currentPhrase.id,
-    currentPhrase.type,
+    currentPhrase,
     presentationVersion,
     options?.s3LessonSegment,
   ]);
-  // `currentPhrase.English` strings are *not* deps: hot edits without id change
-  // are rare; listing them re-ran bootstrap and could pick the wrong S3 intro.
+  // `currentPhrase.English` strings are *not* deps: hot edits without name
+  // change are rare; listing them re-ran bootstrap and could pick the wrong S3 intro.
 
   // Transition to recording once the mic opens. Preserve the 'tryAgain'
   // status so Try Again passes continue to emit PracticeAttempt events (and
@@ -821,8 +821,8 @@ export function usePhraseDisplay(
               : null;
           if (debugLearningPipelineRef.current) {
             logAttemptFireSource({
-              phraseId: currentPhrase.id,
-              order: currentPhrase.order,
+              phraseId: currentPhrase.name,
+              index: currentPhrase.index,
               trigger: statusRef.current === 'tryAgain' ? 'practice' : 'success-path-timer',
               captionAtFire: captureCaption,
               wordCountAtFire: captureWords.length,
@@ -865,9 +865,7 @@ export function usePhraseDisplay(
     playAnswerAudio,
     emitAttempt,
     emitPracticeAttempt,
-    currentPhrase.id,
-    currentPhrase.order,
-    currentPhrase.type,
+    currentPhrase,
     isFirstSessionPresentationOfCurrentPhrase,
     hasUsedTryAgainOnCurrentCard,
   ]);
@@ -887,8 +885,8 @@ export function usePhraseDisplay(
       return;
     }
 
-    const phraseId = currentPhrase.id;
-    const phraseOrder = currentPhrase.order;
+    const phraseId = currentPhrase.name;
+    const phraseIndex = currentPhrase.index;
     const fireNow = Date.now();
     const captureCaption = sttRef.current.caption;
     const captureWords = sttRef.current.words;
@@ -899,7 +897,7 @@ export function usePhraseDisplay(
     if (debugLearningPipelineRef.current) {
       logAttemptFireSource({
         phraseId,
-        order: phraseOrder,
+        index: phraseIndex,
         trigger: statusRef.current === 'tryAgain' ? 'practice' : 'speech-final',
         captionAtFire: captureCaption,
         wordCountAtFire: captureWords.length,
@@ -925,8 +923,7 @@ export function usePhraseDisplay(
     playAnswerAudio,
     emitAttempt,
     emitPracticeAttempt,
-    currentPhrase.id,
-    currentPhrase.order,
+    currentPhrase,
   ]);
 
   const handleTryAgain = () => {

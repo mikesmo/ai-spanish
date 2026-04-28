@@ -390,9 +390,9 @@ async function main(): Promise<void> {
   console.log(`Built ${jobs.length} TTS job(s)`);
 
   if (opts.onlyPhrase !== undefined) {
-    if (!phrases.some((p) => p.order === opts.onlyPhrase)) {
+    if (!phrases.some((p) => p.index === opts.onlyPhrase)) {
       throw new Error(
-        `--only-phrase ${opts.onlyPhrase}: no phrase in the transcript has that "order" (see lesson JSON).`
+        `--only-phrase ${opts.onlyPhrase}: no phrase in the transcript has that "index" (see lesson JSON).`
       );
     }
     await runOnlyPhraseBatch(opts, jobs, opts.onlyPhrase, apiKey, region, s3Path);

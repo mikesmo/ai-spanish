@@ -38,7 +38,7 @@ export interface HistoryEntry {
   masteryAfter: number;
   /**
    * True when this event was logged during a second-or-later presentation of
-   * the same `phrase.id` in the current session (e.g. Pimsleur requeue or
+   * the same `phrase.name` in the current session (e.g. Pimsleur requeue or
    * linear deck wrap). Orthogonal to PracticeAttempt — a row can be both a
    * revisit AND a Try Again practice event on that revisit's card.
    */
@@ -136,9 +136,9 @@ export const useSessionHistory = (
       const reduceCtx: ReduceProgressContext = {
         completedLessonCount: completedLessonCountRef.current,
       };
-      const prevProgress = progressByPhraseRef.current.get(phrase.id) ?? null;
+      const prevProgress = progressByPhraseRef.current.get(phrase.name) ?? null;
       const nextProgress = reduceProgress(prevProgress, event, reduceCtx);
-      progressByPhraseRef.current.set(phrase.id, nextProgress);
+      progressByPhraseRef.current.set(phrase.name, nextProgress);
 
       const stabilityBefore = prevProgress?.stabilityScore ?? 0;
       const masteryBefore = prevProgress?.masteryScore ?? 0;
@@ -193,7 +193,7 @@ export const useSessionHistory = (
             : (event as { transcript: string[] }).transcript.join(' ');
         logSessionHistoryAppend({
           eventType: event.eventType,
-          phraseId: phrase.id,
+          phraseId: phrase.name,
           transcriptPreview: transcriptStr,
           dueOnLessonSessionIndex: nextProgress.dueOnLessonSessionIndex,
           slotsSessionLog: ctx.slotsAheadAtEvent,
@@ -227,9 +227,9 @@ export const useSessionHistory = (
   );
 
   const onPresentationStart = useCallback((phrase: Phrase): void => {
-    const prev = visitCountsRef.current.get(phrase.id) ?? 0;
+    const prev = visitCountsRef.current.get(phrase.name) ?? 0;
     const next = prev + 1;
-    visitCountsRef.current.set(phrase.id, next);
+    visitCountsRef.current.set(phrase.name, next);
     currentIsRepeatRef.current = next > 1;
   }, []);
 

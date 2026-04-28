@@ -29,10 +29,10 @@ export function usePhraseDisplayWithDeck(
 ) {
   const deckIndexById = useMemo(() => {
     const m = new Map<string, number>();
-    deck.forEach((p, i) => m.set(p.id, i));
+    deck.forEach((p, i) => m.set(p.name, i));
     return m;
   }, [deck]);
-  const ttsPhraseIndex = deckIndexById.get(session.currentPhrase.id) ?? 0;
+  const ttsPhraseIndex = deckIndexById.get(session.currentPhrase.name) ?? 0;
   const runFeedbackNextRef = useRef<() => void>(() => {});
 
   const display = usePhraseDisplay(session.phrases, stt, tts, {

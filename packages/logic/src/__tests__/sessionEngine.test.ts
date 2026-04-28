@@ -18,14 +18,14 @@ import type { Phrase } from '../types';
 
 const NOW = 1_700_000_000_000;
 
-const phrase = (id: string, order = 0): Phrase => ({
-  id,
-  order,
-  English: { 'first-intro': '', 'second-intro': '', question: id },
+const phrase = (name: string, index = 0): Phrase => ({
+  name,
+  index,
+  English: { 'first-intro': '', 'second-intro': '', question: name },
   Spanish: {
     grammar: '',
-    answer: id,
-    words: [{ word: id, type: 'verb', weight: POS_WEIGHTS.verb }],
+    answer: name,
+    words: [{ word: name, type: 'verb', weight: POS_WEIGHTS.verb }],
   },
 });
 
@@ -112,16 +112,16 @@ describe('createSessionEngine', () => {
     const deck = [phrase('a'), phrase('b')];
     const engine = createSessionEngine(deck, createInMemoryProgressStore());
     expect(engine.getCurrentPresentedPhraseId()).toBeNull();
-    expect(engine.pickNext()?.id).toBe('a');
+    expect(engine.pickNext()?.name).toBe('a');
     expect(engine.getCurrentPresentedPhraseId()).toBe('a');
   });
 
   it('returns phrases in deck order by default', () => {
     const deck = [phrase('a'), phrase('b'), phrase('c')];
     const engine = createSessionEngine(deck, createInMemoryProgressStore());
-    expect(engine.pickNext()?.id).toBe('a');
-    expect(engine.pickNext()?.id).toBe('b');
-    expect(engine.pickNext()?.id).toBe('c');
+    expect(engine.pickNext()?.name).toBe('a');
+    expect(engine.pickNext()?.name).toBe('b');
+    expect(engine.pickNext()?.name).toBe('c');
     expect(engine.pickNext()).toBeNull();
   });
 
@@ -130,7 +130,7 @@ describe('createSessionEngine', () => {
     const engine = createSessionEngine(deck, createInMemoryProgressStore());
     engine.pickNext(); // a
     engine.onEvent(attempt('a')); // high mastery → drop
-    expect(engine.pickNext()?.id).toBe('b');
+    expect(engine.pickNext()?.name).toBe('b');
     expect(engine.pickNext()).toBeNull();
   });
 
@@ -204,10 +204,10 @@ describe('createSessionEngine', () => {
     engine.onEvent(reveal('a'));
     // A fresh phrase revealed (prev mastery/stability = 0) stays at 0 post
     // decay, so the formula yields MIN_REPEAT_SLOTS = 2 — expect b, c, a, d.
-    expect(engine.pickNext()?.id).toBe('b');
-    expect(engine.pickNext()?.id).toBe('c');
-    expect(engine.pickNext()?.id).toBe('a');
-    expect(engine.pickNext()?.id).toBe('d');
+    expect(engine.pickNext()?.name).toBe('b');
+    expect(engine.pickNext()?.name).toBe('c');
+    expect(engine.pickNext()?.name).toBe('a');
+    expect(engine.pickNext()?.name).toBe('d');
   });
 
   it('caps reinserts per phrase at MAX_REINSERTS_PER_PHRASE_PER_SESSION', () => {
@@ -220,7 +220,7 @@ describe('createSessionEngine', () => {
     // Repeatedly pick and fail 'stuck'.
     for (let i = 0; i < 10; i++) {
       const next = engine.pickNext();
-      if (next?.id === 'stuck') {
+      if (next?.name === 'stuck') {
         if (i > 0) reinsertions++;
         engine.onEvent(
           attempt('stuck', {
@@ -231,7 +231,7 @@ describe('createSessionEngine', () => {
           }),
         );
       } else if (next) {
-        engine.onEvent(attempt(next.id, { timestamp: NOW + i }));
+        engine.onEvent(attempt(next.name, { timestamp: NOW + i }));
       } else {
         break;
       }
@@ -248,7 +248,7 @@ describe('createSessionEngine', () => {
     engine.pickNext(); // a
     const practice: PracticeAttempt = practicePayload('a');
     engine.onEvent(practice);
-    expect(engine.pickNext()?.id).toBe('b');
+    expect(engine.pickNext()?.name).toBe('b');
     expect(engine.pickNext()).toBeNull();
   });
 
@@ -273,7 +273,7 @@ describe('createSessionEngine', () => {
       }),
     );
     // Queue has one slot at tick+2. pickNext must advance tick and return it.
-    expect(engine.pickNext()?.id).toBe('weak');
+    expect(engine.pickNext()?.name).toBe('weak');
   });
 });
 
@@ -469,7 +469,7 @@ describe('exportCheckpoint / initialCheckpoint round-trip', () => {
     const store2 = createInMemoryProgressStore();
     expect(() =>
       createSessionEngine(deck, store2, { initialCheckpoint: badCp }),
-    ).toThrow(/unknown phrase id/);
+    ).toThrow(/unknown phrase name/);
   });
 
   it('includes deckFingerprint when provided', () => {
@@ -492,6 +492,6 @@ describe('exportCheckpoint / initialCheckpoint round-trip', () => {
     const engine2 = createSessionEngine(deck, store2, { initialCheckpoint: cp });
     expect(engine2.remaining()).toBe(2);
     expect(engine2.getCurrentPresentedPhraseId()).toBeNull();
-    expect(engine2.pickNext()?.id).toBe('a');
+    expect(engine2.pickNext()?.name).toBe('a');
   });
 });

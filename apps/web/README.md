@@ -53,18 +53,26 @@ bun dev
 
 ## Modifying the Content
 
-To change the displayed phrases, edit the `public/lesson1.json` file. The app will automatically display the updated content. The JSON structure should be an array of objects with "English" and "Spanish" properties.
+To change the displayed phrases, edit the `public/lesson1.json` file (or add lessons under `public/lesson*.json`). The app will display the updated content. Each phrase is an object with at least `name` (stable slug), `index` (0-based phrase order in the lesson; used as the TTS / audio filename prefix), `English`, and `Spanish`. Optional `type` may be `"new"` or `"combination"`.
 
-Example format:
+Example shape (abbreviated):
+
 ```json
 [
   {
-    "English": "Where can apples be bought?",
-    "Spanish": "¿Dónde se pueden comprar manzanas?"
-  },
-  {
-    "English": "You can buy them at the grocery store",
-    "Spanish": "Puedes comprarlas en la tienda de comestibles"
+    "name": "perdon",
+    "index": 0,
+    "type": "new",
+    "English": {
+      "first-intro": "…",
+      "second-intro": "…",
+      "question": "Excuse me"
+    },
+    "Spanish": {
+      "grammar": "",
+      "answer": "Perdón",
+      "words": [{ "word": "perdón", "type": "noun", "weight": 2.5 }]
+    }
   }
 ]
 ```

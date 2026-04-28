@@ -6,14 +6,14 @@ import type { Phrase, PhraseProgress } from '../types';
 
 const NOW = 1_700_000_000_000;
 
-const phrase = (id: string, order = 0): Phrase => ({
-  id,
-  order,
-  English: { 'first-intro': '', 'second-intro': '', question: id },
+const phrase = (name: string, index = 0): Phrase => ({
+  name,
+  index,
+  English: { 'first-intro': '', 'second-intro': '', question: name },
   Spanish: {
     grammar: '',
-    answer: id,
-    words: [{ word: id, type: 'verb', weight: POS_WEIGHTS.verb }],
+    answer: name,
+    words: [{ word: name, type: 'verb', weight: POS_WEIGHTS.verb }],
   },
 });
 
@@ -81,20 +81,20 @@ describe('buildLesson', () => {
     });
 
     expect(built.length).toBe(DEFAULT_DECK_SIZE);
-    expect(new Set(built.map((p) => p.id)).size).toBe(DEFAULT_DECK_SIZE);
+    expect(new Set(built.map((p) => p.name)).size).toBe(DEFAULT_DECK_SIZE);
 
     const scheduledIds = built
-      .filter((p) => Number(p.id.slice(1)) < 50)
-      .map((p) => p.id);
+      .filter((p) => Number(p.name.slice(1)) < 50)
+      .map((p) => p.name);
     const weakIds = built
       .filter((p) => {
-        const idx = Number(p.id.slice(1));
+        const idx = Number(p.name.slice(1));
         return idx >= 50 && idx < 80;
       })
-      .map((p) => p.id);
+      .map((p) => p.name);
     const masteredIds = built
-      .filter((p) => Number(p.id.slice(1)) >= 80)
-      .map((p) => p.id);
+      .filter((p) => Number(p.name.slice(1)) >= 80)
+      .map((p) => p.name);
 
     expect(scheduledIds.length).toBe(14);
     expect(weakIds.length).toBe(4);
@@ -106,7 +106,7 @@ describe('buildLesson', () => {
     const store = createInMemoryProgressStore();
     const built = buildLesson(deck, store, COMPLETED_LESSONS, { deckSize: 3 });
     expect(built.length).toBe(3);
-    expect(new Set(built.map((p) => p.id))).toEqual(new Set(['a', 'b', 'c']));
+    expect(new Set(built.map((p) => p.name))).toEqual(new Set(['a', 'b', 'c']));
   });
 
   it('orders weak bucket by ascending mastery (weakest first)', () => {
@@ -128,7 +128,7 @@ describe('buildLesson', () => {
       random: seededRandom(7),
     });
     expect(built.length).toBe(3);
-    expect(built.map((p) => p.id)).toContain('p1');
+    expect(built.map((p) => p.name)).toContain('p1');
   });
 
   it('backfills when a bucket is empty', () => {

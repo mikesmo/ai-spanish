@@ -1146,8 +1146,8 @@ export const SessionHistoryLogView = ({
   const liveSlotsByPhraseId = useMemo(() => {
     const map = new Map<string, number | null>();
     for (const entry of history) {
-      if (!map.has(entry.phrase.id)) {
-        map.set(entry.phrase.id, getLiveSlotsAhead(entry.phrase.id));
+      if (!map.has(entry.phrase.name)) {
+        map.set(entry.phrase.name, getLiveSlotsAhead(entry.phrase.name));
       }
     }
     return map;
@@ -1157,7 +1157,7 @@ export const SessionHistoryLogView = ({
   const latestEntryIdByPhraseId = useMemo(() => {
     const map = new Map<string, string>(); // phraseId → entry.id
     for (const entry of history) {
-      map.set(entry.phrase.id, entry.id); // later entries overwrite earlier ones
+      map.set(entry.phrase.name, entry.id); // later entries overwrite earlier ones
     }
     return map;
   }, [history]);
@@ -1188,9 +1188,9 @@ export const SessionHistoryLogView = ({
                 key={entry.id}
                 index={history.length - i}
                 entry={entry}
-                liveSlotsAhead={liveSlotsByPhraseId.get(entry.phrase.id) ?? null}
+                liveSlotsAhead={liveSlotsByPhraseId.get(entry.phrase.name) ?? null}
                 completedLessonCount={completedLessonCount}
-                isLatestForPhrase={latestEntryIdByPhraseId.get(entry.phrase.id) === entry.id}
+                isLatestForPhrase={latestEntryIdByPhraseId.get(entry.phrase.name) === entry.id}
               />
             ))}
           </tbody>
