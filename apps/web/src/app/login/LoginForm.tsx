@@ -1,6 +1,7 @@
 'use client';
 
 import type { JSX } from 'react';
+import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
@@ -9,6 +10,10 @@ type Mode = 'signin' | 'signup';
 
 export function LoginForm({ defaultNext }: { defaultNext: string }): JSX.Element {
   const router = useRouter();
+  const forgotHref =
+    defaultNext === '/'
+      ? '/forgot-password'
+      : `/forgot-password?next=${encodeURIComponent(defaultNext)}`;
   const [mode, setMode] = useState<Mode>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -91,6 +96,17 @@ export function LoginForm({ defaultNext }: { defaultNext: string }): JSX.Element
             className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 shadow-sm outline-none transition focus:border-gray-400"
           />
         </label>
+
+        {mode === 'signin' && (
+          <p className="text-right text-sm">
+            <Link
+              href={forgotHref}
+              className="font-medium text-gray-900 underline-offset-2 hover:underline"
+            >
+              Forgot password?
+            </Link>
+          </p>
+        )}
 
         {message && (
           <p

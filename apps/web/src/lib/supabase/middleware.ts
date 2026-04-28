@@ -2,7 +2,12 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { safeNextPath } from '@/lib/auth/safe-next-path';
 
-const PUBLIC_PREFIXES = ['/login', '/auth/callback'];
+const PUBLIC_PREFIXES = [
+  '/login',
+  '/forgot-password',
+  '/auth/callback',
+  '/auth/update-password',
+];
 
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
@@ -60,6 +65,14 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
   const pathname = request.nextUrl.pathname;
 
   if (user && pathname === '/login') {
+    const next = safeNextPath(request.nextUrl.searchParams.get('next'));
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = next;
+    redirectUrl.search = '';
+    return NextResponse.redirect(redirectUrl);
+  }
+
+  if (user && pathname === '/forgot-password') {
     const next = safeNextPath(request.nextUrl.searchParams.get('next'));
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = next;
