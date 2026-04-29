@@ -258,6 +258,7 @@
       var playSessionBusy = false;
       var PLAY_LABEL = "Play";
       var silentRefreshPending = false;
+      var NO_AUDIO_HEARD = "No audio";
 
       function isLoggedIn() {
         return (
@@ -434,13 +435,9 @@
           /** @type {{ ok?: unknown, transcript?: unknown, id?: unknown }} */
           var clip = clips[i];
           if (!clip || clip.ok === true) continue;
-          var t =
-            clip.transcript != null &&
-            typeof clip.transcript === "string" &&
-            clip.transcript.trim().length > 0
-              ? String(clip.transcript).trim()
-              : "";
-          if (!t) continue;
+          var trimmed =
+            typeof clip.transcript === "string" ? clip.transcript.trim() : "";
+          var t = trimmed.length > 0 ? trimmed : NO_AUDIO_HEARD;
           var idStr = clip.id != null ? String(clip.id) : "";
           var elId = "";
           if (idStr.endsWith("-en-first-intro")) {

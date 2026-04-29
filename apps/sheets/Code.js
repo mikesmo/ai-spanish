@@ -584,18 +584,16 @@ function heardSttTextsFromPhraseClips(clips) {
       c
     );
     if (row.ok === true) continue;
-    var tr = "";
-    if (typeof row.transcript === "string") {
-      tr = row.transcript.trim();
-    }
-    if (!tr) continue;
+    var tr =
+      typeof row.transcript === "string" ? row.transcript.trim() : "";
+    var heardCell = tr.length > 0 ? tr : "No audio";
     var id = typeof row.id === "string" ? row.id : "";
     if (id.endsWith("-en-first-intro")) {
-      first = tr;
+      first = heardCell;
     } else if (id.endsWith("-en-second-intro")) {
-      second = tr;
+      second = heardCell;
     } else if (id.endsWith("-es-answer")) {
-      ans = tr;
+      ans = heardCell;
     }
   }
   return [first, second, ans];
