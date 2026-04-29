@@ -301,12 +301,48 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const conc = Math.max(
     1,
-    Math.min(parseInt(process.env.LESSON_AUDIO_VERIFY_CONCURRENCY ?? '3', 10) || 3, 8),
+    Math.min(parseInt(process.env.LESSON_AUDIO_VERIFY_CONCURRENCY ?? '6', 10) || 6, 8),
   );
   const limit = pLimit(conc);
   const specsToVerify =
     phraseIndexFilter !== undefined ? specs.filter((s) => s.phraseIndex === phraseIndexFilter) : specs;
-  const clipsOut = await Promise.all(specsToVerify.map((spec) => limit(() => verifyOne(spec))));
+
+  const LESSON_AUDIO_VERIFY_LOG_PREFIX = '[ai-spanish/lesson-audio-verify]';
+  const clipsNeededPerPhrase = new Map<number, number>();
+  for (const s of specsToVerify) {
+    clipsNeededPerPhrase.set(s.phraseIndex, (clipsNeededPerPhrase.get(s.phraseIndex) ?? 0) + 1);
+  }
+  const totalPhrases = clipsNeededPerPhrase.size;
+
+  console.log(
+    `${LESSON_AUDIO_VERIFY_LOG_PREFIX} lesson=${canonicalLessonId} phrases=${totalPhrases} clips=${specsToVerify.length} concurrency=${conc}`,
+  );
+  if (specsToVerify.length === 0) {
+    console.log(`${LESSON_AUDIO_VERIFY_LOG_PREFIX} nothing to verify`);
+  }
+
+  const clipsDonePerPhrase = new Map<number, number>();
+  let phrasesFullyCompleted = 0;
+
+  async function verifyOneWithPhraseProgress(spec: PhraseAudioClipSpec): Promise<ClipVerifyResult> {
+    const result = await verifyOne(spec);
+    const pi = spec.phraseIndex;
+    const done = (clipsDonePerPhrase.get(pi) ?? 0) + 1;
+    clipsDonePerPhrase.set(pi, done);
+    const need = clipsNeededPerPhrase.get(pi) ?? 0;
+    if (need > 0 && done === need) {
+      phrasesFullyCompleted += 1;
+      const remaining = totalPhrases - phrasesFullyCompleted;
+      console.log(
+        `${LESSON_AUDIO_VERIFY_LOG_PREFIX} phraseIndex=${pi} complete (${phrasesFullyCompleted}/${totalPhrases} phrases done, ${remaining} remaining)`,
+      );
+    }
+    return result;
+  }
+
+  const clipsOut = await Promise.all(
+    specsToVerify.map((spec) => limit(() => verifyOneWithPhraseProgress(spec))),
+  );
 
   let phrasesPayload: PhraseVerifyResult[];
   if (phraseIndexFilter !== undefined) {
