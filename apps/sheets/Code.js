@@ -17,6 +17,7 @@ var TRANSCRIPT_PATH =
   "/api/transcript?lesson=" + DEFAULT_TRANSCRIPT_LESSON_ID;
 
 var LESSON_COLUMNS = [
+  "Index",
   "Name",
   "Type",
   "First Intro",
@@ -37,6 +38,7 @@ var LESSON_COLUMNS = [
 ];
 
 /** 1-based column indexes; must stay aligned with LESSON_COLUMNS. */
+var COL_INDEX = LESSON_COLUMNS.indexOf("Index") + 1;
 var COL_NAME = LESSON_COLUMNS.indexOf("Name") + 1;
 var COL_FIRST_INTRO = LESSON_COLUMNS.indexOf("First Intro") + 1;
 var COL_SECOND_INTRO = LESSON_COLUMNS.indexOf("Second Intro") + 1;
@@ -1059,7 +1061,7 @@ function importLessonTranscriptWithToken(accessToken) {
     var phraseDirectory = [];
 
     parsed.forEach(function (phrase, loopIndex) {
-      rows.push(phraseRow(phrase));
+      rows.push(phraseRow(phrase, loopIndex));
 
       var nameVal = "";
       var indexVal = loopIndex;
@@ -1149,15 +1151,21 @@ function populateLessonFromJson(email, password) {
 
 /**
  * @param {*} phrase phrase object from lesson JSON (words omitted when flattening Spanish)
+ * @param {number} loopIndex fallback transcript index when phrase.index is missing
  */
-function phraseRow(phrase) {
+function phraseRow(phrase, loopIndex) {
   if (phrase === null || typeof phrase !== "object") {
     throw new Error("Invalid phrase entry (not an object)");
   }
+  var indexCell =
+    typeof phrase.index === "number" && !isNaN(phrase.index)
+      ? Math.floor(phrase.index)
+      : loopIndex;
   const en = phrase.English || {};
   const es = phrase.Spanish || {};
   var typeCell = phrase.type === undefined ? "" : phrase.type;
   return [
+    indexCell,
     phrase.name ?? "",
     typeCell,
     en["first-intro"] ?? "",
