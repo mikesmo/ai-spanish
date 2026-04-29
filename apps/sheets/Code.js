@@ -27,6 +27,9 @@ var LESSON_COLUMNS = [
   "Verified",
   "Max volume",
   "Avg volume",
+  "First Intro Heard",
+  "Second Intro Heard",
+  "Answer Heard",
 ];
 
 /** 1-based column indexes; must stay aligned with LESSON_COLUMNS. */
@@ -37,6 +40,9 @@ var COL_ANSWER = LESSON_COLUMNS.indexOf("Answer") + 1;
 var COL_VERIFIED = LESSON_COLUMNS.indexOf("Verified") + 1;
 var COL_MAX_VOLUME = LESSON_COLUMNS.indexOf("Max volume") + 1;
 var COL_AVG_VOLUME = LESSON_COLUMNS.indexOf("Avg volume") + 1;
+var COL_FIRST_INTRO_HEARD = LESSON_COLUMNS.indexOf("First Intro Heard") + 1;
+var COL_SECOND_INTRO_HEARD = LESSON_COLUMNS.indexOf("Second Intro Heard") + 1;
+var COL_ANSWER_HEARD = LESSON_COLUMNS.indexOf("Answer Heard") + 1;
 
 /** Light yellow background for rows that fail audio verification. */
 var VERIFY_ROW_FAIL_BG = "#fff9c4";
@@ -72,7 +78,7 @@ function s3LessonFolderForTranscriptLessonId(transcriptLessonId) {
 
 /**
  * Values from the active row for the phrase columns shown in the sidebar.
- * @returns {{ row: number, phraseName: string, firstIntro: string, secondIntro: string, answer: string }}
+ * @returns {{ row: number, phraseName: string, firstIntro: string, secondIntro: string, answer: string, firstIntroHeard: string, secondIntroHeard: string, answerHeard: string }}
  */
 function getActiveRowPhrasePreview() {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
@@ -84,6 +90,9 @@ function getActiveRowPhrasePreview() {
       firstIntro: "",
       secondIntro: "",
       answer: "",
+      firstIntroHeard: "",
+      secondIntroHeard: "",
+      answerHeard: "",
     };
   }
 
@@ -96,6 +105,9 @@ function getActiveRowPhrasePreview() {
       firstIntro: "",
       secondIntro: "",
       answer: "",
+      firstIntroHeard: "",
+      secondIntroHeard: "",
+      answerHeard: "",
     };
   }
 
@@ -108,12 +120,31 @@ function getActiveRowPhrasePreview() {
   var secondIntro = sheet.getRange(row, COL_SECOND_INTRO).getDisplayValue();
   var answer = sheet.getRange(row, COL_ANSWER).getDisplayValue();
 
+  var firstIntroHeard = "";
+  var secondIntroHeard = "";
+  var answerHeard = "";
+  if (lastCol >= COL_FIRST_INTRO_HEARD) {
+    var fh = sheet.getRange(row, COL_FIRST_INTRO_HEARD).getDisplayValue();
+    firstIntroHeard = fh != null ? String(fh) : "";
+  }
+  if (lastCol >= COL_SECOND_INTRO_HEARD) {
+    var sh = sheet.getRange(row, COL_SECOND_INTRO_HEARD).getDisplayValue();
+    secondIntroHeard = sh != null ? String(sh) : "";
+  }
+  if (lastCol >= COL_ANSWER_HEARD) {
+    var ah = sheet.getRange(row, COL_ANSWER_HEARD).getDisplayValue();
+    answerHeard = ah != null ? String(ah) : "";
+  }
+
   return {
     row: row,
     phraseName: phraseName,
     firstIntro: firstIntro != null ? String(firstIntro) : "",
     secondIntro: secondIntro != null ? String(secondIntro) : "",
     answer: answer != null ? String(answer) : "",
+    firstIntroHeard: firstIntroHeard,
+    secondIntroHeard: secondIntroHeard,
+    answerHeard: answerHeard,
   };
 }
 
@@ -519,6 +550,44 @@ function clipsFromPhrasePayload(onePhrase) {
 }
 
 /**
+ * Per-clip STT mismatch text for Heard columns ([first, second, answer]).
+ * @param {unknown} clips phrases[n].clips from lesson-audio-verify
+ * @returns {[string, string, string]}
+ */
+function heardSttTextsFromPhraseClips(clips) {
+  var first = "";
+  var second = "";
+  var ans = "";
+  if (!clips || !(clips instanceof Array)) {
+    return [first, second, ans];
+  }
+  var j;
+  for (j = 0; j < clips.length; j++) {
+    var c = clips[j];
+    if (c === null || typeof c !== "object") continue;
+    /** @type {{ id?: unknown, ok?: unknown, transcript?: unknown }} */
+    var row = /** @type {{ id?: unknown, ok?: unknown, transcript?: unknown }} */ (
+      c
+    );
+    if (row.ok === true) continue;
+    var tr = "";
+    if (typeof row.transcript === "string") {
+      tr = row.transcript.trim();
+    }
+    if (!tr) continue;
+    var id = typeof row.id === "string" ? row.id : "";
+    if (id.endsWith("-en-first-intro")) {
+      first = tr;
+    } else if (id.endsWith("-en-second-intro")) {
+      second = tr;
+    } else if (id.endsWith("-es-answer")) {
+      ans = tr;
+    }
+  }
+  return [first, second, ans];
+}
+
+/**
  * Applies `phrases` from POST /api/lesson-audio-verify to the Verified column and row fill.
  * @param {unknown[]} phrasesPayload
  * @param {{ index: number }[]} phraseDirectory
@@ -569,6 +638,17 @@ function applyLessonVerificationToSheet(phrasesPayload, phraseDirectory) {
     }
     sheet.getRange(row, COL_MAX_VOLUME).setValue(maxVolCell);
     sheet.getRange(row, COL_AVG_VOLUME).setValue(avgVolCell);
+    /** @type {{ clips?: unknown } | null} */
+    var vrClipsHolder =
+      vr && typeof vr === "object"
+        ? /** @type {{ clips?: unknown }} */ (vr)
+        : null;
+    var heardTriple = heardSttTextsFromPhraseClips(
+      vrClipsHolder && vrClipsHolder.clips ? vrClipsHolder.clips : []
+    );
+    sheet.getRange(row, COL_FIRST_INTRO_HEARD).setValue(heardTriple[0]);
+    sheet.getRange(row, COL_SECOND_INTRO_HEARD).setValue(heardTriple[1]);
+    sheet.getRange(row, COL_ANSWER_HEARD).setValue(heardTriple[2]);
     sheet.getRange(row, COL_VERIFIED).setValue(verified === true);
     var bg = verified === true ? null : VERIFY_ROW_FAIL_BG;
     // getRange(r,c,numRows,numColumns) — count form, not (r1,c1,r2,c2).
@@ -612,8 +692,8 @@ function applySinglePhraseVerificationToSheet(onePhrase, phraseDirectory) {
     typeof onePhrase === "object" &&
     typeof onePhrase.verified !== "undefined" &&
     onePhrase.verified === true;
-  /** @type {{ maxVolumeDb?: unknown, avgVolumeDb?: unknown }} */
-  var op = /** @type {{ maxVolumeDb?: unknown, avgVolumeDb?: unknown }} */ (
+  /** @type {{ maxVolumeDb?: unknown, avgVolumeDb?: unknown, clips?: unknown }} */
+  var op = /** @type {{ maxVolumeDb?: unknown, avgVolumeDb?: unknown, clips?: unknown }} */ (
     onePhrase
   );
   var maxVolCell = "";
@@ -626,6 +706,12 @@ function applySinglePhraseVerificationToSheet(onePhrase, phraseDirectory) {
   }
   sheet.getRange(rowNum, COL_MAX_VOLUME).setValue(maxVolCell);
   sheet.getRange(rowNum, COL_AVG_VOLUME).setValue(avgVolCell);
+  var heardTriple = heardSttTextsFromPhraseClips(
+    op.clips && op.clips instanceof Array ? op.clips : []
+  );
+  sheet.getRange(rowNum, COL_FIRST_INTRO_HEARD).setValue(heardTriple[0]);
+  sheet.getRange(rowNum, COL_SECOND_INTRO_HEARD).setValue(heardTriple[1]);
+  sheet.getRange(rowNum, COL_ANSWER_HEARD).setValue(heardTriple[2]);
   sheet.getRange(rowNum, COL_VERIFIED).setValue(verified === true);
   var bg = verified === true ? null : VERIFY_ROW_FAIL_BG;
   sheet.getRange(rowNum, 1, 1, targetCols).setBackground(bg);
@@ -1046,6 +1132,9 @@ function phraseRow(phrase) {
     es.answer ?? "",
     es.grammar ?? "",
     false,
+    "",
+    "",
+    "",
     "",
     "",
   ];
