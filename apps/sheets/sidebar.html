@@ -1,20 +1,63 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <base target="_top">
+    <base target="_top" />
+    <style>
+      body {
+        font-family: sans-serif;
+        font-size: 13px;
+        margin: 10px;
+        color: #202124;
+      }
+      button {
+        margin-top: 8px;
+        padding: 6px 12px;
+        cursor: pointer;
+      }
+      #status {
+        margin-top: 10px;
+        line-height: 1.4;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      #status.err {
+        color: #c5221f;
+      }
+      #status.ok {
+        color: #137333;
+      }
+    </style>
   </head>
   <body>
-    <h3>Play Sound</h3>
-
-    <button onclick="playSound()">▶ Play</button>
+    <div>
+      Fetches lesson data from your deployed web app (<code>/lesson1.json</code>) and replaces the contents of the
+      active sheet (excluding nested <code>words</code>).
+    </div>
+    <button type="button" id="loadBtn">Load lesson from web</button>
+    <div id="status" aria-live="polite"></div>
 
     <script>
-      function playSound() {
-        const url = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3";
-
-        const audio = new Audio(url);
-        audio.play();
+      function setStatus(text, variant) {
+        var el = document.getElementById("status");
+        el.textContent = text;
+        el.className = variant || "";
       }
+
+      document.getElementById("loadBtn").addEventListener("click", function () {
+        setStatus("Loading…");
+        google.script.run
+          .withSuccessHandler(function (result) {
+            if (result && result.ok) {
+              setStatus(result.message || "Done.", "ok");
+            } else {
+              setStatus((result && result.message) || "Something went wrong.", "err");
+            }
+          })
+          .withFailureHandler(function (err) {
+            setStatus(err.message || String(err), "err");
+          })
+          .populateLessonFromJson();
+      });
     </script>
   </body>
 </html>
