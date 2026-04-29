@@ -34,12 +34,44 @@ interface ClipVerifyResult {
   sttOk?: boolean;
   error?: string;
   transcript?: string;
+  /** FFmpeg loudness peak (dBFS-style), when analysis ran */
+  maxDb?: number;
+  /** FFmpeg mean loudness (dBFS-style), when analysis ran */
+  meanDb?: number;
 }
 
 interface PhraseVerifyResult {
   phraseIndex: number;
   verified: boolean;
   clips: ClipVerifyResult[];
+  /** Max of clip peak levels (dB), for spreadsheet */
+  maxVolumeDb?: number;
+  /** Mean of clip mean levels (dB), for spreadsheet */
+  avgVolumeDb?: number;
+}
+
+function rollupPhraseVolumeDb(clips: ClipVerifyResult[]): Pick<
+  PhraseVerifyResult,
+  'maxVolumeDb' | 'avgVolumeDb'
+> {
+  const peaks: number[] = [];
+  const means: number[] = [];
+  for (const c of clips) {
+    if (typeof c.maxDb === 'number' && Number.isFinite(c.maxDb)) {
+      peaks.push(c.maxDb);
+    }
+    if (typeof c.meanDb === 'number' && Number.isFinite(c.meanDb)) {
+      means.push(c.meanDb);
+    }
+  }
+  const out: Pick<PhraseVerifyResult, 'maxVolumeDb' | 'avgVolumeDb'> = {};
+  if (peaks.length > 0) {
+    out.maxVolumeDb = Math.max(...peaks);
+  }
+  if (means.length > 0) {
+    out.avgVolumeDb = means.reduce((acc, n) => acc + n, 0) / means.length;
+  }
+  return out;
 }
 
 /**
@@ -203,6 +235,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       await writeFile(tmpPath, buf);
       const stats = await analyzeLoudnessFile(tmpPath);
       const loudnessOk = stats.maxDb >= minMaxDb && stats.meanDb >= minMeanDb;
+      const loudnessNums = { maxDb: stats.maxDb, meanDb: stats.meanDb };
       if (!loudnessOk) {
         return {
           id: spec.id,
@@ -211,6 +244,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           loudnessOk,
           sttOk: false,
           error: `loudness_peak_or_mean (${stats.maxDb.toFixed(1)} dB peak, ${stats.meanDb.toFixed(1)} dB mean)`,
+          ...loudnessNums,
         };
       }
 
@@ -227,6 +261,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           ok: true,
           loudnessOk,
           sttOk: true,
+          ...loudnessNums,
         };
       }
       if (tr.kind === 'mismatch') {
@@ -237,6 +272,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           loudnessOk,
           sttOk: false,
           transcript: tr.transcript,
+          ...loudnessNums,
         };
       }
       return {
@@ -246,6 +282,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         loudnessOk,
         sttOk: false,
         error: tr.message,
+        ...loudnessNums,
       };
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -274,13 +311,25 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   let phrasesPayload: PhraseVerifyResult[];
   if (phraseIndexFilter !== undefined) {
     const verified = clipsOut.length === 0 || clipsOut.every((c) => c.ok);
-    phrasesPayload = [{ phraseIndex: phraseIndexFilter, verified, clips: clipsOut }];
+    phrasesPayload = [
+      {
+        phraseIndex: phraseIndexFilter,
+        verified,
+        clips: clipsOut,
+        ...rollupPhraseVolumeDb(clipsOut),
+      },
+    ];
   } else {
     const phraseIndices = [...new Set(phrases.map((p) => p.index))].sort((a, b) => a - b);
     phrasesPayload = phraseIndices.map((phraseIndex) => {
       const clips = clipsOut.filter((c) => c.phraseIndex === phraseIndex);
       const verified = clips.length === 0 || clips.every((c) => c.ok);
-      return { phraseIndex, verified, clips };
+      return {
+        phraseIndex,
+        verified,
+        clips,
+        ...rollupPhraseVolumeDb(clips),
+      };
     });
   }
 

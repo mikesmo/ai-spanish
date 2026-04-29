@@ -25,6 +25,8 @@ var LESSON_COLUMNS = [
   "Answer",
   "Grammar",
   "Verified",
+  "Max volume",
+  "Avg volume",
 ];
 
 /** 1-based column indexes; must stay aligned with LESSON_COLUMNS. */
@@ -33,6 +35,8 @@ var COL_FIRST_INTRO = LESSON_COLUMNS.indexOf("First Intro") + 1;
 var COL_SECOND_INTRO = LESSON_COLUMNS.indexOf("Second Intro") + 1;
 var COL_ANSWER = LESSON_COLUMNS.indexOf("Answer") + 1;
 var COL_VERIFIED = LESSON_COLUMNS.indexOf("Verified") + 1;
+var COL_MAX_VOLUME = LESSON_COLUMNS.indexOf("Max volume") + 1;
+var COL_AVG_VOLUME = LESSON_COLUMNS.indexOf("Avg volume") + 1;
 
 /** Light yellow background for rows that fail audio verification. */
 var VERIFY_ROW_FAIL_BG = "#fff9c4";
@@ -540,6 +544,31 @@ function applyLessonVerificationToSheet(phrasesPayload, phraseDirectory) {
       vr &&
       vr.verified !== undefined &&
       vr.verified === true;
+    /** @type {{ maxVolumeDb?: unknown, avgVolumeDb?: unknown } | null} */
+    var vol =
+      vr && typeof vr === "object"
+        ? /** @type {{ maxVolumeDb?: unknown, avgVolumeDb?: unknown }} */ (
+            vr
+          )
+        : null;
+    var maxVolCell = "";
+    var avgVolCell = "";
+    if (vol !== null) {
+      if (
+        typeof vol.maxVolumeDb === "number" &&
+        !isNaN(vol.maxVolumeDb)
+      ) {
+        maxVolCell = vol.maxVolumeDb;
+      }
+      if (
+        typeof vol.avgVolumeDb === "number" &&
+        !isNaN(vol.avgVolumeDb)
+      ) {
+        avgVolCell = vol.avgVolumeDb;
+      }
+    }
+    sheet.getRange(row, COL_MAX_VOLUME).setValue(maxVolCell);
+    sheet.getRange(row, COL_AVG_VOLUME).setValue(avgVolCell);
     sheet.getRange(row, COL_VERIFIED).setValue(verified === true);
     var bg = verified === true ? null : VERIFY_ROW_FAIL_BG;
     // getRange(r,c,numRows,numColumns) — count form, not (r1,c1,r2,c2).
@@ -583,6 +612,20 @@ function applySinglePhraseVerificationToSheet(onePhrase, phraseDirectory) {
     typeof onePhrase === "object" &&
     typeof onePhrase.verified !== "undefined" &&
     onePhrase.verified === true;
+  /** @type {{ maxVolumeDb?: unknown, avgVolumeDb?: unknown }} */
+  var op = /** @type {{ maxVolumeDb?: unknown, avgVolumeDb?: unknown }} */ (
+    onePhrase
+  );
+  var maxVolCell = "";
+  var avgVolCell = "";
+  if (typeof op.maxVolumeDb === "number" && !isNaN(op.maxVolumeDb)) {
+    maxVolCell = op.maxVolumeDb;
+  }
+  if (typeof op.avgVolumeDb === "number" && !isNaN(op.avgVolumeDb)) {
+    avgVolCell = op.avgVolumeDb;
+  }
+  sheet.getRange(rowNum, COL_MAX_VOLUME).setValue(maxVolCell);
+  sheet.getRange(rowNum, COL_AVG_VOLUME).setValue(avgVolCell);
   sheet.getRange(rowNum, COL_VERIFIED).setValue(verified === true);
   var bg = verified === true ? null : VERIFY_ROW_FAIL_BG;
   sheet.getRange(rowNum, 1, 1, targetCols).setBackground(bg);
@@ -1003,6 +1046,8 @@ function phraseRow(phrase) {
     es.answer ?? "",
     es.grammar ?? "",
     false,
+    "",
+    "",
   ];
 }
 
@@ -1022,17 +1067,18 @@ function rectangularRowsForSetValues(rows2d, columnCount) {
       src = [];
     }
     var line = [];
+    var verifiedColCi = COL_VERIFIED - 1;
     var ci;
     for (ci = 0; ci < columnCount; ci++) {
       var isDataRow = ri > 0;
       var padVerified = isDataRow ? false : "";
       var val;
       if (ci >= src.length) {
-        line.push(ci === columnCount - 1 ? padVerified : "");
+        line.push(ci === verifiedColCi ? padVerified : "");
       } else {
         val = src[ci];
         if (val === undefined || val === null) {
-          line.push(ci === columnCount - 1 ? padVerified : "");
+          line.push(ci === verifiedColCi ? padVerified : "");
         } else {
           line.push(val);
         }
