@@ -46,14 +46,39 @@
         padding: 4px 10px;
         font-size: 12px;
         cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        min-height: 28px;
+        min-width: 7.5em;
+        box-sizing: border-box;
       }
       .preview-play:disabled {
         cursor: not-allowed;
-        opacity: 0.5;
+        opacity: 0.65;
+      }
+      .preview-play .play-spin {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        flex-shrink: 0;
+        border: 2px solid #dadce0;
+        border-top-color: #1a73e8;
+        border-radius: 50%;
+        animation: playSpin 0.65s linear infinite;
+        vertical-align: middle;
+      }
+      @keyframes playSpin {
+        to {
+          transform: rotate(360deg);
+        }
       }
       .help {
         margin-bottom: 12px;
         line-height: 1.4;
+      }
+      .auth-actions button {
+        margin-right: 8px;
       }
       label {
         display: block;
@@ -94,7 +119,13 @@
     </style>
   </head>
   <body>
-    <section class="preview" id="previewSection" aria-live="polite" aria-atomic="true">
+    <section
+      class="preview"
+      id="previewSection"
+      style="display: none"
+      aria-live="polite"
+      aria-atomic="true"
+    >
       <h2>Selected row</h2>
       <div class="row-meta" id="previewRowMeta">Row —</div>
       <dl>
@@ -140,40 +171,161 @@
       </dl>
     </section>
 
-    <div class="help">
-      Sign in with the same <strong>email and password</strong> you use in the AI Spanish web app. Lesson 1 phrases are loaded from the authenticated transcript API into this sheet.
-      After a successful load, use <strong>Play</strong> to hear clips from <code>/api/audio</code> for the selected phrase (click a data row in the sheet).
+    <div id="authLoggedOutPanel">
+      <div class="help">
+        Sign in with the same <strong>email and password</strong> as the AI Spanish web app.
+        This loads lesson 1 into the sheet and enables audio in the sidebar after sign-in.
+      </div>
+      <form id="loadForm" action="javascript:void(0)">
+        <label for="email">Email</label>
+        <input
+          id="email"
+          name="email"
+          type="email"
+          autocomplete="username"
+          required
+        />
+        <label for="password">Password</label>
+        <input
+          id="password"
+          name="password"
+          type="password"
+          autocomplete="current-password"
+          required
+        />
+        <button type="submit" id="loadBtn">Sign in & load lesson</button>
+      </form>
     </div>
-    <form id="loadForm" action="javascript:void(0)">
-      <label for="email">Email</label>
-      <input
-        id="email"
-        name="email"
-        type="email"
-        autocomplete="username"
-        required
-      />
-      <label for="password">Password</label>
-      <input
-        id="password"
-        name="password"
-        type="password"
-        autocomplete="current-password"
-        required
-      />
-      <button type="submit" id="loadBtn">Load lesson from web</button>
-    </form>
+
+    <div id="authLoggedInPanel" style="display: none">
+      <div class="help">
+        Select a <strong>data row</strong> for phrase text and <strong>Play</strong> for clips from
+        <code>/api/audio</code>. Session refreshes automatically before the access token expires.
+      </div>
+      <div class="auth-actions">
+        <button type="button" id="reloadBtnSignedIn">Load lesson from web</button>
+        <button type="button" id="logoutBtn">Log out</button>
+      </div>
+    </div>
+
     <div id="status" aria-live="polite"></div>
 
     <script>
       var PREVIEW_POLL_MS = 750;
+      var ACCESS_EXPIRY_BUFFER_MS = 120000;
+      var REFRESH_TICK_MS = 60000;
       var lastPreviewKey = "";
 
       var sessionAccessToken = null;
+      var refreshToken = null;
+      var accessExpiresAtMs = 0;
       var phraseDirectory = [];
       var transcriptLessonId = "1";
       var lastPreviewData = null;
       var sharedAudio = null;
+      var playSessionBusy = false;
+      var PLAY_LABEL = "Play";
+      var silentRefreshPending = false;
+
+      function isLoggedIn() {
+        return (
+          sessionAccessToken != null &&
+          sessionAccessToken !== "" &&
+          refreshToken != null &&
+          refreshToken !== ""
+        );
+      }
+
+      function needsAccessRefresh() {
+        if (!isLoggedIn()) return false;
+        if (!accessExpiresAtMs) return true;
+        return Date.now() > accessExpiresAtMs - ACCESS_EXPIRY_BUFFER_MS;
+      }
+
+      function applyAuthUiState() {
+        var outPanel = document.getElementById("authLoggedOutPanel");
+        var inPanel = document.getElementById("authLoggedInPanel");
+        var preview = document.getElementById("previewSection");
+
+        if (isLoggedIn()) {
+          outPanel.style.display = "none";
+          inPanel.style.display = "block";
+          preview.style.display = "block";
+        } else {
+          outPanel.style.display = "block";
+          inPanel.style.display = "none";
+          preview.style.display = "none";
+        }
+      }
+
+      function setAccessExpiryFromSeconds(expiresIn) {
+        var sec =
+          typeof expiresIn === "number" && !isNaN(expiresIn)
+            ? expiresIn
+            : 3600;
+        accessExpiresAtMs = Date.now() + sec * 1000;
+      }
+
+      function setSessionFromPasswordResult(result) {
+        if (typeof result.access_token === "string" && result.access_token) {
+          sessionAccessToken = result.access_token;
+        }
+        if (typeof result.refresh_token === "string" && result.refresh_token) {
+          refreshToken = result.refresh_token;
+        }
+        if (typeof result.expires_in === "number" && !isNaN(result.expires_in)) {
+          setAccessExpiryFromSeconds(result.expires_in);
+        } else {
+          setAccessExpiryFromSeconds(3600);
+        }
+        if (Array.isArray(result.phraseDirectory)) {
+          phraseDirectory = result.phraseDirectory;
+        }
+        if (
+          typeof result.transcriptLessonId === "string" &&
+          result.transcriptLessonId
+        ) {
+          transcriptLessonId = result.transcriptLessonId;
+        }
+        applyAuthUiState();
+        syncPlayButtonsState();
+      }
+
+      function setSessionFromRefreshResult(result) {
+        if (typeof result.access_token === "string" && result.access_token) {
+          sessionAccessToken = result.access_token;
+        }
+        if (typeof result.refresh_token === "string" && result.refresh_token) {
+          refreshToken = result.refresh_token;
+        }
+        if (typeof result.expires_in === "number" && !isNaN(result.expires_in)) {
+          setAccessExpiryFromSeconds(result.expires_in);
+        } else {
+          setAccessExpiryFromSeconds(3600);
+        }
+        applyAuthUiState();
+        syncPlayButtonsState();
+      }
+
+      function clearSession(reasonMsg) {
+        sessionAccessToken = null;
+        refreshToken = null;
+        accessExpiresAtMs = 0;
+        phraseDirectory = [];
+        lastPreviewKey = "";
+        lastPreviewData = null;
+        document.getElementById("email").value = "";
+        document.getElementById("password").value = "";
+        document.getElementById("previewRowMeta").textContent = "Row —";
+        document.getElementById("previewFirstIntro").textContent = "—";
+        document.getElementById("previewSecondIntro").textContent = "—";
+        document.getElementById("previewAnswer").textContent = "—";
+        applyAuthUiState();
+        syncPlayButtonsState();
+        if (reasonMsg) {
+          setStatus(reasonMsg, "err");
+        }
+      }
 
       function setStatus(text, variant) {
         var el = document.getElementById("status");
@@ -181,9 +333,12 @@
         el.className = variant || "";
       }
 
-      function setLoading(isLoading) {
-        var btn = document.getElementById("loadBtn");
-        btn.disabled = isLoading;
+      function setSignInLoading(isLoading) {
+        document.getElementById("loadBtn").disabled = isLoading;
+      }
+
+      function setReloadLoading(isLoading) {
+        document.getElementById("reloadBtnSignedIn").disabled = isLoading;
       }
 
       function findPhraseIndex(name) {
@@ -200,23 +355,156 @@
         return null;
       }
 
-      function updatePlayButtonsEnabled() {
-        var canPlay =
-          sessionAccessToken != null &&
-          sessionAccessToken !== "" &&
+      function canPlayCurrentRow() {
+        return (
+          isLoggedIn() &&
           lastPreviewData != null &&
           lastPreviewData.row > 0 &&
-          findPhraseIndex(lastPreviewData.phraseName) !== null;
+          findPhraseIndex(lastPreviewData.phraseName) !== null
+        );
+      }
 
+      function syncPlayButtonsState() {
         var buttons = document.querySelectorAll(".preview-play");
         var i;
+
+        if (playSessionBusy) {
+          for (i = 0; i < buttons.length; i++) {
+            buttons[i].disabled = true;
+          }
+          return;
+        }
+
+        var canPlay = canPlayCurrentRow();
         for (i = 0; i < buttons.length; i++) {
           buttons[i].disabled = !canPlay;
+          buttons[i].innerHTML = PLAY_LABEL;
+          buttons[i].removeAttribute("aria-busy");
         }
       }
 
-      function playSegment(segment) {
-        if (!lastPreviewData || !sessionAccessToken) {
+      function finishPlaySession() {
+        playSessionBusy = false;
+        if (sharedAudio) {
+          sharedAudio.onended = null;
+          sharedAudio.onerror = null;
+          try {
+            sharedAudio.pause();
+          } catch (e) {}
+        }
+        syncPlayButtonsState();
+      }
+
+      function setPlayButtonLoading(btn) {
+        btn.innerHTML =
+          '<span class="play-spin" aria-hidden="true"></span> Loading…';
+        btn.setAttribute("aria-busy", "true");
+      }
+
+      function setPlayButtonPlaying(btn) {
+        btn.innerHTML = "Playing…";
+        btn.setAttribute("aria-busy", "true");
+      }
+
+      function ensureAccessTokenFresh(done) {
+        if (!isLoggedIn()) {
+          done(false);
+          return;
+        }
+        if (!needsAccessRefresh()) {
+          done(true);
+          return;
+        }
+        google.script.run
+          .withSuccessHandler(function (r) {
+            if (r && r.ok) {
+              setSessionFromRefreshResult(r);
+              done(true);
+            } else {
+              done(false);
+            }
+          })
+          .withFailureHandler(function () {
+            done(false);
+          })
+          .refreshSupabaseAccessToken(refreshToken);
+      }
+
+      function trySilentRefreshTick() {
+        if (!isLoggedIn() || !needsAccessRefresh() || silentRefreshPending) {
+          return;
+        }
+        silentRefreshPending = true;
+        ensureAccessTokenFresh(function (ok) {
+          silentRefreshPending = false;
+          if (!ok) {
+            clearSession("Session expired. Sign in again.");
+          }
+        });
+      }
+
+      function runPresignRound(btn, segment, idx, round) {
+        google.script.run
+          .withSuccessHandler(function (res) {
+            if (res && res.unauthorized && refreshToken && round === 0) {
+              google.script.run
+                .withSuccessHandler(function (ref) {
+                  if (ref && ref.ok) {
+                    setSessionFromRefreshResult(ref);
+                    runPresignRound(btn, segment, idx, 1);
+                  } else {
+                    clearSession("Session expired. Sign in again.");
+                    finishPlaySession();
+                  }
+                })
+                .withFailureHandler(function () {
+                  clearSession("Session expired. Sign in again.");
+                  finishPlaySession();
+                })
+                .refreshSupabaseAccessToken(refreshToken);
+              return;
+            }
+
+            if (res && res.ok && res.url) {
+              if (!sharedAudio) {
+                sharedAudio = new Audio();
+              }
+              sharedAudio.pause();
+              sharedAudio.src = res.url;
+
+              sharedAudio.onended = function () {
+                finishPlaySession();
+              };
+              sharedAudio.onerror = function () {
+                setStatus("Audio failed to load or play.", "err");
+                finishPlaySession();
+              };
+
+              setPlayButtonPlaying(btn);
+
+              sharedAudio.play().catch(function () {
+                setStatus("Playback failed.", "err");
+                finishPlaySession();
+              });
+            } else {
+              setStatus((res && res.message) || "Could not get audio URL.", "err");
+              finishPlaySession();
+            }
+          })
+          .withFailureHandler(function (err) {
+            setStatus(err.message || String(err), "err");
+            finishPlaySession();
+          })
+          .getPresignedMp3Url(
+            sessionAccessToken,
+            idx,
+            segment,
+            transcriptLessonId
+          );
+      }
+
+      function playSegment(segment, btn) {
+        if (!lastPreviewData || !isLoggedIn()) {
           return;
         }
         var idx = findPhraseIndex(lastPreviewData.phraseName);
@@ -228,34 +516,85 @@
           return;
         }
 
-        google.script.run
-          .withSuccessHandler(function (res) {
-            if (res && res.ok && res.url) {
-              if (!sharedAudio) {
-                sharedAudio = new Audio();
+        playSessionBusy = true;
+
+        var all = document.querySelectorAll(".preview-play");
+        var k;
+        for (k = 0; k < all.length; k++) {
+          all[k].disabled = true;
+        }
+        setPlayButtonLoading(btn);
+
+        ensureAccessTokenFresh(function (ok) {
+          if (!ok) {
+            clearSession("Session expired. Sign in again.");
+            finishPlaySession();
+            return;
+          }
+          runPresignRound(btn, segment, idx, 0);
+        });
+      }
+
+      function runReloadRound(retryRound) {
+        setReloadLoading(true);
+        ensureAccessTokenFresh(function (freshOk) {
+          if (!freshOk) {
+            setReloadLoading(false);
+            clearSession("Session expired. Sign in again.");
+            return;
+          }
+          google.script.run
+            .withSuccessHandler(function (result) {
+              setReloadLoading(false);
+              if (result && result.ok) {
+                if (Array.isArray(result.phraseDirectory)) {
+                  phraseDirectory = result.phraseDirectory;
+                }
+                if (
+                  typeof result.transcriptLessonId === "string" &&
+                  result.transcriptLessonId
+                ) {
+                  transcriptLessonId = result.transcriptLessonId;
+                }
+                setStatus(result.message || "Done.", "ok");
+                syncPlayButtonsState();
+                return;
               }
-              sharedAudio.pause();
-              sharedAudio.src = res.url;
-              sharedAudio.play().catch(function () {
-                setStatus("Playback failed.", "err");
-              });
-            } else {
-              setStatus((res && res.message) || "Could not get audio URL.", "err");
-            }
-          })
-          .withFailureHandler(function (err) {
-            setStatus(err.message || String(err), "err");
-          })
-          .getPresignedMp3Url(
-            sessionAccessToken,
-            idx,
-            segment,
-            transcriptLessonId
-          );
+              if (
+                result &&
+                result.unauthorized &&
+                refreshToken &&
+                retryRound === 0
+              ) {
+                google.script.run
+                  .withSuccessHandler(function (ref) {
+                    if (ref && ref.ok) {
+                      setSessionFromRefreshResult(ref);
+                      runReloadRound(1);
+                    } else {
+                      clearSession("Session expired. Sign in again.");
+                    }
+                  })
+                  .withFailureHandler(function () {
+                    clearSession("Session expired. Sign in again.");
+                  })
+                  .refreshSupabaseAccessToken(refreshToken);
+                return;
+              }
+              setStatus((result && result.message) || "Something went wrong.", "err");
+            })
+            .withFailureHandler(function (err) {
+              setReloadLoading(false);
+              setStatus(err.message || String(err), "err");
+            })
+            .reloadLessonWithAccessToken(sessionAccessToken);
+        });
       }
 
       function displayPreview(data) {
         if (!data) return;
+        if (!isLoggedIn()) return;
+
         var key =
           data.row +
           "\0" +
@@ -292,27 +631,26 @@
         );
         document.getElementById("previewAnswer").textContent = orDash(data.answer);
 
-        updatePlayButtonsEnabled();
+        syncPlayButtonsState();
       }
 
       function refreshRowPreview() {
+        if (!isLoggedIn()) return;
         google.script.run
           .withSuccessHandler(displayPreview)
-          .withFailureHandler(function () {
-            /* selection may be invalid briefly; leave last good preview */
-          })
+          .withFailureHandler(function () {})
           .getActiveRowPhrasePreview();
       }
 
       setInterval(refreshRowPreview, PREVIEW_POLL_MS);
-      refreshRowPreview();
+      setInterval(trySilentRefreshTick, REFRESH_TICK_MS);
 
       var playButtons = document.querySelectorAll(".preview-play");
       var j;
       for (j = 0; j < playButtons.length; j++) {
         playButtons[j].addEventListener("click", function (ev) {
           var seg = ev.currentTarget.getAttribute("data-segment");
-          if (seg) playSegment(seg);
+          if (seg) playSegment(seg, ev.currentTarget);
         });
       }
 
@@ -325,35 +663,40 @@
           return;
         }
         setStatus("Loading…");
-        setLoading(true);
+        setSignInLoading(true);
         google.script.run
           .withSuccessHandler(function (result) {
-            setLoading(false);
+            setSignInLoading(false);
             if (result && result.ok) {
-              if (typeof result.access_token === "string" && result.access_token) {
-                sessionAccessToken = result.access_token;
-              }
-              if (Array.isArray(result.phraseDirectory)) {
-                phraseDirectory = result.phraseDirectory;
-              }
-              if (
-                typeof result.transcriptLessonId === "string" &&
-                result.transcriptLessonId
-              ) {
-                transcriptLessonId = result.transcriptLessonId;
-              }
+              setSessionFromPasswordResult(result);
               setStatus(result.message || "Done.", "ok");
-              updatePlayButtonsEnabled();
+              refreshRowPreview();
             } else {
               setStatus((result && result.message) || "Something went wrong.", "err");
             }
           })
           .withFailureHandler(function (err) {
-            setLoading(false);
+            setSignInLoading(false);
             setStatus(err.message || String(err), "err");
           })
           .populateLessonFromJson(email, password);
       });
+
+      document.getElementById("logoutBtn").addEventListener("click", function () {
+        clearSession();
+        setStatus("Signed out.", "ok");
+      });
+
+      document
+        .getElementById("reloadBtnSignedIn")
+        .addEventListener("click", function () {
+          if (!isLoggedIn()) return;
+          setStatus("Loading…");
+          runReloadRound(0);
+        });
+
+      applyAuthUiState();
+      syncPlayButtonsState();
     </script>
   </body>
 </html>

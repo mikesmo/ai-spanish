@@ -4,8 +4,8 @@
  * - SUPABASE_URL — https://<project-ref>.supabase.co
  * - SUPABASE_ANON_KEY — Supabase anon (public) key
  *
- * Flow: password grant at Supabase → GET /api/transcript?lesson=1 with Bearer token;
- * sidebar play uses GET /api/audio with same token and phrase directory from the last load.
+ * Flow: Supabase password or refresh grant → GET /api/transcript and /api/audio with Bearer token;
+ * sidebar stores access + refresh in memory and refreshes before expiry.
  */
 
 var SCRIPT_PROP_WEB_ORIGIN = "WEB_ORIGIN";
@@ -134,7 +134,7 @@ function readTranscriptConfig() {
 /**
  * @param {string} email
  * @param {string} password
- * @returns {{ ok: true, access_token: string } | { ok: false, message: string }}
+ * @returns {{ ok: true, access_token: string, refresh_token: string, expires_in: number } | { ok: false, message: string }}
  */
 function fetchSupabaseAccessToken(email, password) {
   var cfg = readTranscriptConfig();
@@ -184,14 +184,107 @@ function fetchSupabaseAccessToken(email, password) {
   }
 
   try {
-    /** @type {{ access_token?: string }} */
+    /** @type {{ access_token?: string, refresh_token?: string, expires_in?: number }} */
     var data = JSON.parse(body);
     if (typeof data.access_token !== "string" || !data.access_token) {
       return { ok: false, message: "Sign-in response had no access token." };
     }
-    return { ok: true, access_token: data.access_token };
+    if (typeof data.refresh_token !== "string" || !data.refresh_token) {
+      return {
+        ok: false,
+        message:
+          "Sign-in had no refresh token. Enable refresh tokens in Supabase Auth or use a client that returns refresh_token.",
+      };
+    }
+    var expiresIn = 3600;
+    if (typeof data.expires_in === "number" && !isNaN(data.expires_in)) {
+      expiresIn = Math.floor(data.expires_in);
+    }
+    return {
+      ok: true,
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
+      expires_in: expiresIn,
+    };
   } catch (e) {
     return { ok: false, message: "Could not parse sign-in response." };
+  }
+}
+
+/**
+ * @param {string} refreshToken
+ * @returns {{ ok: true, access_token: string, refresh_token: string, expires_in: number } | { ok: false, message: string }}
+ */
+function refreshSupabaseAccessToken(refreshToken) {
+  var rt = typeof refreshToken === "string" ? refreshToken.trim() : "";
+  if (!rt) {
+    return { ok: false, message: "No refresh token." };
+  }
+
+  var cfg = readTranscriptConfig();
+  if (cfg.ok === false) {
+    return { ok: false, message: cfg.message };
+  }
+
+  var tokenUrl = cfg.supabaseUrl + "/auth/v1/token?grant_type=refresh_token";
+  var payload = JSON.stringify({ refresh_token: rt });
+
+  var response = UrlFetchApp.fetch(tokenUrl, {
+    method: "post",
+    contentType: "application/json",
+    muteHttpExceptions: true,
+    payload: payload,
+    headers: {
+      apikey: cfg.anonKey,
+      Authorization: "Bearer " + cfg.anonKey,
+    },
+  });
+
+  var code = response.getResponseCode();
+  var body = response.getContentText();
+
+  if (code < 200 || code >= 300) {
+    var errMsg = "Session refresh failed (HTTP " + code + ").";
+    try {
+      /** @type {{ error_description?: string, msg?: string, message?: string }} */
+      var errJson = JSON.parse(body);
+      if (typeof errJson.error_description === "string" && errJson.error_description) {
+        errMsg = errJson.error_description;
+      } else if (typeof errJson.msg === "string" && errJson.msg) {
+        errMsg = errJson.msg;
+      } else if (typeof errJson.message === "string" && errJson.message) {
+        errMsg = errJson.message;
+      }
+    } catch (parseErr) {
+      if (body && body.length > 0 && body.length < 400) {
+        errMsg = body;
+      }
+    }
+    return { ok: false, message: errMsg };
+  }
+
+  try {
+    /** @type {{ access_token?: string, refresh_token?: string, expires_in?: number }} */
+    var data = JSON.parse(body);
+    if (typeof data.access_token !== "string" || !data.access_token) {
+      return { ok: false, message: "Refresh response had no access token." };
+    }
+    var expiresIn = 3600;
+    if (typeof data.expires_in === "number" && !isNaN(data.expires_in)) {
+      expiresIn = Math.floor(data.expires_in);
+    }
+    var newRefresh =
+      typeof data.refresh_token === "string" && data.refresh_token
+        ? data.refresh_token
+        : rt;
+    return {
+      ok: true,
+      access_token: data.access_token,
+      refresh_token: newRefresh,
+      expires_in: expiresIn,
+    };
+  } catch (e) {
+    return { ok: false, message: "Could not parse refresh response." };
   }
 }
 
@@ -258,8 +351,9 @@ function getPresignedMp3Url(accessToken, phraseIndex, segment, transcriptLessonI
     if (httpCode === 401) {
       return {
         ok: false,
+        unauthorized: true,
         message:
-          "Session expired or unauthorized. Use “Load lesson from web” to sign in again.",
+          "Session expired or unauthorized. Sign in again or wait for refresh.",
       };
     }
 
@@ -324,23 +418,15 @@ function showSidebar() {
 }
 
 /**
- * Signs in with Supabase (email + password), fetches lesson 1 from /api/transcript, writes the sheet.
- * On success also returns access_token and phraseDirectory for sidebar audio + name→index lookup.
- * @param {string} email
- * @param {string} password
- * @returns {Object}
+ * Fetches transcript with Bearer token, writes sheet, returns phrase directory (no auth fields).
+ * @param {string} accessToken
+ * @returns {{ ok: true, message: string, phraseDirectory: { name: string, index: number }[], transcriptLessonId: string } | { ok: false, message: string, unauthorized?: boolean }}
  */
-function populateLessonFromJson(email, password) {
+function importLessonTranscriptWithToken(accessToken) {
   try {
-    var trimmedEmail = typeof email === "string" ? email.trim() : "";
-    var pwd = typeof password === "string" ? password : "";
-    if (!trimmedEmail || !pwd) {
-      return { ok: false, message: "Email and password are required." };
-    }
-
-    var tokenResult = fetchSupabaseAccessToken(trimmedEmail, pwd);
-    if (!tokenResult.ok) {
-      return { ok: false, message: tokenResult.message };
+    var token = typeof accessToken === "string" ? accessToken.trim() : "";
+    if (!token) {
+      return { ok: false, message: "Not signed in." };
     }
 
     var cfg = readTranscriptConfig();
@@ -353,12 +439,19 @@ function populateLessonFromJson(email, password) {
       muteHttpExceptions: true,
       followRedirects: true,
       headers: {
-        Authorization: "Bearer " + tokenResult.access_token,
+        Authorization: "Bearer " + token,
       },
     });
 
     var httpCode = response.getResponseCode();
     var body = response.getContentText();
+    if (httpCode === 401) {
+      return {
+        ok: false,
+        unauthorized: true,
+        message: "Transcript request unauthorized. Session may have expired.",
+      };
+    }
     if (httpCode < 200 || httpCode >= 300) {
       return {
         ok: false,
@@ -404,9 +497,64 @@ function populateLessonFromJson(email, password) {
     return {
       ok: true,
       message: "Loaded " + count + " phrase(s).",
-      access_token: tokenResult.access_token,
       phraseDirectory: phraseDirectory,
       transcriptLessonId: DEFAULT_TRANSCRIPT_LESSON_ID,
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      message:
+        typeof e.message === "string" ? e.message : String(e),
+    };
+  }
+}
+
+/**
+ * Re-import lesson using an existing access token (no password).
+ * @param {string} accessToken
+ * @returns {Object}
+ */
+function reloadLessonWithAccessToken(accessToken) {
+  return importLessonTranscriptWithToken(accessToken);
+}
+
+/**
+ * Signs in with Supabase (email + password), imports lesson 1 transcript into the sheet.
+ * Returns tokens + phraseDirectory for the sidebar.
+ * @param {string} email
+ * @param {string} password
+ * @returns {Object}
+ */
+function populateLessonFromJson(email, password) {
+  try {
+    var trimmedEmail = typeof email === "string" ? email.trim() : "";
+    var pwd = typeof password === "string" ? password : "";
+    if (!trimmedEmail || !pwd) {
+      return { ok: false, message: "Email and password are required." };
+    }
+
+    var tokenResult = fetchSupabaseAccessToken(trimmedEmail, pwd);
+    if (!tokenResult.ok) {
+      return { ok: false, message: tokenResult.message };
+    }
+
+    var importResult = importLessonTranscriptWithToken(tokenResult.access_token);
+    if (!importResult.ok) {
+      return {
+        ok: false,
+        message: importResult.message,
+        unauthorized: importResult.unauthorized === true,
+      };
+    }
+
+    return {
+      ok: true,
+      message: importResult.message,
+      access_token: tokenResult.access_token,
+      refresh_token: tokenResult.refresh_token,
+      expires_in: tokenResult.expires_in,
+      phraseDirectory: importResult.phraseDirectory,
+      transcriptLessonId: importResult.transcriptLessonId,
     };
   } catch (e) {
     return {
