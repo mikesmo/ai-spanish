@@ -4,7 +4,12 @@ export type { S3PathConfig };
 
 /** One TTS synthesis unit after flattening a transcript phrase. */
 export interface TtsJob {
+  /** Stable clip id `${phraseName}-${field}` (e.g. `perdona-first-intro`). */
   id: string;
+  /** Transcript JSON `"index"` on the phrase object (same for each clip of that phrase). */
+  index: number;
+  /** Phrase slug (e.g. `perdona`) used as the clip stem. */
+  phraseName: string;
   language: Language;
   text: string;
   /** Deepgram voice model id (e.g. aura-2-pandora-en). */
@@ -14,12 +19,12 @@ export interface TtsJob {
 /** One row in output/manifest.json */
 export interface ManifestEntry {
   id: string;
-  /** Phrase index from the audio filename, e.g. 5 for `5-en-first-intro.mp3`. */
+  /** Transcript JSON phrase `"index"` (same for all clips of that phrase). */
   index: number;
   language: Language;
   text: string;
   voice: string;
-  /** Relative path from output dir, e.g. audio/0-en-first-intro.mp3 */
+  /** Relative path from output dir, e.g. audio/perdona-first-intro.mp3 */
   localFile: string;
   /** S3 object key when uploaded; omitted in --local-only runs. */
   s3Key?: string;
@@ -50,8 +55,8 @@ export interface CliOptions {
    */
   verifyLoudness: boolean;
   /**
-   * If set, regenerate only jobs whose id starts with `{n}-` (0-based phrase
-   * index) and merge into existing manifest. Requires a prior full batch.
+   * If set, regenerate only clips whose transcript phrase has this `"index"`
+   * value in JSON, then merge into existing manifest. Requires a prior full batch.
    */
   onlyPhrase: number | undefined;
 }

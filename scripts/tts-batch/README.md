@@ -109,7 +109,7 @@ Secrets belong in `.env` (gitignored). Never commit real keys.
 | `--force` | Regenerate all clips; ignore hash cache |
 | `--local-only` | Write `output/` only; no S3, no AWS keys required |
 | `--upload-only` | Upload existing `output/` to S3; no Deepgram calls |
-| `--only-phrase` | 0-based phrase index (same as the job id prefix, e.g. `11` → all `11-en-…` and `11-es-…` clips). Regenerates only those files, merges new rows into the existing `manifest.json` and hash cache; other clips are left unchanged. **Requires** a previous full `tts:batch` so every other id already exists in the manifest. Incompatible with `--verify-stt` and `--upload-only`. |
+| `--only-phrase` | Transcript `"index"` field (0-based, matches lesson JSON). Regenerates every clip for that phrase (`{name}-first-intro`, etc.), merges into existing `manifest.json` and hash cache; other clips unchanged. **Requires** a previous full `tts:batch` so every other id already exists in the manifest. Incompatible with `--verify-stt` and `--upload-only`. |
 | `--verify-stt` | Runs **`--verify-loudness` first**, then Deepgram STT on each `manifest.json` MP3. STT: optional `keywords` from expected `text` (tokenize via `tokenizeForDeepgramKeywords` in `@ai-spanish/logic`, `word:1` if **3+** tokens). **strict** normalized text compare. Exit 1 if loudness **or** STT fails. Requires `DEEPGRAM_API_KEY` and **ffmpeg** on `PATH` |
 | `--verify-loudness` | **ffmpeg** `volumedetect`: `max_volume` must be **≥** `TTS_VERIFY_LOUDNESS_MIN_MAX_DB` and `mean_volume` **≥** `TTS_VERIFY_LOUDNESS_MIN_MEAN_DB`. Use alone (no API key) or with `--verify-stt` (STT run already includes loudness). Incompatible with `--upload-only` and `--only-phrase` |
 | `--no-audio-pos` | Skip ffmpeg post-processing; write raw Deepgram output (no ffmpeg required) |
@@ -120,7 +120,7 @@ Secrets belong in `.env` (gitignored). Never commit real keys.
 - **Default:** synthesize missing/changed clips (with cache), apply audio post-processing, write `manifest.json`, then upload to S3 if credentials and bucket are set.
 - **`--local-only`:** synthesize only; manifest omits `s3Key` until a later upload with the same layout config.
 - **`--upload-only`:** read `output/manifest.json`, recompute S3 keys from current `AUDIO_CONTENT_PREFIX` / `--lesson` / `S3_LESSON`, upload MP3s and manifest. Incompatible with `--local-only` and `--force`.
-- **`--only-phrase`:** re-synthesize all jobs whose id starts with `{index}-` for the current transcript, then rewrite `manifest.json` with a **merged** list: updated entries for that phrase, unchanged `ManifestEntry` objects for all other job ids (read from the existing on-disk manifest). Fails if `manifest.json` is missing an id required by the current `buildTtsJobs` output—run a full batch first. The selected phrase is always fully regenerated (cache is ignored for those ids). Incompatible with `--verify-stt` and `--upload-only`.
+- **`--only-phrase`:** re-synthesize every job whose transcript phrase has `phrase.index === N` for the given `N`, then rewrite `manifest.json` with a **merged** list: updated entries for that phrase, unchanged `ManifestEntry` objects for all other job ids (read from the existing on-disk manifest). Fails if `manifest.json` is missing an id required by the current `buildTtsJobs` output—run a full batch first. The selected phrase is always fully regenerated (cache is ignored for those ids). Incompatible with `--verify-stt` and `--upload-only`.
 - **`--verify-loudness`:** `ffmpeg` analyzes each `localFile` (peak and mean; see `TTS_VERIFY_LOUDNESS_MIN_MAX_DB` and `TTS_VERIFY_LOUDNESS_MIN_MEAN_DB`). Incompatible with `--upload-only` and `--only-phrase`.
 - **`--verify-stt`:** first runs the same **loudness** pass as `--verify-loudness`, then Deepgram STT. Exit 1 if **either** step fails. Incompatible with `--upload-only` (and does not run TTS or S3). **ffmpeg** and `DEEPGRAM_API_KEY` are required. Entries whose expected `text` is a single character (after trim) are **skipped** for both loudness and STT (warning only; counted in `ok` / `skip`).
 
@@ -141,13 +141,13 @@ Pass `--no-audio-pos` to write Deepgram output as-is (useful for debugging raw T
 ```
 output/
   audio/
-    {phraseIndex}-{en|es}-{field}.mp3
+    {name}-{field}.mp3
   manifest.json
   .cache/
     hashes.json
 ```
 
-Transcript rows are flattened to jobs such as `{i}-en-first-intro`, `{i}-en-second-intro`, `{i}-es-answer` (empty strings skipped), where `{i}` is the phrase’s **`index`** field (0-based). Each phrase also has a stable slug **`name`** and optional **`type`** (`new` | `combination`).
+Transcript rows are flattened to jobs such as `{name}-first-intro`, `{name}-second-intro`, `{name}-answer` (empty strings skipped), where `{name}` is the phrase's stable slug **`name`** field (e.g. `perdona`). Each phrase also has a numeric **`index`** (0-based) used internally and an optional **`type`** (`new` | `combination`). Language is implied by the segment (`first-intro`/`second-intro` are English, `answer` is Spanish).
 
 **Note:** Saved session history that embeds full phrase snapshots uses the same transcript shape. After changing these field names, older exported history entries may not parse until cleared or migrated.
 
@@ -158,12 +158,12 @@ Prefix defaults to `audio-content` if `AUDIO_CONTENT_PREFIX` is unset.
 With `AUDIO_CONTENT_PREFIX=audio-content` and `--lesson lesson1`:
 
 - Manifest: `audio-content/lesson1/manifest.json`
-- Audio: `audio-content/lesson1/audio/{jobId}.mp3`
+- Audio: `audio-content/lesson1/audio/{name}-{field}.mp3` (e.g. `audio-content/lesson1/audio/perdona-first-intro.mp3`)
 
 With no lesson:
 
 - `audio-content/manifest.json`
-- `audio-content/audio/{jobId}.mp3`
+- `audio-content/audio/{name}-{field}.mp3`
 
 ## Typecheck
 

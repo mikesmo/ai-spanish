@@ -4,6 +4,7 @@ import type { Language, Phrase } from './types';
 export interface PhraseAudioClipSpec {
   id: string;
   phraseIndex: number;
+  phraseName: string;
   language: Language;
   text: string;
 }
@@ -13,34 +14,38 @@ function isNonEmpty(text: string): boolean {
 }
 
 /**
- * Flattens transcript phrases into clip specs with stable ids `{index}-{lang}-{field}`.
- * Same job set as legacy tts-batch `buildTtsJobs` (skips empty segments).
+ * Flattens transcript phrases into clip specs with stable ids `{name}-{field}`,
+ * where `field` is one of `first-intro`, `second-intro`, `answer`.
+ * Skips empty segments (same job set as legacy tts-batch `buildTtsJobs`).
  */
 export function buildPhraseAudioClipSpecs(phrases: Phrase[]): PhraseAudioClipSpec[] {
   const specs: PhraseAudioClipSpec[] = [];
   for (const phrase of phrases) {
-    const i = phrase.index;
+    const name = phrase.name;
     const firstIntro = phrase.English['first-intro'] ?? '';
     if (isNonEmpty(firstIntro)) {
       specs.push({
-        id: `${i}-en-first-intro`,
-        phraseIndex: i,
+        id: `${name}-first-intro`,
+        phraseIndex: phrase.index,
+        phraseName: name,
         language: 'en',
         text: firstIntro,
       });
     }
     if (isNonEmpty(phrase.English['second-intro'])) {
       specs.push({
-        id: `${i}-en-second-intro`,
-        phraseIndex: i,
+        id: `${name}-second-intro`,
+        phraseIndex: phrase.index,
+        phraseName: name,
         language: 'en',
         text: phrase.English['second-intro'],
       });
     }
     if (isNonEmpty(phrase.Spanish.answer)) {
       specs.push({
-        id: `${i}-es-answer`,
-        phraseIndex: i,
+        id: `${name}-answer`,
+        phraseIndex: phrase.index,
+        phraseName: name,
         language: 'es',
         text: phrase.Spanish.answer,
       });

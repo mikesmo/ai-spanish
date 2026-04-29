@@ -63,10 +63,10 @@ var VERIFY_ROW_FAIL_BG = "#fff9c4";
 
 /** Must match apps/web/src/app/api/audio/route.ts ALLOWED_SEGMENTS. */
 var ALLOWED_AUDIO_SEGMENTS = [
-  "en-first-intro",
-  "en-second-intro",
-  "en-question",
-  "es-answer",
+  "first-intro",
+  "second-intro",
+  "question",
+  "answer",
 ];
 
 /**
@@ -358,12 +358,12 @@ function refreshSupabaseAccessToken(refreshToken) {
 /**
  * GET /api/audio presigned MP3 URL (requires valid Supabase Bearer token).
  * @param {string} accessToken
- * @param {number} phraseIndex 0-based phrase index
- * @param {string} segment en-first-intro | en-second-intro | en-question | es-answer
+ * @param {string} phraseName Phrase slug (e.g. "perdona"); becomes the clip stem
+ * @param {string} segment first-intro | second-intro | question | answer
  * @param {string} transcriptLessonId e.g. "1" (mapped to lesson1 for S3)
  * @returns {{ ok: true, url: string } | { ok: false, message: string }}
  */
-function getPresignedMp3Url(accessToken, phraseIndex, segment, transcriptLessonId) {
+function getPresignedMp3Url(accessToken, phraseName, segment, transcriptLessonId) {
   try {
     var token =
       typeof accessToken === "string" ? accessToken.trim() : "";
@@ -371,12 +371,10 @@ function getPresignedMp3Url(accessToken, phraseIndex, segment, transcriptLessonI
       return { ok: false, message: "Not signed in. Load lesson from web first." };
     }
 
-    var n =
-      typeof phraseIndex === "number"
-        ? phraseIndex
-        : parseInt(String(phraseIndex), 10);
-    if (isNaN(n) || n < 0 || n !== Math.floor(n)) {
-      return { ok: false, message: "Invalid phrase index." };
+    var name =
+      typeof phraseName === "string" ? phraseName.trim() : "";
+    if (!name || !/^[a-z0-9-]+$/.test(name)) {
+      return { ok: false, message: "Invalid phrase name." };
     }
 
     var seg = typeof segment === "string" ? segment : "";
@@ -398,7 +396,7 @@ function getPresignedMp3Url(accessToken, phraseIndex, segment, transcriptLessonI
     var audioUrl =
       cfg.webOrigin +
       "/api/audio?phrase=" +
-      encodeURIComponent(String(n)) +
+      encodeURIComponent(name) +
       "&segment=" +
       encodeURIComponent(seg) +
       "&lesson=" +
@@ -588,11 +586,11 @@ function heardSttTextsFromPhraseClips(clips) {
       typeof row.transcript === "string" ? row.transcript.trim() : "";
     var heardCell = tr.length > 0 ? tr : "No audio";
     var id = typeof row.id === "string" ? row.id : "";
-    if (id.endsWith("-en-first-intro")) {
+    if (id.endsWith("-first-intro")) {
       first = heardCell;
-    } else if (id.endsWith("-en-second-intro")) {
+    } else if (id.endsWith("-second-intro")) {
       second = heardCell;
-    } else if (id.endsWith("-es-answer")) {
+    } else if (id.endsWith("-answer")) {
       ans = heardCell;
     }
   }
@@ -627,13 +625,13 @@ function volumeSixPackFromPhraseClips(clips) {
     var mn = row.meanDb;
     var maxVal = typeof mx === "number" && !isNaN(mx) ? mx : "";
     var meanVal = typeof mn === "number" && !isNaN(mn) ? mn : "";
-    if (id.endsWith("-en-first-intro")) {
+    if (id.endsWith("-first-intro")) {
       fiMax = maxVal;
       fiAvg = meanVal;
-    } else if (id.endsWith("-en-second-intro")) {
+    } else if (id.endsWith("-second-intro")) {
       siMax = maxVal;
       siAvg = meanVal;
-    } else if (id.endsWith("-es-answer")) {
+    } else if (id.endsWith("-answer")) {
       ansMax = maxVal;
       ansAvg = meanVal;
     }

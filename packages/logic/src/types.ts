@@ -13,7 +13,7 @@ export type PhraseLessonType = 'new' | 'combination';
 export interface Phrase {
   /** Stable slug for the phrase (e.g. transcript key / logging). */
   name: string;
-  /** Phrase index in the lesson file; matches TTS audio id prefix (e.g. `3-en-question.mp3` → 3). */
+  /** 0-based phrase index in the lesson file (deck position). Audio clip ids use `name` instead of this index. */
   index: number;
   /**
    * Lesson card kind from JSON. When `'new'`, the first in-session
@@ -83,13 +83,13 @@ export type UIStatus =
  */
 export type TtsAdapterOptions = {
   /**
-   * When true, the first English clip is `en-first-intro`; when false or omitted,
-   * it is `en-second-intro`. `usePhraseDisplay` sets this false for repeat
+   * When true, the first English clip is `first-intro`; when false or omitted,
+   * it is `second-intro`. `usePhraseDisplay` sets this false for repeat
    * in-session presentations when `Phrase.English['first-intro']` is non-empty.
    */
   englishUseFirstIntro?: boolean;
   /**
-   * When true, append `en-question` after the intro clip (back-to-back). Set when
+   * When true, append `question` after the intro clip (back-to-back). Set when
    * the active intro text (`first-intro` or `second-intro`) ends with `:` after
    * `trimEnd()`.
    */
@@ -109,24 +109,25 @@ export type TtsAdapterOptions = {
 export type TTSAdapter = {
   /**
    * Play audio for the given text and language.
-   * When `phraseIndex` is provided, adapters that support S3 delivery can use
-   * it to derive the clip key instead of synthesizing from text.
+   * When `phraseName` is provided, adapters that support S3 delivery can use
+   * it to derive the clip key instead of synthesizing from text. Clip keys
+   * follow `{name}-{segment}` (e.g. `perdona-first-intro`).
    */
   play: (
     text: string,
     lang: Language,
     rate?: number,
-    phraseIndex?: number,
+    phraseName?: string,
     options?: TtsAdapterOptions
   ) => Promise<void>;
   /**
    * Prefetch / warm-up audio so playback starts immediately.
-   * `phraseIndex` has the same semantics as in `play`.
+   * `phraseName` has the same semantics as in `play`.
    */
   prefetch: (
     text: string,
     lang: Language,
-    phraseIndex?: number,
+    phraseName?: string,
     options?: TtsAdapterOptions,
   ) => Promise<void>;
   stop: () => void;

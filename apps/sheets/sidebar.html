@@ -150,7 +150,7 @@
           <button
             type="button"
             class="preview-play"
-            data-segment="en-first-intro"
+            data-segment="first-intro"
             aria-label="Play First Intro audio"
             disabled
           >
@@ -169,7 +169,7 @@
           <button
             type="button"
             class="preview-play"
-            data-segment="en-second-intro"
+            data-segment="second-intro"
             aria-label="Play Second Intro audio"
             disabled
           >
@@ -188,7 +188,7 @@
           <button
             type="button"
             class="preview-play"
-            data-segment="es-answer"
+            data-segment="answer"
             aria-label="Play Answer audio"
             disabled
           >
@@ -440,11 +440,11 @@
           var t = trimmed.length > 0 ? trimmed : NO_AUDIO_HEARD;
           var idStr = clip.id != null ? String(clip.id) : "";
           var elId = "";
-          if (idStr.endsWith("-en-first-intro")) {
+          if (idStr.endsWith("-first-intro")) {
             elId = "previewHeardFirstIntro";
-          } else if (idStr.endsWith("-en-second-intro")) {
+          } else if (idStr.endsWith("-second-intro")) {
             elId = "previewHeardSecondIntro";
-          } else if (idStr.endsWith("-es-answer")) {
+          } else if (idStr.endsWith("-answer")) {
             elId = "previewHeardAnswer";
           }
           var el = elId ? document.getElementById(elId) : null;
@@ -557,7 +557,7 @@
         });
       }
 
-      function runPresignRound(btn, segment, idx, round) {
+      function runPresignRound(btn, segment, phraseName, round) {
         google.script.run
           .withSuccessHandler(function (res) {
             if (res && res.unauthorized && refreshToken && round === 0) {
@@ -565,7 +565,7 @@
                 .withSuccessHandler(function (ref) {
                   if (ref && ref.ok) {
                     setSessionFromRefreshResult(ref);
-                    runPresignRound(btn, segment, idx, 1);
+                    runPresignRound(btn, segment, phraseName, 1);
                   } else {
                     clearSession("Session expired. Sign in again.");
                     finishPlaySession();
@@ -611,7 +611,7 @@
           })
           .getPresignedMp3Url(
             sessionAccessToken,
-            idx,
+            phraseName,
             segment,
             transcriptLessonId
           );
@@ -621,14 +621,14 @@
         if (!lastPreviewData || !isLoggedIn()) {
           return;
         }
-        var idx = findPhraseIndex(lastPreviewData.phraseName);
-        if (idx === null) {
+        if (findPhraseIndex(lastPreviewData.phraseName) === null) {
           setStatus(
             "This row’s phrase name is not in the loaded lesson. Reload lesson if you changed the sheet.",
             "err"
           );
           return;
         }
+        var phraseName = lastPreviewData.phraseName;
 
         playSessionBusy = true;
 
@@ -645,7 +645,7 @@
             finishPlaySession();
             return;
           }
-          runPresignRound(btn, segment, idx, 0);
+          runPresignRound(btn, segment, phraseName, 0);
         });
       }
 

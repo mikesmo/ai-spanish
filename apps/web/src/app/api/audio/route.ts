@@ -9,14 +9,15 @@ import {
 import { assertApiUser } from '@/lib/auth/assert-api-user';
 
 /**
- * Allowed segment values — must stay in sync with tts-batch parser job id formula:
- *   {phraseIndex}-en-first-intro, {phraseIndex}-en-second-intro, {phraseIndex}-en-question, {phraseIndex}-es-answer
+ * Allowed segment values — must stay in sync with `buildPhraseAudioClipSpecs`
+ * field names (`first-intro`, `second-intro`, `answer`). `question` is kept
+ * here for ad-hoc presigns even though tts-batch does not synthesize it.
  */
 const ALLOWED_SEGMENTS = [
-  'en-first-intro',
-  'en-second-intro',
-  'en-question',
-  'es-answer',
+  'first-intro',
+  'second-intro',
+  'question',
+  'answer',
 ] as const;
 type Segment = (typeof ALLOWED_SEGMENTS)[number];
 
@@ -25,7 +26,13 @@ function isAllowedSegment(s: string): s is Segment {
 }
 
 /**
- * GET /api/audio?phrase=<index>&segment=<segment>[&lesson=<lesson>]
+ * Phrase name format guard: lowercase ASCII letters, digits, and hyphens.
+ * Matches the `name` slug field on transcript phrases.
+ */
+const PHRASE_NAME_PATTERN = /^[a-z0-9-]+$/;
+
+/**
+ * GET /api/audio?phrase=<phraseName>&segment=<segment>[&lesson=<lesson>]
  *
  * Returns a short-lived presigned S3 URL for the requested audio clip.
  * The S3 key is derived as: {prefix}[/{lesson}]/audio/{phrase}-{segment}.mp3
@@ -41,9 +48,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const segment = searchParams.get('segment');
   const lessonParam = searchParams.get('lesson') ?? undefined;
 
-  if (!phraseRaw || !/^\d+$/.test(phraseRaw)) {
+  if (!phraseRaw || !PHRASE_NAME_PATTERN.test(phraseRaw)) {
     return NextResponse.json(
-      { error: 'Invalid phrase: must be a non-negative integer' },
+      { error: 'Invalid phrase: must be a non-empty slug (a-z, 0-9, -)' },
       { status: 400 }
     );
   }
@@ -64,8 +71,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const prefix = normalizeAudioContentPrefix(process.env.AUDIO_CONTENT_PREFIX);
   const lesson = normalizeLessonSegment(lessonParam ?? process.env.S3_LESSON ?? undefined);
 
-  const phrase = parseInt(phraseRaw, 10);
-  const jobId = `${phrase}-${segment}`;
+  const jobId = `${phraseRaw}-${segment}`;
   const s3Key = buildS3AudioKey(prefix, lesson, jobId);
 
   try {

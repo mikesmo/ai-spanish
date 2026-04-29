@@ -94,11 +94,11 @@ async function playAudio(
 
 export function useTTS(): TTSAdapter {
   const play = useCallback(
-    (text: string, lang: Language, rate?: number, _phraseIndex?: number, options?: TtsAdapterOptions) =>
+    (text: string, lang: Language, rate?: number, _phraseName?: string, options?: TtsAdapterOptions) =>
       playAudio(text, lang, rate, options?.signal),
     []
   );
-  const prefetch = useCallback(async (text: string, lang: Language, _phraseIndex?: number, options?: TtsAdapterOptions) => {
+  const prefetch = useCallback(async (text: string, lang: Language, _phraseName?: string, options?: TtsAdapterOptions) => {
     try {
       await fetchAudio(text, lang, options?.signal);
     } catch (err) {

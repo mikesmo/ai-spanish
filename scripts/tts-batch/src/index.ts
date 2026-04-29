@@ -21,7 +21,6 @@ import {
   normalizeLessonSegment,
   readHashCache,
   readManifest,
-  phraseOrderFromJobId,
   s3ManifestObjectKey,
   writeAudioFile,
   writeHashCache,
@@ -132,7 +131,7 @@ Options:
   --upload-only   Upload existing manifest + audio from --out to S3; no Deepgram (no DEEPGRAM_API_KEY)
   --verify-stt     Prerecorded STT (Deepgram) + keyword bias; also runs --verify-loudness first. exit 1 if either fails
   --verify-loudness  ffmpeg volumedetect: peak + mean floors (use alone or redundant with --verify-stt)
-  --only-phrase   Regenerate only this 0-based phrase index (e.g. 11 → 11-en-…); merge into existing manifest; needs prior full run
+  --only-phrase   Regenerate only clips for this phrase's transcript "index" (JSON field); merge into manifest; needs prior full run
   --lesson        Optional folder under AUDIO_CONTENT_PREFIX (overrides S3_LESSON), e.g. lesson1
   --no-audio-pos  Skip ffmpeg post-processing (50 ms fade-out + 5 ms tail trim); write raw Deepgram output (requires no ffmpeg)
   --help, -h      Show this help
@@ -161,11 +160,49 @@ function requireEnv(name: string): string {
   return v.trim();
 }
 
+/**
+ * Reads non-negative integer transcript `index` from JSON (each phrase object).
+ */
+function readPhraseIndexFromJson(
+  o: Record<string, unknown>,
+  label: string,
+  fileLabel: string
+): number {
+  const v = o.index;
+  if (typeof v === 'number' && Number.isInteger(v) && v >= 0) {
+    return v;
+  }
+  if (typeof v === 'string' && /^\d+$/.test(v.trim())) {
+    return parseInt(v.trim(), 10);
+  }
+  throw new Error(
+    `${label}: invalid or missing "index" — must be a non-negative integer (${fileLabel})`
+  );
+}
+
 async function loadTranscript(inputPath: string): Promise<Phrase[]> {
-  const raw = await fs.readFile(inputPath, 'utf8');
-  const data = JSON.parse(raw) as unknown;
+  const absolutePath = path.resolve(inputPath);
+  const raw = await fs.readFile(absolutePath, 'utf8');
+  let data: unknown;
+  try {
+    data = JSON.parse(raw) as unknown;
+  } catch {
+    throw new Error(`Invalid JSON in transcript: ${absolutePath}`);
+  }
   if (!Array.isArray(data)) {
-    throw new Error('Transcript must be a JSON array of phrases');
+    throw new Error(`Transcript must be a JSON array of phrases (${absolutePath})`);
+  }
+  const fileLabel = absolutePath;
+  for (let i = 0; i < data.length; i++) {
+    const item = data[i];
+    if (!item || typeof item !== 'object' || Array.isArray(item)) {
+      throw new Error(`Transcript entry ${i}: must be an object (${fileLabel})`);
+    }
+    const o = item as Record<string, unknown>;
+    const nameHint =
+      typeof o.name === 'string' && o.name.trim() !== '' ? ` "${o.name}"` : '';
+    const label = `Transcript entry ${i}${nameHint}`;
+    readPhraseIndexFromJson(o, label, fileLabel);
   }
   return data as Phrase[];
 }
@@ -271,7 +308,26 @@ async function writeBatchOutputs(
 }
 
 /**
- * Regenerate all jobs for `phraseIndex` (ids `${phraseIndex}-…`) and merge with existing manifest.
+ * Buffers per-position log messages so concurrent jobs (`p-limit`) emit lines in
+ * transcript job order, not completion order. Logs use transcript `index` (phrase-level,
+ * repeated for each clip of that phrase).
+ */
+function createOrderedLogger(total: number): (position: number, message?: string) => void {
+  const slots: (string | undefined)[] = new Array(total);
+  let nextToFlush = 0;
+  return function record(position: number, message?: string): void {
+    slots[position] = message ?? '';
+    while (nextToFlush < total && slots[nextToFlush] !== undefined) {
+      const line = slots[nextToFlush]!;
+      if (line.length > 0) console.log(line);
+      slots[nextToFlush] = undefined;
+      nextToFlush++;
+    }
+  };
+}
+
+/**
+ * Regenerate all jobs for `phraseIndex` (matched via `job.index`) and merge with existing manifest.
  */
 async function runOnlyPhraseBatch(
   opts: CliOptions,
@@ -281,8 +337,8 @@ async function runOnlyPhraseBatch(
   region: string,
   s3Path: S3PathConfig
 ): Promise<void> {
-  const prefix = `${phraseIndex}-`;
-  const toRegen = allJobs.filter((j) => j.id.startsWith(prefix));
+  const isPhraseJob = (j: TtsJob): boolean => j.index === phraseIndex;
+  const toRegen = allJobs.filter(isPhraseJob);
   if (toRegen.length === 0) {
     throw new Error(
       `Phrase index ${phraseIndex} has no TTS fields (all English/Spanish lines for this phrase are empty).`
@@ -300,15 +356,18 @@ async function runOnlyPhraseBatch(
     `--only-phrase ${phraseIndex}: regenerating ${toRegen.length} clip(s); keeping ${allJobs.length - toRegen.length} from manifest.`
   );
 
-  const tasks = allJobs.map((job) =>
+  const recordLog = createOrderedLogger(allJobs.length);
+
+  const tasks = allJobs.map((job, position) =>
     limit(async (): Promise<{ job: TtsJob; entry: ManifestEntry; didGenerate: boolean }> => {
-      if (!job.id.startsWith(prefix)) {
+      if (!isPhraseJob(job)) {
         const prev = byId.get(job.id);
         if (!prev) {
           throw new Error(
             `Missing manifest entry for "${job.id}". Run a full tts:batch (without --only-phrase) once, then retry.`
           );
         }
+        recordLog(position);
         return { job, entry: prev, didGenerate: false };
       }
 
@@ -316,7 +375,7 @@ async function runOnlyPhraseBatch(
       const buffer = await withRetry(() => synthesizeToBuffer(job.text, job.language, apiKey));
       const rel = await writeAudioFile(opts.outDir, job, buffer, opts.noAudioPos);
       const createdAt = new Date().toISOString();
-      console.log(`  OK index=${phraseOrderFromJobId(job.id)} ${job.id}`);
+      recordLog(position, `  OK index=${job.index} ${job.id}`);
       return {
         job,
         entry: buildManifestEntry(
@@ -384,7 +443,7 @@ async function main(): Promise<void> {
   const region = process.env.AWS_REGION?.trim() || 'us-east-1';
   const s3Path = resolveS3PathConfig(opts);
 
-  console.log(`Reading ${opts.inputPath}`);
+  console.log(`Reading transcript: ${path.resolve(opts.inputPath)}`);
   const phrases = await loadTranscript(opts.inputPath);
   const jobs = buildTtsJobs(phrases);
   console.log(`Built ${jobs.length} TTS job(s)`);
@@ -403,13 +462,15 @@ async function main(): Promise<void> {
   const cache = await readHashCache(opts.outDir);
 
   const limit = createJobQueue();
+  const recordLog = createOrderedLogger(jobs.length);
 
-  const tasks = jobs.map((job) =>
+  const tasks = jobs.map((job, position) =>
     limit(async (): Promise<{ job: TtsJob; entry: ManifestEntry; didGenerate: boolean }> => {
       const hash = computeJobHash(job.text, job.voice, opts.noAudioPos);
       const skip = await shouldSkipJob(job, hash, opts.force, cache, opts.outDir);
       if (skip) {
         const createdAt = new Date().toISOString();
+        recordLog(position);
         return {
           job,
           entry: buildManifestEntry(
@@ -429,7 +490,7 @@ async function main(): Promise<void> {
       );
       const rel = await writeAudioFile(opts.outDir, job, buffer, opts.noAudioPos);
       const createdAt = new Date().toISOString();
-      console.log(`  OK index=${phraseOrderFromJobId(job.id)} ${job.id}`);
+      recordLog(position, `  OK index=${job.index} ${job.id}`);
       return {
         job,
         entry: buildManifestEntry(

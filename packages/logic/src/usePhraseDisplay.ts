@@ -167,7 +167,7 @@ export function usePhraseDisplay(
   /**
    * Set only in useLayout (presentation) after map + isFirst is computed, so
    * phrase bootstrap TTS never races Strict double-effects vs reading the map
-   * in useEffect (first init could see count 0 and play en-second-intro).
+   * in useEffect (first init could see count 0 and play second-intro).
    */
   const introTtsForBootstrapRef = useRef<{
     notifyKey: string;
@@ -176,10 +176,11 @@ export function usePhraseDisplay(
   } | null>(null);
 
   /**
-   * S3 phrase-index hint passed to the TTS adapter. Falls back to
-   * `currentIndex` when the host does not override — preserves
-   * linear-navigation behavior. Required for queue-driven hosts where the
-   * `phrases` prop is a 1-element array (see `UsePhraseDisplayOptions.ttsPhraseIndex`).
+   * Deck position used for `RECORDING_PRIMING_PHRASE_COUNT` and the per-phrase
+   * `countStableKey`. Falls back to `currentIndex` when the host does not
+   * override — preserves linear-navigation behavior. Required for queue-driven
+   * hosts where the `phrases` prop is a 1-element array (see
+   * `UsePhraseDisplayOptions.ttsPhraseIndex`).
    * Kept in a ref so async flows (playAnswerAudio, handleReplay, bootstrap
    * init) always read the freshest value without forcing extra dep-array
    * entries.
@@ -265,7 +266,7 @@ export function usePhraseDisplay(
   const phraseIdPresentationCountRef = useRef<Map<string, number>>(new Map());
   /**
    * False after Try Again so a future English replay would not use
-   * `en-first-intro` clip mode; cleared to true on each new presentation notification.
+   * `first-intro` clip mode; cleared to true on each new presentation notification.
    */
   const englishFirstPassOnCardRef = useRef(true);
 
@@ -275,6 +276,17 @@ export function usePhraseDisplay(
     ? `${en['second-intro']}: ${en.question}`
     : en.question;
   const spanishText = currentPhrase.Spanish.answer;
+
+  /**
+   * Phrase name passed to the TTS adapter (`phraseName` argument of `play` /
+   * `prefetch`). Adapters that support S3 delivery use it as the clip key
+   * stem, e.g. `${phraseName}-first-intro`.
+   * Mirrors `ttsPhraseIndexRef`'s ref pattern so async flows (playAnswerAudio,
+   * handleReplay, bootstrap init) read the freshest value without forcing
+   * extra dep-array entries.
+   */
+  const phraseNameRef = useRef<string>(currentPhrase.name);
+  phraseNameRef.current = currentPhrase.name;
   const caption = stt.caption;
   const sttWords: SpokenWord[] = stt.words;
 
@@ -446,7 +458,7 @@ export function usePhraseDisplay(
           spanishText,
           'es',
           undefined,
-          ttsPhraseIndexRef.current,
+          phraseNameRef.current,
           s3Opts,
         );
       } catch (error) {
@@ -581,7 +593,7 @@ export function usePhraseDisplay(
     prevIndexRef.current = currentIndex;
     // Prefer intro bit written in useLayout (same notifyKey) so the first of two
     // strict-mode effect runs does not recompute from the map before it matches
-    // layout and pick en-second-intro; fallback if keys drift (HMR, bug).
+    // layout and pick second-intro; fallback if keys drift (HMR, bug).
     const enB = currentPhrase.English;
     const notifyKey = `${currentIndex}|${currentPhrase.name}|${
       presentationVersion ?? ''
@@ -631,13 +643,13 @@ export function usePhraseDisplay(
 
     const init = async () => {
       try {
-        const hintedIndex = ttsPhraseIndexRef.current;
+        const hintedName = phraseNameRef.current;
         await Promise.all([
-          ttsRef.current.prefetch(englishText, 'en', hintedIndex, enOpts),
+          ttsRef.current.prefetch(englishText, 'en', hintedName, enOpts),
           ttsRef.current.prefetch(
             spanishText,
             'es',
-            hintedIndex,
+            hintedName,
             s3 as TtsAdapterOptions,
           ),
         ]);
@@ -649,7 +661,7 @@ export function usePhraseDisplay(
           englishText,
           'en',
           undefined,
-          ttsPhraseIndexRef.current,
+          phraseNameRef.current,
           enWithSignal,
         );
         if (bootstrapSignal.aborted) return;
@@ -664,7 +676,7 @@ export function usePhraseDisplay(
                 spanishText,
                 'es',
                 undefined,
-                ttsPhraseIndexRef.current,
+                phraseNameRef.current,
                 esWithSignal,
               );
             } catch (esError) {
@@ -966,7 +978,7 @@ export function usePhraseDisplay(
         spanishText,
         'es',
         PLAYBACK_RATES[speed],
-        ttsPhraseIndexRef.current,
+        phraseNameRef.current,
         s3Opts,
       );
     } catch (error) {

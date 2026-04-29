@@ -10,14 +10,14 @@ export function segmentsForLanguage(
 ): string[] {
   if (lang === 'en') {
     const segs = options?.englishUseFirstIntro
-      ? ['en-first-intro']
-      : ['en-second-intro'];
+      ? ['first-intro']
+      : ['second-intro'];
     if (options?.englishAppendQuestion) {
-      segs.push('en-question');
+      segs.push('question');
     }
     return segs;
   }
-  return ['es-answer'];
+  return ['answer'];
 }
 
 /**
@@ -25,6 +25,8 @@ export function segmentsForLanguage(
  *
  * @param baseUrl - Origin to prepend, e.g. "http://192.168.1.5:3000" for native
  *                  or "" for web (same-origin relative fetch).
+ * @param phraseName - Phrase slug used as the clip stem (e.g. `perdona`); the
+ *                  S3 key resolves to `{prefix}[/{lesson}]/audio/{phraseName}-{segment}.mp3`.
  *
  * Returns null when the segment does not exist (e.g. empty intro text skipped
  * at batch time), when the API is unconfigured (503), or on network error.
@@ -33,12 +35,12 @@ export const PRESIGNED_URL_CACHE_TTL_MS = 240_000;
 
 export async function fetchPresignedUrl(
   baseUrl: string,
-  phraseIndex: number,
+  phraseName: string,
   segment: string,
   signal?: AbortSignal,
   s3LessonSegment?: string
 ): Promise<string | null> {
-  const params = new URLSearchParams({ phrase: String(phraseIndex), segment });
+  const params = new URLSearchParams({ phrase: phraseName, segment });
   if (s3LessonSegment != null && s3LessonSegment !== '') {
     params.set('lesson', s3LessonSegment);
   }

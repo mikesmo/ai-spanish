@@ -55,7 +55,7 @@ export function computeJobHash(text: string, voice: string, noAudioPos = false):
   return `sha256:${h.digest('hex')}`;
 }
 
-/** Relative POSIX path from output root, e.g. audio/0-en-first-intro.mp3 */
+/** Relative POSIX path from output root, e.g. audio/perdona-first-intro.mp3 */
 export function audioRelativePath(jobId: string): string {
   return path.posix.join('audio', `${jobId}.mp3`);
 }
@@ -121,15 +121,6 @@ export async function audioFileExists(outDir: string, jobId: string): Promise<bo
   }
 }
 
-/** Leading integer in `{index}-{lang}-{field}` ids (same as the audio file prefix). */
-export function phraseOrderFromJobId(jobId: string): number {
-  const m = /^(\d+)-/.exec(jobId);
-  if (!m) {
-    throw new Error(`Invalid TTS job id (expected "{index}-…"): ${jobId}`);
-  }
-  return parseInt(m[1]!, 10);
-}
-
 export function buildManifestEntry(
   job: TtsJob,
   relPath: string,
@@ -140,7 +131,7 @@ export function buildManifestEntry(
 ): ManifestEntry {
   const entry: ManifestEntry = {
     id: job.id,
-    index: phraseOrderFromJobId(job.id),
+    index: job.index,
     language: job.language,
     text: job.text,
     voice: job.voice,
@@ -237,12 +228,19 @@ export async function readManifest(outDir: string): Promise<{
     const s3Key = o.s3Key;
     const indexRaw = o.index;
     const legacyOrderRaw = o.order;
-    const phraseIndex =
-      typeof indexRaw === 'number' && Number.isInteger(indexRaw)
-        ? indexRaw
-        : typeof legacyOrderRaw === 'number' && Number.isInteger(legacyOrderRaw)
-          ? legacyOrderRaw
-          : phraseOrderFromJobId(id);
+    let phraseIndex: number;
+    if (typeof indexRaw === 'number' && Number.isInteger(indexRaw)) {
+      phraseIndex = indexRaw;
+    } else if (
+      typeof legacyOrderRaw === 'number' &&
+      Number.isInteger(legacyOrderRaw)
+    ) {
+      phraseIndex = legacyOrderRaw;
+    } else {
+      throw new Error(
+        `${label}: missing integer "index" (or legacy "order"). Re-run a full tts:batch to regenerate the manifest.`
+      );
+    }
     const entry: ManifestEntry = {
       id,
       index: phraseIndex,

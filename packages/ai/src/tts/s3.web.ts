@@ -9,14 +9,14 @@ import {
 type CachedUrl = { url: string; fetchedAt: number };
 
 function fetchPresignedUrl(
-  phraseIndex: number,
+  phraseName: string,
   segment: string,
   signal: AbortSignal | undefined,
   s3LessonSegment: string | undefined
 ): Promise<string | null> {
   return _fetchPresignedUrl(
     '',
-    phraseIndex,
+    phraseName,
     segment,
     signal,
     s3LessonSegment
@@ -26,15 +26,15 @@ function fetchPresignedUrl(
 /**
  * S3-backed TTS adapter for web.
  *
- * - English: en-first-intro or en-second-intro per englishUseFirstIntro; appends
- *   en-question when englishAppendQuestion (intro ends with ":" after trim).
- * - Spanish: fetches and plays es-answer (single clip per phrase).
+ * - English: first-intro or second-intro per englishUseFirstIntro; appends
+ *   question when englishAppendQuestion (intro ends with ":" after trim).
+ * - Spanish: fetches and plays answer (single clip per phrase).
  * - Missing clips (skipped at batch time due to empty text) are silently skipped.
- * - Requires a valid phraseIndex; calls without one are no-ops so the adapter
+ * - Requires a valid phraseName; calls without one are no-ops so the adapter
  *   stays compatible with the TTSAdapter interface.
  */
 export function useS3TTS(): TTSAdapter {
-  /** Cache: `${phraseIndex}-${segment}` → presigned URL + time (S3 presigns expire in ~5 min). */
+  /** Cache: `${phraseName}-${segment}` → presigned URL + time (S3 presigns expire in ~5 min). */
   const urlCache = useRef<Map<string, CachedUrl>>(new Map());
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const stoppedRef = useRef(false);
@@ -68,19 +68,19 @@ export function useS3TTS(): TTSAdapter {
     async (
       _text: string,
       lang: Language,
-      phraseIndex?: number,
+      phraseName?: string,
       options?: TtsAdapterOptions
     ): Promise<void> => {
-      if (phraseIndex === undefined) return;
+      if (phraseName === undefined || phraseName === '') return;
       const signal = options?.signal;
       const s3 = options?.s3LessonSegment;
       const lessonKey = s3 ?? '';
       await Promise.all(
         segmentsForLanguage(lang, options).map(async (seg) => {
           if (signal?.aborted) return;
-          const cacheKey = `${lessonKey}|${phraseIndex}-${seg}`;
+          const cacheKey = `${lessonKey}|${phraseName}-${seg}`;
           if (getUrlFromCache(cacheKey) != null) return;
-          const url = await fetchPresignedUrl(phraseIndex, seg, signal, s3);
+          const url = await fetchPresignedUrl(phraseName, seg, signal, s3);
           if (signal?.aborted) return;
           if (url) urlCache.current.set(cacheKey, { url, fetchedAt: Date.now() });
         })
@@ -94,10 +94,10 @@ export function useS3TTS(): TTSAdapter {
       _text: string,
       lang: Language,
       rate = 1,
-      phraseIndex?: number,
+      phraseName?: string,
       options?: TtsAdapterOptions
     ): Promise<void> => {
-      if (phraseIndex === undefined) return;
+      if (phraseName === undefined || phraseName === '') return;
       const signal = options?.signal;
       if (signal?.aborted) return;
 
@@ -115,10 +115,10 @@ export function useS3TTS(): TTSAdapter {
           return;
         }
 
-        const cacheKey = `${lessonKey}|${phraseIndex}-${seg}`;
+        const cacheKey = `${lessonKey}|${phraseName}-${seg}`;
         let url: string | null = getUrlFromCache(cacheKey);
         if (!url) {
-          const fetched = await fetchPresignedUrl(phraseIndex, seg, signal, s3);
+          const fetched = await fetchPresignedUrl(phraseName, seg, signal, s3);
           if (fetched) {
             url = fetched;
             // Only write to cache when this play is still the current one;

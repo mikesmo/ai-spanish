@@ -15,7 +15,7 @@ function getWebOrigin(): string {
 }
 
 function fetchPresignedUrl(
-  phraseIndex: number,
+  phraseName: string,
   segment: string,
   presignedByKey: Map<string, PresignedEntry>,
   cacheKey: string,
@@ -32,7 +32,7 @@ function fetchPresignedUrl(
     if (signal?.aborted) return null;
     const url = await _fetchPresignedUrl(
       origin,
-      phraseIndex,
+      phraseName,
       segment,
       signal,
       s3LessonSegment
@@ -43,7 +43,7 @@ function fetchPresignedUrl(
 }
 
 function localCachePath(
-  phraseIndex: number,
+  phraseName: string,
   segment: string,
   s3LessonSegment?: string
 ): string {
@@ -51,11 +51,11 @@ function localCachePath(
     s3LessonSegment != null && s3LessonSegment !== ''
       ? `${s3LessonSegment}-`
       : '';
-  return `${FileSystem.cacheDirectory}s3audio-${p}${phraseIndex}-${segment}.mp3`;
+  return `${FileSystem.cacheDirectory}s3audio-${p}${phraseName}-${segment}.mp3`;
 }
 
 async function ensureLocalFile(
-  phraseIndex: number,
+  phraseName: string,
   segment: string,
   fileCache: Map<string, string>,
   presignedByKey: Map<string, PresignedEntry>,
@@ -64,7 +64,7 @@ async function ensureLocalFile(
 ): Promise<string | null> {
   if (signal?.aborted) return null;
   const lessonKey = s3LessonSegment ?? '';
-  const cacheKey = `${lessonKey}|${phraseIndex}-${segment}`;
+  const cacheKey = `${lessonKey}|${phraseName}-${segment}`;
   const cachedUri = fileCache.get(cacheKey);
   if (cachedUri) {
     const info = await FileSystem.getInfoAsync(cachedUri);
@@ -73,7 +73,7 @@ async function ensureLocalFile(
   }
 
   const presigned = await fetchPresignedUrl(
-    phraseIndex,
+    phraseName,
     segment,
     presignedByKey,
     cacheKey,
@@ -83,7 +83,7 @@ async function ensureLocalFile(
   if (!presigned) return null;
   if (signal?.aborted) return null;
 
-  const dest = localCachePath(phraseIndex, segment, s3LessonSegment);
+  const dest = localCachePath(phraseName, segment, s3LessonSegment);
   const result = await FileSystem.downloadAsync(presigned, dest);
   if (signal?.aborted) return null;
   fileCache.set(cacheKey, result.uri);
@@ -93,11 +93,11 @@ async function ensureLocalFile(
 /**
  * S3-backed TTS adapter for React Native (same clips as web).
  *
- * - English: en-first-intro or en-second-intro per englishUseFirstIntro; appends
- *   en-question when englishAppendQuestion (intro ends with ":" after trim).
- * - Spanish: es-answer only.
+ * - English: first-intro or second-intro per englishUseFirstIntro; appends
+ *   question when englishAppendQuestion (intro ends with ":" after trim).
+ * - Spanish: answer only.
  * - Missing clips are skipped silently.
- * - Requires phraseIndex; calls without it are no-ops.
+ * - Requires phraseName; calls without it are no-ops.
  */
 export function useS3TTS(): TTSAdapter {
   const fileCacheRef = useRef<Map<string, string>>(new Map());
@@ -177,17 +177,17 @@ export function useS3TTS(): TTSAdapter {
     async (
       _text: string,
       lang: Language,
-      phraseIndex?: number,
+      phraseName?: string,
       options?: TtsAdapterOptions
     ): Promise<void> => {
-      if (phraseIndex === undefined) return;
+      if (phraseName === undefined || phraseName === '') return;
       const signal = options?.signal;
       const s3 = options?.s3LessonSegment;
       await Promise.all(
         segmentsForLanguage(lang, options).map(async (seg) => {
           if (signal?.aborted) return;
           await ensureLocalFile(
-            phraseIndex,
+            phraseName,
             seg,
             fileCacheRef.current,
             presignedByKeyRef.current,
@@ -205,10 +205,10 @@ export function useS3TTS(): TTSAdapter {
       _text: string,
       lang: Language,
       rate = 1,
-      phraseIndex?: number,
+      phraseName?: string,
       options?: TtsAdapterOptions
     ): Promise<void> => {
-      if (phraseIndex === undefined) return;
+      if (phraseName === undefined || phraseName === '') return;
       const signal = options?.signal;
       if (signal?.aborted) return;
 
@@ -221,7 +221,7 @@ export function useS3TTS(): TTSAdapter {
         if (stoppedRef.current || signal?.aborted) return;
 
         const uri = await ensureLocalFile(
-          phraseIndex,
+          phraseName,
           seg,
           fileCacheRef.current,
           presignedByKeyRef.current,
