@@ -9,10 +9,33 @@
         margin: 10px;
         color: #202124;
       }
-      button {
+      .help {
+        margin-bottom: 12px;
+        line-height: 1.4;
+      }
+      label {
+        display: block;
         margin-top: 8px;
+        font-weight: 500;
+      }
+      input[type="email"],
+      input[type="password"] {
+        box-sizing: border-box;
+        width: 100%;
+        margin-top: 4px;
+        padding: 6px 8px;
+        font-size: 13px;
+        border: 1px solid #dadce0;
+        border-radius: 4px;
+      }
+      button {
+        margin-top: 12px;
         padding: 6px 12px;
         cursor: pointer;
+      }
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.65;
       }
       #status {
         margin-top: 10px;
@@ -29,10 +52,28 @@
     </style>
   </head>
   <body>
-    <div>
-      Imports lesson rows via Apps Script from your configured lesson JSON URL (see Code.js). Lesson sources live in the repo under <code>data/transcripts/</code> and are served only through authenticated APIs in production—not as <code>/lesson1.json</code>.
+    <div class="help">
+      Sign in with the same <strong>email and password</strong> you use in the AI Spanish web app. Lesson 1 phrases are loaded from the authenticated transcript API into this sheet.
     </div>
-    <button type="button" id="loadBtn">Load lesson from web</button>
+    <form id="loadForm" action="javascript:void(0)">
+      <label for="email">Email</label>
+      <input
+        id="email"
+        name="email"
+        type="email"
+        autocomplete="username"
+        required
+      />
+      <label for="password">Password</label>
+      <input
+        id="password"
+        name="password"
+        type="password"
+        autocomplete="current-password"
+        required
+      />
+      <button type="submit" id="loadBtn">Load lesson from web</button>
+    </form>
     <div id="status" aria-live="polite"></div>
 
     <script>
@@ -42,10 +83,24 @@
         el.className = variant || "";
       }
 
-      document.getElementById("loadBtn").addEventListener("click", function () {
+      function setLoading(isLoading) {
+        var btn = document.getElementById("loadBtn");
+        btn.disabled = isLoading;
+      }
+
+      document.getElementById("loadForm").addEventListener("submit", function (ev) {
+        ev.preventDefault();
+        var email = document.getElementById("email").value.trim();
+        var password = document.getElementById("password").value;
+        if (!email) {
+          setStatus("Enter your email.", "err");
+          return;
+        }
         setStatus("Loading…");
+        setLoading(true);
         google.script.run
           .withSuccessHandler(function (result) {
+            setLoading(false);
             if (result && result.ok) {
               setStatus(result.message || "Done.", "ok");
             } else {
@@ -53,9 +108,10 @@
             }
           })
           .withFailureHandler(function (err) {
+            setLoading(false);
             setStatus(err.message || String(err), "err");
           })
-          .populateLessonFromJson();
+          .populateLessonFromJson(email, password);
       });
     </script>
   </body>

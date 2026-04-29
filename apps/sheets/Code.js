@@ -1,7 +1,21 @@
-/** @deprecated Static `{origin}/lesson1.json` was removed; lesson JSON is auth-only via `/api/transcript`. Point this URL only if you restore a public mirror — otherwise this sheet action will fail at runtime. */
-const LESSON1_JSON_URL = "https://ai-spanish-web.vercel.app/lesson1.json";
+/**
+ * Script Properties (Project settings → Script properties in the Apps Script editor):
+ * - WEB_ORIGIN — e.g. https://ai-spanish-web.vercel.app (no trailing slash)
+ * - SUPABASE_URL — https://<project-ref>.supabase.co
+ * - SUPABASE_ANON_KEY — Supabase anon (public) key
+ *
+ * Flow: password grant at Supabase → GET /api/transcript?lesson=1 with Bearer token.
+ */
 
-const LESSON_COLUMNS = [
+var SCRIPT_PROP_WEB_ORIGIN = "WEB_ORIGIN";
+var SCRIPT_PROP_SUPABASE_URL = "SUPABASE_URL";
+var SCRIPT_PROP_SUPABASE_ANON_KEY = "SUPABASE_ANON_KEY";
+
+var DEFAULT_TRANSCRIPT_LESSON_ID = "1";
+var TRANSCRIPT_PATH =
+  "/api/transcript?lesson=" + DEFAULT_TRANSCRIPT_LESSON_ID;
+
+var LESSON_COLUMNS = [
   "Name",
   "Type",
   "First Intro",
@@ -10,6 +24,106 @@ const LESSON_COLUMNS = [
   "Answer",
   "Grammar",
 ];
+
+/**
+ * @returns {{ webOrigin: string, supabaseUrl: string, anonKey: string } | { ok: false, message: string }}
+ */
+function readTranscriptConfig() {
+  var props = PropertiesService.getScriptProperties();
+  var webOrigin = (props.getProperty(SCRIPT_PROP_WEB_ORIGIN) || "").trim();
+  var supabaseUrl = (props.getProperty(SCRIPT_PROP_SUPABASE_URL) || "").trim();
+  var anonKey = (props.getProperty(SCRIPT_PROP_SUPABASE_ANON_KEY) || "").trim();
+
+  if (!webOrigin || !supabaseUrl || !anonKey) {
+    var missing = [];
+    if (!webOrigin) missing.push(SCRIPT_PROP_WEB_ORIGIN);
+    if (!supabaseUrl) missing.push(SCRIPT_PROP_SUPABASE_URL);
+    if (!anonKey) missing.push(SCRIPT_PROP_SUPABASE_ANON_KEY);
+    return {
+      ok: false,
+      message:
+        "Missing Script Properties: " +
+        missing.join(", ") +
+        ". Set them under Project settings → Script properties.",
+    };
+  }
+
+  while (webOrigin.length > 0 && webOrigin.charAt(webOrigin.length - 1) === "/") {
+    webOrigin = webOrigin.slice(0, -1);
+  }
+  while (
+    supabaseUrl.length > 0 &&
+    supabaseUrl.charAt(supabaseUrl.length - 1) === "/"
+  ) {
+    supabaseUrl = supabaseUrl.slice(0, -1);
+  }
+
+  return { webOrigin: webOrigin, supabaseUrl: supabaseUrl, anonKey: anonKey };
+}
+
+/**
+ * @param {string} email
+ * @param {string} password
+ * @returns {{ ok: true, access_token: string } | { ok: false, message: string }}
+ */
+function fetchSupabaseAccessToken(email, password) {
+  var cfg = readTranscriptConfig();
+  if (cfg.ok === false) {
+    return { ok: false, message: cfg.message };
+  }
+
+  var tokenUrl =
+    cfg.supabaseUrl + "/auth/v1/token?grant_type=password";
+  var payload = JSON.stringify({
+    email: email,
+    password: password,
+  });
+
+  var response = UrlFetchApp.fetch(tokenUrl, {
+    method: "post",
+    contentType: "application/json",
+    muteHttpExceptions: true,
+    payload: payload,
+    headers: {
+      apikey: cfg.anonKey,
+      Authorization: "Bearer " + cfg.anonKey,
+    },
+  });
+
+  var code = response.getResponseCode();
+  var body = response.getContentText();
+
+  if (code < 200 || code >= 300) {
+    var errMsg = "Sign-in failed (HTTP " + code + ").";
+    try {
+      /** @type {{ error_description?: string, msg?: string, message?: string }} */
+      var errJson = JSON.parse(body);
+      if (typeof errJson.error_description === "string" && errJson.error_description) {
+        errMsg = errJson.error_description;
+      } else if (typeof errJson.msg === "string" && errJson.msg) {
+        errMsg = errJson.msg;
+      } else if (typeof errJson.message === "string" && errJson.message) {
+        errMsg = errJson.message;
+      }
+    } catch (parseErr) {
+      if (body && body.length > 0 && body.length < 400) {
+        errMsg = body;
+      }
+    }
+    return { ok: false, message: errMsg };
+  }
+
+  try {
+    /** @type {{ access_token?: string }} */
+    var data = JSON.parse(body);
+    if (typeof data.access_token !== "string" || !data.access_token) {
+      return { ok: false, message: "Sign-in response had no access token." };
+    }
+    return { ok: true, access_token: data.access_token };
+  } catch (e) {
+    return { ok: false, message: "Could not parse sign-in response." };
+  }
+}
 
 function onOpen() {
   SpreadsheetApp.getUi()
@@ -25,26 +139,53 @@ function showSidebar() {
 }
 
 /**
- * Fetches lesson JSON from LESSON1_JSON_URL (legacy static path; see deprecation on LESSON1_JSON_URL).
- * Returns a plain object for google.script.run (success/error).
+ * Signs in with Supabase (email + password), fetches lesson 1 from /api/transcript, writes the sheet.
+ * @param {string} email
+ * @param {string} password
+ * @returns {{ ok: boolean, message: string }}
  */
-function populateLessonFromJson() {
+function populateLessonFromJson(email, password) {
   try {
-    const response = UrlFetchApp.fetch(LESSON1_JSON_URL, {
+    var trimmedEmail = typeof email === "string" ? email.trim() : "";
+    var pwd = typeof password === "string" ? password : "";
+    if (!trimmedEmail || !pwd) {
+      return { ok: false, message: "Email and password are required." };
+    }
+
+    var tokenResult = fetchSupabaseAccessToken(trimmedEmail, pwd);
+    if (!tokenResult.ok) {
+      return { ok: false, message: tokenResult.message };
+    }
+
+    var cfg = readTranscriptConfig();
+    if (cfg.ok === false) {
+      return { ok: false, message: cfg.message };
+    }
+
+    var transcriptUrl = cfg.webOrigin + TRANSCRIPT_PATH;
+    var response = UrlFetchApp.fetch(transcriptUrl, {
       muteHttpExceptions: true,
       followRedirects: true,
+      headers: {
+        Authorization: "Bearer " + tokenResult.access_token,
+      },
     });
-    const code = response.getResponseCode();
-    const body = response.getContentText();
-    if (code < 200 || code >= 300) {
+
+    var httpCode = response.getResponseCode();
+    var body = response.getContentText();
+    if (httpCode < 200 || httpCode >= 300) {
       return {
         ok: false,
-        message: "Fetch failed HTTP " + code + ": " + body.slice(0, 280),
+        message:
+          "Transcript request failed HTTP " +
+          httpCode +
+          ": " +
+          body.slice(0, 280),
       };
     }
 
     /** @type {unknown} */
-    const parsed = JSON.parse(body);
+    var parsed = JSON.parse(body);
     if (!Array.isArray(parsed)) {
       return {
         ok: false,
@@ -52,13 +193,13 @@ function populateLessonFromJson() {
       };
     }
 
-    const rows = [LESSON_COLUMNS];
+    var rows = [LESSON_COLUMNS];
     parsed.forEach(function (phrase) {
       rows.push(phraseRow(phrase));
     });
 
     writeRowsToActiveSheet(rows);
-    const count = rows.length > 1 ? rows.length - 1 : 0;
+    var count = rows.length > 1 ? rows.length - 1 : 0;
     return { ok: true, message: "Loaded " + count + " phrase(s)." };
   } catch (e) {
     return {

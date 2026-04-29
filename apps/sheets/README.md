@@ -78,5 +78,8 @@ Use `clasp deploy` to create a deployment when you expose a Web App endpoint (no
 
 ## Config
 
-- **`LESSON1_JSON_URL`** in [`Code.js`](./Code.js) — **obsolete**: lesson JSON is no longer served as `/lesson1.json`; use an authenticated API or a manual export unless you host a mirror URL yourself.
+- **Script properties** (Apps Script editor → Project settings → Script properties): required for the sidebar “Load lesson from web” flow.
+  - **`WEB_ORIGIN`** — deployed web app origin, e.g. `https://ai-spanish-web.vercel.app` (no trailing slash). Used to call `GET /api/transcript?lesson=1`.
+  - **`SUPABASE_URL`** — same value as the web app’s `NEXT_PUBLIC_SUPABASE_URL` (e.g. `https://<project-ref>.supabase.co`).
+  - **`SUPABASE_ANON_KEY`** — same value as `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Used only in server-side `UrlFetchApp` calls, not in the sidebar HTML.
 - **Spreadsheet association** — clasp updates the script tied to `.clasp.json`; the script must stay bound or linked as you already set up in Sheets.
