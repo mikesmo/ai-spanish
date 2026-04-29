@@ -34,6 +34,11 @@ export {
   toDeepgramLiveKeywordParams,
   tokenizeForDeepgramKeywords,
 } from './deepgramKeywords';
+export { transcriptsMatch } from './transcriptsMatch';
+export {
+  buildPhraseAudioClipSpecs,
+  type PhraseAudioClipSpec,
+} from './phraseAudioClipSpecs';
 export { usePhraseDisplay } from './usePhraseDisplay';
 export type { UsePhraseDisplayOptions } from './usePhraseDisplay';
 export { runPhraseFeedbackNext } from './phraseFeedbackNext';

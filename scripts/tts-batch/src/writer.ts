@@ -140,7 +140,7 @@ export function buildManifestEntry(
 ): ManifestEntry {
   const entry: ManifestEntry = {
     id: job.id,
-    order: phraseOrderFromJobId(job.id),
+    index: phraseOrderFromJobId(job.id),
     language: job.language,
     text: job.text,
     voice: job.voice,
@@ -235,14 +235,17 @@ export async function readManifest(outDir: string): Promise<{
     const hash = requireString(o, 'hash', label);
     const createdAt = requireString(o, 'createdAt', label);
     const s3Key = o.s3Key;
-    const orderRaw = o.order;
-    const order =
-      typeof orderRaw === 'number' && Number.isInteger(orderRaw)
-        ? orderRaw
-        : phraseOrderFromJobId(id);
+    const indexRaw = o.index;
+    const legacyOrderRaw = o.order;
+    const phraseIndex =
+      typeof indexRaw === 'number' && Number.isInteger(indexRaw)
+        ? indexRaw
+        : typeof legacyOrderRaw === 'number' && Number.isInteger(legacyOrderRaw)
+          ? legacyOrderRaw
+          : phraseOrderFromJobId(id);
     const entry: ManifestEntry = {
       id,
-      order,
+      index: phraseIndex,
       language,
       text,
       voice,

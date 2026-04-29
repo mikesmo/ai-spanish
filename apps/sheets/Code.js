@@ -4,7 +4,7 @@
  * - SUPABASE_URL — https://<project-ref>.supabase.co
  * - SUPABASE_ANON_KEY — Supabase anon (public) key
  *
- * Flow: Supabase password or refresh grant → GET /api/transcript and /api/audio with Bearer token;
+ * Flow: Supabase password or refresh grant → GET /api/transcript, GET /api/audio, POST /api/lesson-audio-verify with Bearer token;
  * sidebar stores access + refresh in memory and refreshes before expiry.
  */
 
@@ -24,6 +24,7 @@ var LESSON_COLUMNS = [
   "Question",
   "Answer",
   "Grammar",
+  "Verified",
 ];
 
 /** 1-based column indexes; must stay aligned with LESSON_COLUMNS. */
@@ -31,6 +32,10 @@ var COL_NAME = LESSON_COLUMNS.indexOf("Name") + 1;
 var COL_FIRST_INTRO = LESSON_COLUMNS.indexOf("First Intro") + 1;
 var COL_SECOND_INTRO = LESSON_COLUMNS.indexOf("Second Intro") + 1;
 var COL_ANSWER = LESSON_COLUMNS.indexOf("Answer") + 1;
+var COL_VERIFIED = LESSON_COLUMNS.indexOf("Verified") + 1;
+
+/** Light yellow background for rows that fail audio verification. */
+var VERIFY_ROW_FAIL_BG = "#fff9c4";
 
 /** Must match apps/web/src/app/api/audio/route.ts ALLOWED_SEGMENTS. */
 var ALLOWED_AUDIO_SEGMENTS = [
@@ -39,6 +44,19 @@ var ALLOWED_AUDIO_SEGMENTS = [
   "en-question",
   "es-answer",
 ];
+
+/**
+ * Ngrok free tier serves an HTML interstitial ("You are about to visit…") unless this header is sent.
+ * Without it, UrlFetchApp receives HTML and JSON.parse throws (e.g. login / transcript load).
+ * @param {string} bearerToken Supabase access token (raw, no "Bearer " prefix)
+ * @returns {{ Authorization: string, "ngrok-skip-browser-warning": string }}
+ */
+function headersForWebOrigin(bearerToken) {
+  return {
+    Authorization: "Bearer " + bearerToken,
+    "ngrok-skip-browser-warning": "true",
+  };
+}
 
 /**
  * S3 folder segment for /api/audio ?lesson= — matches packages/logic s3LessonFolderForTranscriptLessonId.
@@ -340,9 +358,7 @@ function getPresignedMp3Url(accessToken, phraseIndex, segment, transcriptLessonI
     var response = UrlFetchApp.fetch(audioUrl, {
       muteHttpExceptions: true,
       followRedirects: true,
-      headers: {
-        Authorization: "Bearer " + token,
-      },
+      headers: headersForWebOrigin(token),
     });
 
     var httpCode = response.getResponseCode();
@@ -404,6 +420,163 @@ function isAllowedAudioSegment(segment) {
   return false;
 }
 
+/**
+ * @param {unknown[]} phrasesPayload
+ * @param {number} phraseIndex
+ * @returns {{ phraseIndex?: number, verified?: boolean } | null}
+ */
+function findPhraseVerificationResult(phrasesPayload, phraseIndex) {
+  if (!Array.isArray(phrasesPayload)) {
+    return null;
+  }
+  var j;
+  for (j = 0; j < phrasesPayload.length; j++) {
+    var row = phrasesPayload[j];
+    if (
+      row &&
+      typeof row === "object" &&
+      typeof row.phraseIndex === "number" &&
+      row.phraseIndex === phraseIndex
+    ) {
+      return row;
+    }
+  }
+  return null;
+}
+
+/**
+ * Applies `phrases` from POST /api/lesson-audio-verify to the Verified column and row fill.
+ * @param {unknown[]} phrasesPayload
+ * @param {{ index: number }[]} phraseDirectory
+ */
+function applyLessonVerificationToSheet(phrasesPayload, phraseDirectory) {
+  if (!Array.isArray(phraseDirectory) || phraseDirectory.length === 0) {
+    return;
+  }
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var targetCols = LESSON_COLUMNS.length;
+  var i;
+  for (i = 0; i < phraseDirectory.length; i++) {
+    var row = i + 2;
+    var wantIndex =
+      phraseDirectory[i] && typeof phraseDirectory[i].index === "number"
+        ? phraseDirectory[i].index
+        : null;
+    if (wantIndex === null) {
+      continue;
+    }
+    var vr = findPhraseVerificationResult(phrasesPayload, wantIndex);
+    var verified =
+      vr &&
+      vr.verified !== undefined &&
+      vr.verified === true;
+    sheet.getRange(row, COL_VERIFIED).setValue(verified === true);
+    var bg = verified === true ? null : VERIFY_ROW_FAIL_BG;
+    // getRange(r,c,numRows,numColumns) — count form, not (r1,c1,r2,c2).
+    sheet.getRange(row, 1, 1, targetCols).setBackground(bg);
+  }
+}
+
+/**
+ * Runs lesson audio verification against the web API (local Next + ngrok when enabled).
+ * @param {string} accessToken
+ * @param {string} transcriptLessonId
+ * @param {{ name: string, index: number }[]} phraseDirectory
+ * @returns {{ ok: boolean, message?: string, verifyDisabled?: boolean, summary?: unknown, unauthorized?: boolean }}
+ */
+function verifyLessonAudio(accessToken, transcriptLessonId, phraseDirectory) {
+  try {
+    var token = typeof accessToken === "string" ? accessToken.trim() : "";
+    if (!token) {
+      return { ok: false, message: "Not signed in." };
+    }
+    if (!Array.isArray(phraseDirectory)) {
+      return { ok: false, message: "Missing phrase directory." };
+    }
+
+    var cfg = readTranscriptConfig();
+    if (cfg.ok === false) {
+      return { ok: false, message: cfg.message };
+    }
+
+    var lessonId =
+      typeof transcriptLessonId === "string" && transcriptLessonId
+        ? transcriptLessonId
+        : DEFAULT_TRANSCRIPT_LESSON_ID;
+
+    var url = cfg.webOrigin + "/api/lesson-audio-verify";
+    var response = UrlFetchApp.fetch(url, {
+      method: "post",
+      contentType: "application/json",
+      muteHttpExceptions: true,
+      followRedirects: true,
+      payload: JSON.stringify({ lesson: lessonId }),
+      headers: headersForWebOrigin(token),
+    });
+
+    var httpCode = response.getResponseCode();
+    var body = response.getContentText();
+
+    if (httpCode === 401) {
+      return {
+        ok: false,
+        unauthorized: true,
+        message: "Verification request unauthorized. Session may have expired.",
+      };
+    }
+
+    if (httpCode === 503) {
+      var msg503 = "Verification is not available on this server.";
+      try {
+        /** @type {{ message?: string, code?: string }} */
+        var j503 = JSON.parse(body);
+        if (typeof j503.message === "string" && j503.message) {
+          msg503 = j503.message;
+        }
+      } catch (e503) {
+        if (body && body.length > 0 && body.length < 400) {
+          msg503 = body;
+        }
+      }
+      return { ok: false, verifyDisabled: true, message: msg503 };
+    }
+
+    if (httpCode < 200 || httpCode >= 300) {
+      var errMsg = "Verification failed (HTTP " + httpCode + ").";
+      try {
+        /** @type {{ message?: string, error?: string }} */
+        var errJson = JSON.parse(body);
+        if (typeof errJson.message === "string" && errJson.message) {
+          errMsg = errJson.message;
+        } else if (typeof errJson.error === "string" && errJson.error) {
+          errMsg = errJson.error;
+        }
+      } catch (parseErr) {
+        if (body && body.length > 0 && body.length < 280) {
+          errMsg = body;
+        }
+      }
+      return { ok: false, message: errMsg };
+    }
+
+    /** @type {{ ok?: boolean, phrases?: unknown[], summary?: unknown }} */
+    var data = JSON.parse(body);
+    if (data && Array.isArray(data.phrases)) {
+      applyLessonVerificationToSheet(data.phrases, phraseDirectory);
+    }
+    return {
+      ok: data.ok !== false,
+      message: data.ok ? "Verification finished." : "Some clips failed verification.",
+      summary: data.summary,
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      message: typeof e.message === "string" ? e.message : String(e),
+    };
+  }
+}
+
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu("AI Spanish")
@@ -438,9 +611,7 @@ function importLessonTranscriptWithToken(accessToken) {
     var response = UrlFetchApp.fetch(transcriptUrl, {
       muteHttpExceptions: true,
       followRedirects: true,
-      headers: {
-        Authorization: "Bearer " + token,
-      },
+      headers: headersForWebOrigin(token),
     });
 
     var httpCode = response.getResponseCode();
@@ -583,13 +754,52 @@ function phraseRow(phrase) {
     en.question ?? "",
     es.answer ?? "",
     es.grammar ?? "",
+    false,
   ];
 }
 
+/**
+ * Build a dense N×M JavaScript matrix for Range#setValues—every row exists and has length M.
+ * Fixes "The data has X but the range has Y" when the source array is sparse or jagged.
+ * @param {unknown[][]} rows2d
+ * @param {number} columnCount
+ * @returns {unknown[][]}
+ */
+function rectangularRowsForSetValues(rows2d, columnCount) {
+  var out = [];
+  var ri;
+  for (ri = 0; ri < rows2d.length; ri++) {
+    var src = rows2d[ri];
+    if (!src || !(src instanceof Array)) {
+      src = [];
+    }
+    var line = [];
+    var ci;
+    for (ci = 0; ci < columnCount; ci++) {
+      var isDataRow = ri > 0;
+      var padVerified = isDataRow ? false : "";
+      var val;
+      if (ci >= src.length) {
+        line.push(ci === columnCount - 1 ? padVerified : "");
+      } else {
+        val = src[ci];
+        if (val === undefined || val === null) {
+          line.push(ci === columnCount - 1 ? padVerified : "");
+        } else {
+          line.push(val);
+        }
+      }
+    }
+    out.push(line);
+  }
+  return out;
+}
+
 function writeRowsToActiveSheet(rows) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-  const targetRows = rows.length;
-  const targetCols = LESSON_COLUMNS.length;
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var targetCols = LESSON_COLUMNS.length;
+  var rectangular = rectangularRowsForSetValues(rows, targetCols);
+  var targetRows = rectangular.length;
 
   var prevLastRow = sheet.getLastRow();
   var prevLastCol = sheet.getLastColumn();
@@ -600,10 +810,25 @@ function writeRowsToActiveSheet(rows) {
   }
 
   if (targetRows >= 1) {
-    sheet.getRange(1, 1, targetRows, targetCols).setValues(rows);
+    // Sheet#getRange(row, col, numRows, numColumns): 3rd/4th are sizes, not end row/col.
+    sheet.getRange(1, 1, targetRows, targetCols).setValues(rectangular);
     sheet.getRange(1, 1, 1, targetCols).setFontWeight("bold");
     if (targetRows > 1) {
-      sheet.getRange(2, 1, targetRows, targetCols).setFontWeight("normal");
+      var phraseRowCount = targetRows - 1;
+      sheet.getRange(2, 1, phraseRowCount, targetCols).setFontWeight("normal");
+      var dataRg = sheet.getRange(2, 1, phraseRowCount, targetCols);
+      dataRg.setBackground(null);
+      if (COL_VERIFIED >= 1) {
+        var verifiedCol = sheet.getRange(2, COL_VERIFIED, phraseRowCount, 1);
+        var falses = [];
+        var r;
+        for (r = 0; r < phraseRowCount; r++) {
+          falses.push([false]);
+        }
+        verifiedCol.setValues(falses);
+        verifiedCol.insertCheckboxes();
+        verifiedCol.setValues(falses);
+      }
     }
   }
 }

@@ -201,9 +201,11 @@
       <div class="help">
         Select a <strong>data row</strong> for phrase text and <strong>Play</strong> for clips from
         <code>/api/audio</code>. Session refreshes automatically before the access token expires.
+        Use <strong>Verify audio</strong> to check clips against web audio (needs local Next + tunnel; see README).
       </div>
       <div class="auth-actions">
         <button type="button" id="reloadBtnSignedIn">Load lesson from web</button>
+        <button type="button" id="verifyBtnSignedIn">Verify audio</button>
         <button type="button" id="logoutBtn">Log out</button>
       </div>
     </div>
@@ -256,6 +258,7 @@
           inPanel.style.display = "none";
           preview.style.display = "none";
         }
+        syncVerifyButtonEnabled();
       }
 
       function setAccessExpiryFromSeconds(expiresIn) {
@@ -339,6 +342,33 @@
 
       function setReloadLoading(isLoading) {
         document.getElementById("reloadBtnSignedIn").disabled = isLoading;
+        syncVerifyButtonEnabled();
+      }
+
+      function setVerifyLoading(isLoading) {
+        var vbtn = document.getElementById("verifyBtnSignedIn");
+        if (vbtn) {
+          vbtn.disabled = isLoading;
+          vbtn.textContent = isLoading ? "Verifying…" : "Verify audio";
+        }
+        document.getElementById("reloadBtnSignedIn").disabled = isLoading;
+        if (!isLoading) {
+          syncVerifyButtonEnabled();
+        }
+      }
+
+      /** Enable Verify only when signed in with a loaded phrase directory. */
+      function syncVerifyButtonEnabled() {
+        var vbtn = document.getElementById("verifyBtnSignedIn");
+        if (!vbtn) return;
+        if (vbtn.textContent === "Verifying…") {
+          return;
+        }
+        if (!isLoggedIn() || !phraseDirectory || phraseDirectory.length === 0) {
+          vbtn.disabled = true;
+        } else {
+          vbtn.disabled = false;
+        }
       }
 
       function findPhraseIndex(name) {
@@ -535,6 +565,70 @@
         });
       }
 
+      function runLessonVerifyRound(retryRound) {
+        if (!isLoggedIn()) {
+          return;
+        }
+        setVerifyLoading(true);
+        ensureAccessTokenFresh(function (freshOk) {
+          if (!freshOk) {
+            setVerifyLoading(false);
+            clearSession("Session expired. Sign in again.");
+            return;
+          }
+          setStatus("Verifying audio…");
+          google.script.run
+            .withSuccessHandler(function (vr) {
+              if (
+                vr &&
+                vr.unauthorized &&
+                refreshToken &&
+                retryRound === 0
+              ) {
+                google.script.run
+                  .withSuccessHandler(function (ref) {
+                    if (ref && ref.ok) {
+                      setSessionFromRefreshResult(ref);
+                      runLessonVerifyRound(1);
+                    } else {
+                      setVerifyLoading(false);
+                      clearSession("Session expired. Sign in again.");
+                    }
+                  })
+                  .withFailureHandler(function () {
+                    setVerifyLoading(false);
+                    clearSession("Session expired. Sign in again.");
+                  })
+                  .refreshSupabaseAccessToken(refreshToken);
+                return;
+              }
+              setVerifyLoading(false);
+              if (vr && vr.verifyDisabled) {
+                setStatus(
+                  vr.message ||
+                    "Audio verification is not enabled on this server (set ENABLE_LESSON_AUDIO_VERIFY on local Next.js).",
+                  ""
+                );
+                return;
+              }
+              if (vr && vr.ok) {
+                setStatus(vr.message || "Verification complete.", "ok");
+              } else {
+                setStatus((vr && vr.message) || "Verification failed.", "err");
+              }
+            })
+            .withFailureHandler(function (err) {
+              setVerifyLoading(false);
+              setStatus(err.message || String(err), "err");
+            })
+            .verifyLessonAudio(
+              sessionAccessToken,
+              transcriptLessonId,
+              phraseDirectory
+            );
+        });
+      }
+
       function runReloadRound(retryRound) {
         setReloadLoading(true);
         ensureAccessTokenFresh(function (freshOk) {
@@ -558,6 +652,7 @@
                 }
                 setStatus(result.message || "Done.", "ok");
                 syncPlayButtonsState();
+                syncVerifyButtonEnabled();
                 return;
               }
               if (
@@ -693,6 +788,16 @@
           if (!isLoggedIn()) return;
           setStatus("Loading…");
           runReloadRound(0);
+        });
+
+      document
+        .getElementById("verifyBtnSignedIn")
+        .addEventListener("click", function () {
+          if (!isLoggedIn() || !phraseDirectory || phraseDirectory.length === 0) {
+            setStatus("Load a lesson first.", "err");
+            return;
+          }
+          runLessonVerifyRound(0);
         });
 
       applyAuthUiState();

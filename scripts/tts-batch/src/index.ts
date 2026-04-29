@@ -316,7 +316,7 @@ async function runOnlyPhraseBatch(
       const buffer = await withRetry(() => synthesizeToBuffer(job.text, job.language, apiKey));
       const rel = await writeAudioFile(opts.outDir, job, buffer, opts.noAudioPos);
       const createdAt = new Date().toISOString();
-      console.log(`  OK order=${phraseOrderFromJobId(job.id)} ${job.id}`);
+      console.log(`  OK index=${phraseOrderFromJobId(job.id)} ${job.id}`);
       return {
         job,
         entry: buildManifestEntry(
@@ -429,7 +429,7 @@ async function main(): Promise<void> {
       );
       const rel = await writeAudioFile(opts.outDir, job, buffer, opts.noAudioPos);
       const createdAt = new Date().toISOString();
-      console.log(`  OK order=${phraseOrderFromJobId(job.id)} ${job.id}`);
+      console.log(`  OK index=${phraseOrderFromJobId(job.id)} ${job.id}`);
       return {
         job,
         entry: buildManifestEntry(
