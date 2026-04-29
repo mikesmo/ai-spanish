@@ -4,7 +4,8 @@
  * - SUPABASE_URL — https://<project-ref>.supabase.co
  * - SUPABASE_ANON_KEY — Supabase anon (public) key
  *
- * Flow: password grant at Supabase → GET /api/transcript?lesson=1 with Bearer token.
+ * Flow: password grant at Supabase → GET /api/transcript?lesson=1 with Bearer token;
+ * sidebar play uses GET /api/audio with same token and phrase directory from the last load.
  */
 
 var SCRIPT_PROP_WEB_ORIGIN = "WEB_ORIGIN";
@@ -24,6 +25,75 @@ var LESSON_COLUMNS = [
   "Answer",
   "Grammar",
 ];
+
+/** 1-based column indexes; must stay aligned with LESSON_COLUMNS. */
+var COL_NAME = LESSON_COLUMNS.indexOf("Name") + 1;
+var COL_FIRST_INTRO = LESSON_COLUMNS.indexOf("First Intro") + 1;
+var COL_SECOND_INTRO = LESSON_COLUMNS.indexOf("Second Intro") + 1;
+var COL_ANSWER = LESSON_COLUMNS.indexOf("Answer") + 1;
+
+/** Must match apps/web/src/app/api/audio/route.ts ALLOWED_SEGMENTS. */
+var ALLOWED_AUDIO_SEGMENTS = [
+  "en-first-intro",
+  "en-second-intro",
+  "en-question",
+  "es-answer",
+];
+
+/**
+ * S3 folder segment for /api/audio ?lesson= — matches packages/logic s3LessonFolderForTranscriptLessonId.
+ * @param {string} transcriptLessonId e.g. "1"
+ */
+function s3LessonFolderForTranscriptLessonId(transcriptLessonId) {
+  return "lesson" + String(transcriptLessonId || "");
+}
+
+/**
+ * Values from the active row for the phrase columns shown in the sidebar.
+ * @returns {{ row: number, phraseName: string, firstIntro: string, secondIntro: string, answer: string }}
+ */
+function getActiveRowPhrasePreview() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var range = sheet.getActiveRange();
+  if (!range) {
+    return {
+      row: 0,
+      phraseName: "",
+      firstIntro: "",
+      secondIntro: "",
+      answer: "",
+    };
+  }
+
+  var row = range.getRow();
+  var lastCol = sheet.getLastColumn();
+  if (lastCol < COL_FIRST_INTRO || lastCol < COL_SECOND_INTRO || lastCol < COL_ANSWER) {
+    return {
+      row: row,
+      phraseName: "",
+      firstIntro: "",
+      secondIntro: "",
+      answer: "",
+    };
+  }
+
+  var phraseNameCell =
+    lastCol >= COL_NAME ? sheet.getRange(row, COL_NAME).getDisplayValue() : "";
+  var phraseName =
+    phraseNameCell != null ? String(phraseNameCell).trim() : "";
+
+  var firstIntro = sheet.getRange(row, COL_FIRST_INTRO).getDisplayValue();
+  var secondIntro = sheet.getRange(row, COL_SECOND_INTRO).getDisplayValue();
+  var answer = sheet.getRange(row, COL_ANSWER).getDisplayValue();
+
+  return {
+    row: row,
+    phraseName: phraseName,
+    firstIntro: firstIntro != null ? String(firstIntro) : "",
+    secondIntro: secondIntro != null ? String(secondIntro) : "",
+    answer: answer != null ? String(answer) : "",
+  };
+}
 
 /**
  * @returns {{ webOrigin: string, supabaseUrl: string, anonKey: string } | { ok: false, message: string }}
@@ -125,6 +195,121 @@ function fetchSupabaseAccessToken(email, password) {
   }
 }
 
+/**
+ * GET /api/audio presigned MP3 URL (requires valid Supabase Bearer token).
+ * @param {string} accessToken
+ * @param {number} phraseIndex 0-based phrase index
+ * @param {string} segment en-first-intro | en-second-intro | en-question | es-answer
+ * @param {string} transcriptLessonId e.g. "1" (mapped to lesson1 for S3)
+ * @returns {{ ok: true, url: string } | { ok: false, message: string }}
+ */
+function getPresignedMp3Url(accessToken, phraseIndex, segment, transcriptLessonId) {
+  try {
+    var token =
+      typeof accessToken === "string" ? accessToken.trim() : "";
+    if (!token) {
+      return { ok: false, message: "Not signed in. Load lesson from web first." };
+    }
+
+    var n =
+      typeof phraseIndex === "number"
+        ? phraseIndex
+        : parseInt(String(phraseIndex), 10);
+    if (isNaN(n) || n < 0 || n !== Math.floor(n)) {
+      return { ok: false, message: "Invalid phrase index." };
+    }
+
+    var seg = typeof segment === "string" ? segment : "";
+    if (!isAllowedAudioSegment(seg)) {
+      return { ok: false, message: "Invalid audio segment." };
+    }
+
+    var lessonId =
+      typeof transcriptLessonId === "string" && transcriptLessonId
+        ? transcriptLessonId
+        : DEFAULT_TRANSCRIPT_LESSON_ID;
+    var lessonSeg = s3LessonFolderForTranscriptLessonId(lessonId);
+
+    var cfg = readTranscriptConfig();
+    if (cfg.ok === false) {
+      return { ok: false, message: cfg.message };
+    }
+
+    var audioUrl =
+      cfg.webOrigin +
+      "/api/audio?phrase=" +
+      encodeURIComponent(String(n)) +
+      "&segment=" +
+      encodeURIComponent(seg) +
+      "&lesson=" +
+      encodeURIComponent(lessonSeg);
+
+    var response = UrlFetchApp.fetch(audioUrl, {
+      muteHttpExceptions: true,
+      followRedirects: true,
+      headers: {
+        Authorization: "Bearer " + token,
+      },
+    });
+
+    var httpCode = response.getResponseCode();
+    var body = response.getContentText();
+
+    if (httpCode === 401) {
+      return {
+        ok: false,
+        message:
+          "Session expired or unauthorized. Use “Load lesson from web” to sign in again.",
+      };
+    }
+
+    if (httpCode < 200 || httpCode >= 300) {
+      var errMsg = "Audio request failed (HTTP " + httpCode + ").";
+      try {
+        /** @type {{ error?: string, message?: string }} */
+        var errJson = JSON.parse(body);
+        if (typeof errJson.error === "string" && errJson.error) {
+          errMsg = errJson.error;
+        } else if (typeof errJson.message === "string" && errJson.message) {
+          errMsg = errJson.message;
+        }
+      } catch (ignore) {
+        if (body && body.length > 0 && body.length < 280) {
+          errMsg = body;
+        }
+      }
+      return { ok: false, message: errMsg };
+    }
+
+    try {
+      /** @type {{ url?: string }} */
+      var data = JSON.parse(body);
+      if (typeof data.url !== "string" || !data.url) {
+        return { ok: false, message: "Audio response had no URL." };
+      }
+      return { ok: true, url: data.url };
+    } catch (e) {
+      return { ok: false, message: "Could not parse audio response." };
+    }
+  } catch (err) {
+    return {
+      ok: false,
+      message:
+        typeof err.message === "string" ? err.message : String(err),
+    };
+  }
+}
+
+function isAllowedAudioSegment(segment) {
+  var i;
+  for (i = 0; i < ALLOWED_AUDIO_SEGMENTS.length; i++) {
+    if (ALLOWED_AUDIO_SEGMENTS[i] === segment) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu("AI Spanish")
@@ -140,9 +325,10 @@ function showSidebar() {
 
 /**
  * Signs in with Supabase (email + password), fetches lesson 1 from /api/transcript, writes the sheet.
+ * On success also returns access_token and phraseDirectory for sidebar audio + name→index lookup.
  * @param {string} email
  * @param {string} password
- * @returns {{ ok: boolean, message: string }}
+ * @returns {Object}
  */
 function populateLessonFromJson(email, password) {
   try {
@@ -194,13 +380,34 @@ function populateLessonFromJson(email, password) {
     }
 
     var rows = [LESSON_COLUMNS];
-    parsed.forEach(function (phrase) {
+    /** @type {{ name: string, index: number }[]} */
+    var phraseDirectory = [];
+
+    parsed.forEach(function (phrase, loopIndex) {
       rows.push(phraseRow(phrase));
+
+      var nameVal = "";
+      var indexVal = loopIndex;
+      if (phrase !== null && typeof phrase === "object") {
+        if (phrase.name != null) {
+          nameVal = String(phrase.name);
+        }
+        if (typeof phrase.index === "number" && !isNaN(phrase.index)) {
+          indexVal = Math.floor(phrase.index);
+        }
+      }
+      phraseDirectory.push({ name: nameVal, index: indexVal });
     });
 
     writeRowsToActiveSheet(rows);
     var count = rows.length > 1 ? rows.length - 1 : 0;
-    return { ok: true, message: "Loaded " + count + " phrase(s)." };
+    return {
+      ok: true,
+      message: "Loaded " + count + " phrase(s).",
+      access_token: tokenResult.access_token,
+      phraseDirectory: phraseDirectory,
+      transcriptLessonId: DEFAULT_TRANSCRIPT_LESSON_ID,
+    };
   } catch (e) {
     return {
       ok: false,

@@ -9,6 +9,48 @@
         margin: 10px;
         color: #202124;
       }
+      .preview {
+        margin-bottom: 16px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid #dadce0;
+      }
+      .preview h2 {
+        margin: 0 0 8px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #5f6368;
+      }
+      .preview .row-meta {
+        margin-bottom: 10px;
+        font-size: 12px;
+        color: #5f6368;
+      }
+      .preview-field {
+        margin-top: 10px;
+      }
+      .preview-field dt {
+        margin: 0;
+        font-size: 12px;
+        font-weight: 600;
+        color: #5f6368;
+      }
+      .preview-field dd {
+        margin: 4px 0 0;
+        padding: 0;
+        line-height: 1.4;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .preview-play {
+        margin-top: 6px;
+        padding: 4px 10px;
+        font-size: 12px;
+        cursor: pointer;
+      }
+      .preview-play:disabled {
+        cursor: not-allowed;
+        opacity: 0.5;
+      }
       .help {
         margin-bottom: 12px;
         line-height: 1.4;
@@ -52,8 +94,55 @@
     </style>
   </head>
   <body>
+    <section class="preview" id="previewSection" aria-live="polite" aria-atomic="true">
+      <h2>Selected row</h2>
+      <div class="row-meta" id="previewRowMeta">Row —</div>
+      <dl>
+        <div class="preview-field">
+          <dt>First Intro</dt>
+          <dd id="previewFirstIntro">—</dd>
+          <button
+            type="button"
+            class="preview-play"
+            data-segment="en-first-intro"
+            aria-label="Play First Intro audio"
+            disabled
+          >
+            Play
+          </button>
+        </div>
+        <div class="preview-field">
+          <dt>Second Intro</dt>
+          <dd id="previewSecondIntro">—</dd>
+          <button
+            type="button"
+            class="preview-play"
+            data-segment="en-second-intro"
+            aria-label="Play Second Intro audio"
+            disabled
+          >
+            Play
+          </button>
+        </div>
+        <div class="preview-field">
+          <dt>Answer</dt>
+          <dd id="previewAnswer">—</dd>
+          <button
+            type="button"
+            class="preview-play"
+            data-segment="es-answer"
+            aria-label="Play Answer audio"
+            disabled
+          >
+            Play
+          </button>
+        </div>
+      </dl>
+    </section>
+
     <div class="help">
       Sign in with the same <strong>email and password</strong> you use in the AI Spanish web app. Lesson 1 phrases are loaded from the authenticated transcript API into this sheet.
+      After a successful load, use <strong>Play</strong> to hear clips from <code>/api/audio</code> for the selected phrase (click a data row in the sheet).
     </div>
     <form id="loadForm" action="javascript:void(0)">
       <label for="email">Email</label>
@@ -77,6 +166,15 @@
     <div id="status" aria-live="polite"></div>
 
     <script>
+      var PREVIEW_POLL_MS = 750;
+      var lastPreviewKey = "";
+
+      var sessionAccessToken = null;
+      var phraseDirectory = [];
+      var transcriptLessonId = "1";
+      var lastPreviewData = null;
+      var sharedAudio = null;
+
       function setStatus(text, variant) {
         var el = document.getElementById("status");
         el.textContent = text;
@@ -86,6 +184,136 @@
       function setLoading(isLoading) {
         var btn = document.getElementById("loadBtn");
         btn.disabled = isLoading;
+      }
+
+      function findPhraseIndex(name) {
+        var t = typeof name === "string" ? name.trim() : "";
+        if (!t || !phraseDirectory || phraseDirectory.length === 0) {
+          return null;
+        }
+        var i;
+        for (i = 0; i < phraseDirectory.length; i++) {
+          if (phraseDirectory[i].name === t) {
+            return phraseDirectory[i].index;
+          }
+        }
+        return null;
+      }
+
+      function updatePlayButtonsEnabled() {
+        var canPlay =
+          sessionAccessToken != null &&
+          sessionAccessToken !== "" &&
+          lastPreviewData != null &&
+          lastPreviewData.row > 0 &&
+          findPhraseIndex(lastPreviewData.phraseName) !== null;
+
+        var buttons = document.querySelectorAll(".preview-play");
+        var i;
+        for (i = 0; i < buttons.length; i++) {
+          buttons[i].disabled = !canPlay;
+        }
+      }
+
+      function playSegment(segment) {
+        if (!lastPreviewData || !sessionAccessToken) {
+          return;
+        }
+        var idx = findPhraseIndex(lastPreviewData.phraseName);
+        if (idx === null) {
+          setStatus(
+            "This row’s phrase name is not in the loaded lesson. Reload lesson if you changed the sheet.",
+            "err"
+          );
+          return;
+        }
+
+        google.script.run
+          .withSuccessHandler(function (res) {
+            if (res && res.ok && res.url) {
+              if (!sharedAudio) {
+                sharedAudio = new Audio();
+              }
+              sharedAudio.pause();
+              sharedAudio.src = res.url;
+              sharedAudio.play().catch(function () {
+                setStatus("Playback failed.", "err");
+              });
+            } else {
+              setStatus((res && res.message) || "Could not get audio URL.", "err");
+            }
+          })
+          .withFailureHandler(function (err) {
+            setStatus(err.message || String(err), "err");
+          })
+          .getPresignedMp3Url(
+            sessionAccessToken,
+            idx,
+            segment,
+            transcriptLessonId
+          );
+      }
+
+      function displayPreview(data) {
+        if (!data) return;
+        var key =
+          data.row +
+          "\0" +
+          (data.phraseName || "") +
+          "\0" +
+          data.firstIntro +
+          "\0" +
+          data.secondIntro +
+          "\0" +
+          data.answer;
+        if (key === lastPreviewKey) {
+          return;
+        }
+        lastPreviewKey = key;
+
+        lastPreviewData = data;
+
+        var rowEl = document.getElementById("previewRowMeta");
+        if (data.row > 0) {
+          rowEl.textContent = "Row " + data.row;
+        } else {
+          rowEl.textContent = "No selection";
+        }
+
+        function orDash(s) {
+          return s != null && String(s).length > 0 ? String(s) : "—";
+        }
+
+        document.getElementById("previewFirstIntro").textContent = orDash(
+          data.firstIntro
+        );
+        document.getElementById("previewSecondIntro").textContent = orDash(
+          data.secondIntro
+        );
+        document.getElementById("previewAnswer").textContent = orDash(data.answer);
+
+        updatePlayButtonsEnabled();
+      }
+
+      function refreshRowPreview() {
+        google.script.run
+          .withSuccessHandler(displayPreview)
+          .withFailureHandler(function () {
+            /* selection may be invalid briefly; leave last good preview */
+          })
+          .getActiveRowPhrasePreview();
+      }
+
+      setInterval(refreshRowPreview, PREVIEW_POLL_MS);
+      refreshRowPreview();
+
+      var playButtons = document.querySelectorAll(".preview-play");
+      var j;
+      for (j = 0; j < playButtons.length; j++) {
+        playButtons[j].addEventListener("click", function (ev) {
+          var seg = ev.currentTarget.getAttribute("data-segment");
+          if (seg) playSegment(seg);
+        });
       }
 
       document.getElementById("loadForm").addEventListener("submit", function (ev) {
@@ -102,7 +330,20 @@
           .withSuccessHandler(function (result) {
             setLoading(false);
             if (result && result.ok) {
+              if (typeof result.access_token === "string" && result.access_token) {
+                sessionAccessToken = result.access_token;
+              }
+              if (Array.isArray(result.phraseDirectory)) {
+                phraseDirectory = result.phraseDirectory;
+              }
+              if (
+                typeof result.transcriptLessonId === "string" &&
+                result.transcriptLessonId
+              ) {
+                transcriptLessonId = result.transcriptLessonId;
+              }
               setStatus(result.message || "Done.", "ok");
+              updatePlayButtonsEnabled();
             } else {
               setStatus((result && result.message) || "Something went wrong.", "err");
             }

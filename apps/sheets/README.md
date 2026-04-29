@@ -82,4 +82,5 @@ Use `clasp deploy` to create a deployment when you expose a Web App endpoint (no
   - **`WEB_ORIGIN`** — deployed web app origin, e.g. `https://ai-spanish-web.vercel.app` (no trailing slash). Used to call `GET /api/transcript?lesson=1`.
   - **`SUPABASE_URL`** — same value as the web app’s `NEXT_PUBLIC_SUPABASE_URL` (e.g. `https://<project-ref>.supabase.co`).
   - **`SUPABASE_ANON_KEY`** — same value as `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Used only in server-side `UrlFetchApp` calls, not in the sidebar HTML.
+- **Phrase audio (sidebar)** — After a successful **Load lesson from web**, the sidebar keeps the Supabase access token and a `phraseDirectory` (name → index) in memory so **Play** can call `GET /api/audio` (presigned MP3 URL). If playback returns 401 or errors, run **Load lesson from web** again to refresh the session and directory.
 - **Spreadsheet association** — clasp updates the script tied to `.clasp.json`; the script must stay bound or linked as you already set up in Sheets.
