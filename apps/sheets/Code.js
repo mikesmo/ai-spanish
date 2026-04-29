@@ -945,6 +945,7 @@ function verifyLessonAudio(accessToken, transcriptLessonId, phraseDirectory) {
       ok: data.ok !== false,
       message: data.ok ? "Verification finished." : "Some clips failed verification.",
       summary: data.summary,
+      phrases: Array.isArray(data.phrases) ? data.phrases : [],
     };
   } catch (e) {
     return {

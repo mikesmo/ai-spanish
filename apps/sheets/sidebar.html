@@ -233,15 +233,6 @@
       <div class="auth-actions">
         <button type="button" id="reloadBtnSignedIn">Load lesson from web</button>
         <button type="button" id="verifyBtnSignedIn">Verify audio</button>
-        <button
-          type="button"
-          id="verifyStopBtnSignedIn"
-          disabled
-          style="display: none"
-          title="Stop before the next phrase starts (current phrase may still finish)"
-        >
-          Stop
-        </button>
         <button type="button" id="logoutBtn">Log out</button>
       </div>
     </div>
@@ -255,7 +246,6 @@
       var lastPreviewKey = "";
 
       var verifyGeneration = 0;
-      var verifyStopRequested = false;
       var verificationAnyPhraseFail = false;
 
       var sessionAccessToken = null;
@@ -386,13 +376,6 @@
         syncVerifyButtonEnabled();
       }
 
-      function syncVerifyStopButtonUi(showStop) {
-        var sbtn = document.getElementById("verifyStopBtnSignedIn");
-        if (!sbtn) return;
-        sbtn.style.display = showStop ? "inline-block" : "none";
-        sbtn.disabled = !showStop;
-      }
-
       function setVerifyLoading(isLoading) {
         var vbtn = document.getElementById("verifyBtnSignedIn");
         if (vbtn) {
@@ -400,7 +383,6 @@
           vbtn.textContent = isLoading ? "Verifying…" : "Verify audio";
         }
         document.getElementById("reloadBtnSignedIn").disabled = isLoading;
-        syncVerifyStopButtonUi(isLoading);
         if (!isLoading) {
           syncVerifyButtonEnabled();
         }
@@ -670,7 +652,8 @@
         });
       }
 
-      function runLessonVerifyRound(retryRound) {
+      /** @param {number} retryRound oauth refresh recursion (0 = first, 1 = after token refresh) */
+      function runLessonVerifyWhole(retryRound) {
         if (!isLoggedIn()) {
           return;
         }
@@ -680,63 +663,10 @@
         }
         verifyGeneration += 1;
         var gen = verifyGeneration;
-        verifyStopRequested = false;
         verificationAnyPhraseFail = false;
         clearVerificationHeardHints();
         setVerifyLoading(true);
-        runLessonVerifySequential(retryRound, 0, gen);
-      }
-
-      /** @param retryRound oauth refresh recursion (0 = first, 1 = after refresh) */
-      function runLessonVerifySequential(retryRound, dirIndex, gen) {
-        if (gen !== verifyGeneration) {
-          return;
-        }
-        var totalDir = phraseDirectory.length;
-        if (!isLoggedIn()) {
-          setVerifyLoading(false);
-          return;
-        }
-        if (dirIndex >= totalDir) {
-          setVerifyLoading(false);
-          if (!verificationAnyPhraseFail) {
-            setStatus("Verification complete.", "ok");
-          } else {
-            setStatus("Verification finished with some failing phrases.", "err");
-          }
-          return;
-        }
-        if (verifyStopRequested) {
-          verifyStopRequested = false;
-          setVerifyLoading(false);
-          clearVerificationHeardHints();
-          setStatus(
-            "Verification stopped (" +
-              dirIndex +
-              " of " +
-              totalDir +
-              " phrases completed).",
-            ""
-          );
-          return;
-        }
-
-        var entry = phraseDirectory[dirIndex];
-        var phraseLabel =
-          entry &&
-          typeof entry.name === "string" &&
-          entry.name.length > 0
-            ? ' ("' + entry.name + '")'
-            : "";
-        clearVerificationHeardHints();
-        setStatus(
-          "Verifying phrase " +
-            (dirIndex + 1) +
-            " of " +
-            totalDir +
-            phraseLabel +
-            "…"
-        );
+        setStatus("Verifying lesson (" + phraseDirectory.length + " phrases)…");
 
         ensureAccessTokenFresh(function (freshOk) {
           if (gen !== verifyGeneration) {
@@ -747,71 +677,32 @@
             clearSession("Session expired. Sign in again.");
             return;
           }
-          if (verifyStopRequested && gen === verifyGeneration) {
-            verifyStopRequested = false;
-            setVerifyLoading(false);
-            clearVerificationHeardHints();
-            setStatus(
-              "Verification stopped (" +
-                dirIndex +
-                " of " +
-                totalDir +
-                " phrases completed).",
-              ""
-            );
-            return;
-          }
-
-          var piRaw = phraseDirectory[dirIndex] && phraseDirectory[dirIndex].index;
-          var piNum =
-            typeof piRaw === "number" && !isNaN(piRaw) ? Math.floor(piRaw) : NaN;
-          if (isNaN(piNum)) {
-            runLessonVerifySequential(retryRound, dirIndex + 1, gen);
-            return;
-          }
 
           google.script.run
             .withSuccessHandler(function (vr) {
               if (gen !== verifyGeneration) {
                 return;
               }
+              setVerifyLoading(false);
 
               if (vr && vr.unauthorized && refreshToken && retryRound === 0) {
                 google.script.run
                   .withSuccessHandler(function (ref) {
                     if (ref && ref.ok) {
                       setSessionFromRefreshResult(ref);
-                      runLessonVerifySequential(1, dirIndex, gen);
+                      runLessonVerifyWhole(1);
                     } else {
-                      setVerifyLoading(false);
                       clearSession("Session expired. Sign in again.");
                     }
                   })
                   .withFailureHandler(function () {
-                    setVerifyLoading(false);
                     clearSession("Session expired. Sign in again.");
                   })
                   .refreshSupabaseAccessToken(refreshToken);
                 return;
               }
 
-              if (verifyStopRequested && gen === verifyGeneration) {
-                verifyStopRequested = false;
-                setVerifyLoading(false);
-                clearVerificationHeardHints();
-                setStatus(
-                  "Verification stopped (" +
-                    dirIndex +
-                    " of " +
-                    totalDir +
-                    " phrases completed).",
-                  ""
-                );
-                return;
-              }
-
               if (vr && vr.verifyDisabled) {
-                setVerifyLoading(false);
                 clearVerificationHeardHints();
                 setStatus(
                   vr.message ||
@@ -821,55 +712,45 @@
                 return;
               }
 
-              if (!vr || vr.verified !== true) {
+              if (!vr || vr.ok === false) {
                 verificationAnyPhraseFail = true;
               }
 
-              if (vr && !vr.verifyDisabled) {
-                if (vr.verified === true) {
+              if (Array.isArray(vr && vr.phrases)) {
+                var matchPhrase = vr.phrases.find(function (p) {
+                  return p && !p.verified;
+                });
+                if (matchPhrase && Array.isArray(matchPhrase.clips)) {
+                  applyVerificationHeardHints(matchPhrase.clips);
+                } else {
                   clearVerificationHeardHints();
-                } else if (Array.isArray(vr.clips)) {
-                  applyVerificationHeardHints(vr.clips);
                 }
-                google.script.run
-                  .withSuccessHandler(displayPreview)
-                  .withFailureHandler(function () {})
-                  .getActiveRowPhrasePreview();
               }
 
-              if (verifyStopRequested && gen === verifyGeneration) {
-                verifyStopRequested = false;
-                setVerifyLoading(false);
-                clearVerificationHeardHints();
-                setStatus(
-                  "Verification stopped (" +
-                    (dirIndex + 1) +
-                    " of " +
-                    totalDir +
-                    " phrases completed).",
-                  ""
-                );
-                return;
-              }
+              google.script.run
+                .withSuccessHandler(displayPreview)
+                .withFailureHandler(function () {})
+                .getActiveRowPhrasePreview();
 
-              var nextIx = dirIndex + 1;
-              runLessonVerifySequential(retryRound, nextIx, gen);
+              if (verificationAnyPhraseFail) {
+                var s = vr && vr.summary;
+                var detail = s
+                  ? " (" + s.failedClips + "/" + s.totalClips + " clips failed)"
+                  : "";
+                setStatus("Verification finished with some failing phrases" + detail + ".", "err");
+              } else {
+                setStatus("Verification complete.", "ok");
+              }
             })
             .withFailureHandler(function (err) {
               if (gen !== verifyGeneration) {
                 return;
               }
-              verificationAnyPhraseFail = true;
               setVerifyLoading(false);
               clearVerificationHeardHints();
               setStatus(err.message || String(err), "err");
             })
-            .verifyLessonAudioPhrase(
-              sessionAccessToken,
-              transcriptLessonId,
-              phraseDirectory,
-              piNum
-            );
+            .verifyLessonAudio(sessionAccessToken, transcriptLessonId, phraseDirectory);
         });
       }
 
@@ -1061,15 +942,7 @@
             setStatus("Load a lesson first.", "err");
             return;
           }
-          verifyStopRequested = false;
-          runLessonVerifyRound(0);
-        });
-
-      document
-        .getElementById("verifyStopBtnSignedIn")
-        .addEventListener("click", function () {
-          verifyStopRequested = true;
-          setStatus("Stopping… (finishes current phrase)", "");
+          runLessonVerifyWhole(0);
         });
 
       applyAuthUiState();
