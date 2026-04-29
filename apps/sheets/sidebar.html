@@ -116,6 +116,15 @@
       #status.ok {
         color: #137333;
       }
+      .preview-heard {
+        display: none;
+        margin-top: 4px;
+        font-size: 12px;
+        line-height: 1.4;
+        color: #c5221f;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
     </style>
   </head>
   <body>
@@ -132,6 +141,12 @@
         <div class="preview-field">
           <dt>First Intro</dt>
           <dd id="previewFirstIntro">—</dd>
+          <div
+            class="preview-heard"
+            id="previewHeardFirstIntro"
+            style="display: none"
+            aria-live="polite"
+          ></div>
           <button
             type="button"
             class="preview-play"
@@ -145,6 +160,12 @@
         <div class="preview-field">
           <dt>Second Intro</dt>
           <dd id="previewSecondIntro">—</dd>
+          <div
+            class="preview-heard"
+            id="previewHeardSecondIntro"
+            style="display: none"
+            aria-live="polite"
+          ></div>
           <button
             type="button"
             class="preview-play"
@@ -158,6 +179,12 @@
         <div class="preview-field">
           <dt>Answer</dt>
           <dd id="previewAnswer">—</dd>
+          <div
+            class="preview-heard"
+            id="previewHeardAnswer"
+            style="display: none"
+            aria-live="polite"
+          ></div>
           <button
             type="button"
             class="preview-play"
@@ -206,6 +233,15 @@
       <div class="auth-actions">
         <button type="button" id="reloadBtnSignedIn">Load lesson from web</button>
         <button type="button" id="verifyBtnSignedIn">Verify audio</button>
+        <button
+          type="button"
+          id="verifyStopBtnSignedIn"
+          disabled
+          style="display: none"
+          title="Stop before the next phrase starts (current phrase may still finish)"
+        >
+          Stop
+        </button>
         <button type="button" id="logoutBtn">Log out</button>
       </div>
     </div>
@@ -217,6 +253,10 @@
       var ACCESS_EXPIRY_BUFFER_MS = 120000;
       var REFRESH_TICK_MS = 60000;
       var lastPreviewKey = "";
+
+      var verifyGeneration = 0;
+      var verifyStopRequested = false;
+      var verificationAnyPhraseFail = false;
 
       var sessionAccessToken = null;
       var refreshToken = null;
@@ -323,6 +363,7 @@
         document.getElementById("previewFirstIntro").textContent = "—";
         document.getElementById("previewSecondIntro").textContent = "—";
         document.getElementById("previewAnswer").textContent = "—";
+        clearVerificationHeardHints();
         applyAuthUiState();
         syncPlayButtonsState();
         if (reasonMsg) {
@@ -345,6 +386,13 @@
         syncVerifyButtonEnabled();
       }
 
+      function syncVerifyStopButtonUi(showStop) {
+        var sbtn = document.getElementById("verifyStopBtnSignedIn");
+        if (!sbtn) return;
+        sbtn.style.display = showStop ? "inline-block" : "none";
+        sbtn.disabled = !showStop;
+      }
+
       function setVerifyLoading(isLoading) {
         var vbtn = document.getElementById("verifyBtnSignedIn");
         if (vbtn) {
@@ -352,6 +400,7 @@
           vbtn.textContent = isLoading ? "Verifying…" : "Verify audio";
         }
         document.getElementById("reloadBtnSignedIn").disabled = isLoading;
+        syncVerifyStopButtonUi(isLoading);
         if (!isLoading) {
           syncVerifyButtonEnabled();
         }
@@ -368,6 +417,48 @@
           vbtn.disabled = true;
         } else {
           vbtn.disabled = false;
+        }
+      }
+
+      function clearVerificationHeardHints() {
+        ["previewHeardFirstIntro", "previewHeardSecondIntro", "previewHeardAnswer"].forEach(function (id) {
+          var el = document.getElementById(id);
+          if (!el) return;
+          el.textContent = "";
+          el.style.display = "none";
+        });
+      }
+
+      /** @param {unknown[]} clips */
+      function applyVerificationHeardHints(clips) {
+        clearVerificationHeardHints();
+        if (!Array.isArray(clips)) return;
+        var i;
+        for (i = 0; i < clips.length; i++) {
+          /** @type {{ ok?: unknown, transcript?: unknown, id?: unknown }} */
+          var clip = clips[i];
+          if (!clip || clip.ok === true) continue;
+          var t =
+            clip.transcript != null &&
+            typeof clip.transcript === "string" &&
+            clip.transcript.trim().length > 0
+              ? String(clip.transcript).trim()
+              : "";
+          if (!t) continue;
+          var idStr = clip.id != null ? String(clip.id) : "";
+          var elId = "";
+          if (idStr.endsWith("-en-first-intro")) {
+            elId = "previewHeardFirstIntro";
+          } else if (idStr.endsWith("-en-second-intro")) {
+            elId = "previewHeardSecondIntro";
+          } else if (idStr.endsWith("-es-answer")) {
+            elId = "previewHeardAnswer";
+          }
+          var el = elId ? document.getElementById(elId) : null;
+          if (el) {
+            el.textContent = 'Heard: "' + t + '"';
+            el.style.display = "block";
+          }
         }
       }
 
@@ -569,27 +660,114 @@
         if (!isLoggedIn()) {
           return;
         }
+        if (!phraseDirectory || phraseDirectory.length === 0) {
+          setStatus("Load a lesson first.", "err");
+          return;
+        }
+        verifyGeneration += 1;
+        var gen = verifyGeneration;
+        verifyStopRequested = false;
+        verificationAnyPhraseFail = false;
+        clearVerificationHeardHints();
         setVerifyLoading(true);
+        runLessonVerifySequential(retryRound, 0, gen);
+      }
+
+      /** @param retryRound oauth refresh recursion (0 = first, 1 = after refresh) */
+      function runLessonVerifySequential(retryRound, dirIndex, gen) {
+        if (gen !== verifyGeneration) {
+          return;
+        }
+        var totalDir = phraseDirectory.length;
+        if (!isLoggedIn()) {
+          setVerifyLoading(false);
+          return;
+        }
+        if (dirIndex >= totalDir) {
+          setVerifyLoading(false);
+          if (!verificationAnyPhraseFail) {
+            setStatus("Verification complete.", "ok");
+          } else {
+            setStatus("Verification finished with some failing phrases.", "err");
+          }
+          return;
+        }
+        if (verifyStopRequested) {
+          verifyStopRequested = false;
+          setVerifyLoading(false);
+          clearVerificationHeardHints();
+          setStatus(
+            "Verification stopped (" +
+              dirIndex +
+              " of " +
+              totalDir +
+              " phrases completed).",
+            ""
+          );
+          return;
+        }
+
+        var entry = phraseDirectory[dirIndex];
+        var phraseLabel =
+          entry &&
+          typeof entry.name === "string" &&
+          entry.name.length > 0
+            ? ' ("' + entry.name + '")'
+            : "";
+        clearVerificationHeardHints();
+        setStatus(
+          "Verifying phrase " +
+            (dirIndex + 1) +
+            " of " +
+            totalDir +
+            phraseLabel +
+            "…"
+        );
+
         ensureAccessTokenFresh(function (freshOk) {
+          if (gen !== verifyGeneration) {
+            return;
+          }
           if (!freshOk) {
             setVerifyLoading(false);
             clearSession("Session expired. Sign in again.");
             return;
           }
-          setStatus("Verifying audio…");
+          if (verifyStopRequested && gen === verifyGeneration) {
+            verifyStopRequested = false;
+            setVerifyLoading(false);
+            clearVerificationHeardHints();
+            setStatus(
+              "Verification stopped (" +
+                dirIndex +
+                " of " +
+                totalDir +
+                " phrases completed).",
+              ""
+            );
+            return;
+          }
+
+          var piRaw = phraseDirectory[dirIndex] && phraseDirectory[dirIndex].index;
+          var piNum =
+            typeof piRaw === "number" && !isNaN(piRaw) ? Math.floor(piRaw) : NaN;
+          if (isNaN(piNum)) {
+            runLessonVerifySequential(retryRound, dirIndex + 1, gen);
+            return;
+          }
+
           google.script.run
             .withSuccessHandler(function (vr) {
-              if (
-                vr &&
-                vr.unauthorized &&
-                refreshToken &&
-                retryRound === 0
-              ) {
+              if (gen !== verifyGeneration) {
+                return;
+              }
+
+              if (vr && vr.unauthorized && refreshToken && retryRound === 0) {
                 google.script.run
                   .withSuccessHandler(function (ref) {
                     if (ref && ref.ok) {
                       setSessionFromRefreshResult(ref);
-                      runLessonVerifyRound(1);
+                      runLessonVerifySequential(1, dirIndex, gen);
                     } else {
                       setVerifyLoading(false);
                       clearSession("Session expired. Sign in again.");
@@ -602,8 +780,25 @@
                   .refreshSupabaseAccessToken(refreshToken);
                 return;
               }
-              setVerifyLoading(false);
+
+              if (verifyStopRequested && gen === verifyGeneration) {
+                verifyStopRequested = false;
+                setVerifyLoading(false);
+                clearVerificationHeardHints();
+                setStatus(
+                  "Verification stopped (" +
+                    dirIndex +
+                    " of " +
+                    totalDir +
+                    " phrases completed).",
+                  ""
+                );
+                return;
+              }
+
               if (vr && vr.verifyDisabled) {
+                setVerifyLoading(false);
+                clearVerificationHeardHints();
                 setStatus(
                   vr.message ||
                     "Audio verification is not enabled on this server (set ENABLE_LESSON_AUDIO_VERIFY on local Next.js).",
@@ -611,20 +806,55 @@
                 );
                 return;
               }
-              if (vr && vr.ok) {
-                setStatus(vr.message || "Verification complete.", "ok");
-              } else {
-                setStatus((vr && vr.message) || "Verification failed.", "err");
+
+              if (!vr || vr.verified !== true) {
+                verificationAnyPhraseFail = true;
               }
+
+              if (vr && !vr.verifyDisabled) {
+                if (vr.verified === true) {
+                  clearVerificationHeardHints();
+                } else if (Array.isArray(vr.clips)) {
+                  applyVerificationHeardHints(vr.clips);
+                }
+                google.script.run
+                  .withSuccessHandler(displayPreview)
+                  .withFailureHandler(function () {})
+                  .getActiveRowPhrasePreview();
+              }
+
+              if (verifyStopRequested && gen === verifyGeneration) {
+                verifyStopRequested = false;
+                setVerifyLoading(false);
+                clearVerificationHeardHints();
+                setStatus(
+                  "Verification stopped (" +
+                    (dirIndex + 1) +
+                    " of " +
+                    totalDir +
+                    " phrases completed).",
+                  ""
+                );
+                return;
+              }
+
+              var nextIx = dirIndex + 1;
+              runLessonVerifySequential(retryRound, nextIx, gen);
             })
             .withFailureHandler(function (err) {
+              if (gen !== verifyGeneration) {
+                return;
+              }
+              verificationAnyPhraseFail = true;
               setVerifyLoading(false);
+              clearVerificationHeardHints();
               setStatus(err.message || String(err), "err");
             })
-            .verifyLessonAudio(
+            .verifyLessonAudioPhrase(
               sessionAccessToken,
               transcriptLessonId,
-              phraseDirectory
+              phraseDirectory,
+              piNum
             );
         });
       }
@@ -651,6 +881,7 @@
                   transcriptLessonId = result.transcriptLessonId;
                 }
                 setStatus(result.message || "Done.", "ok");
+                clearVerificationHeardHints();
                 syncPlayButtonsState();
                 syncVerifyButtonEnabled();
                 return;
@@ -797,7 +1028,15 @@
             setStatus("Load a lesson first.", "err");
             return;
           }
+          verifyStopRequested = false;
           runLessonVerifyRound(0);
+        });
+
+      document
+        .getElementById("verifyStopBtnSignedIn")
+        .addEventListener("click", function () {
+          verifyStopRequested = true;
+          setStatus("Stopping… (finishes current phrase)", "");
         });
 
       applyAuthUiState();

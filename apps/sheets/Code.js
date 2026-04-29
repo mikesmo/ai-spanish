@@ -445,6 +445,76 @@ function findPhraseVerificationResult(phrasesPayload, phraseIndex) {
 }
 
 /**
+ * Sheet row (1-based) for a transcript phrase index, or null.
+ * @param {{ index: number }[]} phraseDirectory
+ * @param {number} phraseIndex
+ * @returns {number | null}
+ */
+function findLessonRowNumForPhraseIndex(phraseDirectory, phraseIndex) {
+  if (!Array.isArray(phraseDirectory)) {
+    return null;
+  }
+  var i;
+  for (i = 0; i < phraseDirectory.length; i++) {
+    var ent = phraseDirectory[i];
+    if (
+      ent &&
+      typeof ent.index === "number" &&
+      ent.index === phraseIndex
+    ) {
+      return i + 2;
+    }
+  }
+  return null;
+}
+
+/** Move sheet selection so the sidebar preview polls the verified phrase row. */
+function activatePhraseLessonRow(rowNum) {
+  if (
+    typeof rowNum !== "number" ||
+    isNaN(rowNum) ||
+    rowNum < 2
+  ) {
+    return;
+  }
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  sheet.setActiveRange(sheet.getRange(rowNum, 1));
+}
+
+/**
+ * Plain clip rows for HtmlService serialization (heard STT mismatch in sidebar).
+ * @param {*} onePhrase phrases[n] entry
+ * @returns {{ id: string, ok: boolean, transcript: string }[]}
+ */
+function clipsFromPhrasePayload(onePhrase) {
+  var out = [];
+  if (onePhrase === null || typeof onePhrase !== "object") {
+    return out;
+  }
+  /** @type {{ clips?: unknown }} */
+  var o = /** @type {{ clips?: unknown }} */ (onePhrase);
+  if (!o.clips || !(o.clips instanceof Array)) {
+    return out;
+  }
+  var j;
+  for (j = 0; j < o.clips.length; j++) {
+    var c = o.clips[j];
+    if (c === null || typeof c !== "object") continue;
+    var id = "";
+    /** @type {{ id?: unknown, ok?: unknown, transcript?: unknown }} */
+    var row = /** @type {{ id?: unknown, ok?: unknown, transcript?: unknown }} */ (
+      c
+    );
+    if (typeof row.id === "string") id = row.id;
+    var okClip = row.ok === true;
+    var tr = "";
+    if (typeof row.transcript === "string") tr = row.transcript;
+    out.push({ id: id, ok: okClip, transcript: tr });
+  }
+  return out;
+}
+
+/**
  * Applies `phrases` from POST /api/lesson-audio-verify to the Verified column and row fill.
  * @param {unknown[]} phrasesPayload
  * @param {{ index: number }[]} phraseDirectory
@@ -474,6 +544,184 @@ function applyLessonVerificationToSheet(phrasesPayload, phraseDirectory) {
     var bg = verified === true ? null : VERIFY_ROW_FAIL_BG;
     // getRange(r,c,numRows,numColumns) — count form, not (r1,c1,r2,c2).
     sheet.getRange(row, 1, 1, targetCols).setBackground(bg);
+  }
+}
+
+/**
+ * Updates one spreadsheet row from a single `phrases[n]` payload entry.
+ * @param {unknown} onePhrase
+ * @param {{ index: number }[]} phraseDirectory
+ */
+function applySinglePhraseVerificationToSheet(onePhrase, phraseDirectory) {
+  if (!Array.isArray(phraseDirectory) || phraseDirectory.length === 0) {
+    return;
+  }
+  if (
+    onePhrase === null ||
+    typeof onePhrase !== "object" ||
+    typeof onePhrase.phraseIndex !== "number"
+  ) {
+    return;
+  }
+  var targetPi = onePhrase.phraseIndex;
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var targetCols = LESSON_COLUMNS.length;
+  var i;
+  var rowNum = null;
+  for (i = 0; i < phraseDirectory.length; i++) {
+    var ent = phraseDirectory[i];
+    if (ent && typeof ent.index === "number" && ent.index === targetPi) {
+      rowNum = i + 2;
+      break;
+    }
+  }
+  if (rowNum === null) {
+    return;
+  }
+  var verified =
+    onePhrase !== null &&
+    typeof onePhrase === "object" &&
+    typeof onePhrase.verified !== "undefined" &&
+    onePhrase.verified === true;
+  sheet.getRange(rowNum, COL_VERIFIED).setValue(verified === true);
+  var bg = verified === true ? null : VERIFY_ROW_FAIL_BG;
+  sheet.getRange(rowNum, 1, 1, targetCols).setBackground(bg);
+}
+
+/**
+ * Verifies one transcript phrase (`phraseIndex`) via POST /api/lesson-audio-verify and updates that sheet row.
+ * @param {string} accessToken
+ * @param {string} transcriptLessonId
+ * @param {{ name: string, index: number }[]} phraseDirectory
+ * @param {number} phraseIndex transcript canonical index (`Phrase.index`)
+ * @returns {{ ok: boolean, verified?: boolean, clips?: unknown[], message?: string, verifyDisabled?: boolean, summary?: unknown, unauthorized?: boolean }}
+ */
+function verifyLessonAudioPhrase(accessToken, transcriptLessonId, phraseDirectory, phraseIndex) {
+  try {
+    var token = typeof accessToken === "string" ? accessToken.trim() : "";
+    if (!token) {
+      return { ok: false, message: "Not signed in." };
+    }
+    if (!Array.isArray(phraseDirectory)) {
+      return { ok: false, message: "Missing phrase directory." };
+    }
+    var pi =
+      typeof phraseIndex === "number" && !isNaN(phraseIndex)
+        ? Math.floor(phraseIndex)
+        : parseInt(String(phraseIndex), 10);
+    if (isNaN(pi)) {
+      return { ok: false, message: "Invalid phrase index." };
+    }
+
+    var focusRowNum = findLessonRowNumForPhraseIndex(phraseDirectory, pi);
+    if (focusRowNum !== null) {
+      activatePhraseLessonRow(focusRowNum);
+    }
+
+    var cfg = readTranscriptConfig();
+    if (cfg.ok === false) {
+      return { ok: false, message: cfg.message };
+    }
+
+    var lessonId =
+      typeof transcriptLessonId === "string" && transcriptLessonId
+        ? transcriptLessonId
+        : DEFAULT_TRANSCRIPT_LESSON_ID;
+
+    var url = cfg.webOrigin + "/api/lesson-audio-verify";
+    var response = UrlFetchApp.fetch(url, {
+      method: "post",
+      contentType: "application/json",
+      muteHttpExceptions: true,
+      followRedirects: true,
+      payload: JSON.stringify({ lesson: lessonId, phraseIndex: pi }),
+      headers: headersForWebOrigin(token),
+    });
+
+    var httpCode = response.getResponseCode();
+    var body = response.getContentText();
+
+    if (httpCode === 401) {
+      return {
+        ok: false,
+        unauthorized: true,
+        message: "Verification request unauthorized. Session may have expired.",
+      };
+    }
+
+    if (httpCode === 503) {
+      var msg503b = "Verification is not available on this server.";
+      try {
+        /** @type {{ message?: string, code?: string }} */
+        var j503b = JSON.parse(body);
+        if (typeof j503b.message === "string" && j503b.message) {
+          msg503b = j503b.message;
+        }
+      } catch (e503b) {
+        if (body && body.length > 0 && body.length < 400) {
+          msg503b = body;
+        }
+      }
+      return { ok: false, verifyDisabled: true, message: msg503b };
+    }
+
+    if (httpCode < 200 || httpCode >= 300) {
+      var errMsgPhrase = "Verification failed (HTTP " + httpCode + ").";
+      try {
+        /** @type {{ message?: string, error?: string }} */
+        var errJsonPhrase = JSON.parse(body);
+        if (typeof errJsonPhrase.message === "string" && errJsonPhrase.message) {
+          errMsgPhrase = errJsonPhrase.message;
+        } else if (typeof errJsonPhrase.error === "string" && errJsonPhrase.error) {
+          errMsgPhrase = errJsonPhrase.error;
+        }
+      } catch (parsePhraseErr) {
+        if (body && body.length > 0 && body.length < 280) {
+          errMsgPhrase = body;
+        }
+      }
+      return { ok: false, message: errMsgPhrase };
+    }
+
+    /** @type {{ ok?: boolean, phrases?: unknown[], summary?: unknown }} */
+    var dataPhrase = JSON.parse(body);
+    var phrasesPhrase =
+      dataPhrase && Array.isArray(dataPhrase.phrases) ? dataPhrase.phrases : [];
+    if (phrasesPhrase.length >= 1) {
+      /** @type {unknown} */
+      var firstPg = phrasesPhrase[0];
+      applySinglePhraseVerificationToSheet(firstPg, phraseDirectory);
+      var phraseVerifiedRow =
+        firstPg !== null &&
+        typeof firstPg === "object" &&
+        /** @type {{ verified?: unknown }} */ (firstPg).verified === true;
+      /** @type {unknown[]} */
+      var sidebarClips =
+        clipsFromPhrasePayload(firstPg);
+      return {
+        ok: dataPhrase.ok !== false,
+        verified: phraseVerifiedRow === true,
+        clips: sidebarClips,
+        message:
+          phraseVerifiedRow === true
+            ? ""
+            : "Some clips failed for this phrase.",
+        summary: dataPhrase.summary,
+      };
+    }
+
+    return {
+      ok: dataPhrase.ok !== false,
+      verified: false,
+      clips: [],
+      message: "No phrase payload returned.",
+      summary: dataPhrase.summary,
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      message: typeof e.message === "string" ? e.message : String(e),
+    };
   }
 }
 

@@ -44,7 +44,8 @@ interface PhraseVerifyResult {
 
 /**
  * POST /api/lesson-audio-verify
- * Body JSON: `{ lesson?: string }`.
+ * Body JSON: `{ lesson?: string, phraseIndex?: number }`.
+ * Omit `phraseIndex` to verify every clip in the lesson; set `phraseIndex` to verify clips for one phrase row (progressive Sheets flow).
  * Intended for **local** Next + ngrok (`ENABLE_LESSON_AUDIO_VERIFY=true`, ffmpeg + Deepgram env).
  */
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -72,15 +73,27 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   let lessonParam: string | undefined;
+  let phraseIndexFilter: number | undefined;
   if (
     bodyJson !== null &&
     typeof bodyJson === 'object' &&
-    !Array.isArray(bodyJson) &&
-    'lesson' in bodyJson
+    !Array.isArray(bodyJson)
   ) {
-    const l = (bodyJson as { lesson?: unknown }).lesson;
-    if (typeof l === 'string') lessonParam = l;
-    else if (typeof l === 'number') lessonParam = String(l);
+    const o = bodyJson as Record<string, unknown>;
+    if ('lesson' in o) {
+      const l = o.lesson;
+      if (typeof l === 'string') lessonParam = l;
+      else if (typeof l === 'number') lessonParam = String(l);
+    }
+    if ('phraseIndex' in o) {
+      const pi = o.phraseIndex;
+      if (typeof pi === 'number' && Number.isFinite(pi)) {
+        phraseIndexFilter = Math.trunc(pi);
+      } else if (typeof pi === 'string') {
+        const t = pi.trim();
+        if (/^-?\d+$/.test(t)) phraseIndexFilter = parseInt(t, 10);
+      }
+    }
   }
 
   let phrases: Phrase[];
@@ -93,6 +106,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const canonicalLessonId = resolveLessonIdForFiles(lessonParam ?? '');
   const specs = buildPhraseAudioClipSpecs(phrases);
+
+  if (phraseIndexFilter !== undefined) {
+    const transcriptIndices = [...new Set(phrases.map((p) => p.index))];
+    if (!transcriptIndices.includes(phraseIndexFilter)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: `Unknown phrase index: ${phraseIndexFilter}`,
+          phrases: [],
+        },
+        { status: 400 },
+      );
+    }
+  }
   const apiKey = process.env.DEEPGRAM_API_KEY?.trim();
   if (!apiKey) {
     return NextResponse.json(
@@ -240,14 +267,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     Math.min(parseInt(process.env.LESSON_AUDIO_VERIFY_CONCURRENCY ?? '3', 10) || 3, 8),
   );
   const limit = pLimit(conc);
-  const clipsOut = await Promise.all(specs.map((spec) => limit(() => verifyOne(spec))));
+  const specsToVerify =
+    phraseIndexFilter !== undefined ? specs.filter((s) => s.phraseIndex === phraseIndexFilter) : specs;
+  const clipsOut = await Promise.all(specsToVerify.map((spec) => limit(() => verifyOne(spec))));
 
-  const phraseIndices = [...new Set(phrases.map((p) => p.index))].sort((a, b) => a - b);
-  const phrasesPayload: PhraseVerifyResult[] = phraseIndices.map((phraseIndex) => {
-    const clips = clipsOut.filter((c) => c.phraseIndex === phraseIndex);
-    const verified = clips.length === 0 || clips.every((c) => c.ok);
-    return { phraseIndex, verified, clips };
-  });
+  let phrasesPayload: PhraseVerifyResult[];
+  if (phraseIndexFilter !== undefined) {
+    const verified = clipsOut.length === 0 || clipsOut.every((c) => c.ok);
+    phrasesPayload = [{ phraseIndex: phraseIndexFilter, verified, clips: clipsOut }];
+  } else {
+    const phraseIndices = [...new Set(phrases.map((p) => p.index))].sort((a, b) => a - b);
+    phrasesPayload = phraseIndices.map((phraseIndex) => {
+      const clips = clipsOut.filter((c) => c.phraseIndex === phraseIndex);
+      const verified = clips.length === 0 || clips.every((c) => c.ok);
+      return { phraseIndex, verified, clips };
+    });
+  }
 
   const okAll = clipsOut.every((c) => c.ok);
   const fail = clipsOut.filter((c) => !c.ok).length;
