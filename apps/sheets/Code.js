@@ -25,8 +25,12 @@ var LESSON_COLUMNS = [
   "Answer",
   "Grammar",
   "Verified",
-  "Max volume",
-  "Avg volume",
+  "First Intro Max volume",
+  "First Intro Avg volume",
+  "Second Intro Max volume",
+  "Second Intro Avg volume",
+  "Answer Max volume",
+  "Answer Avg volume",
   "First Intro Heard",
   "Second Intro Heard",
   "Answer Heard",
@@ -38,8 +42,16 @@ var COL_FIRST_INTRO = LESSON_COLUMNS.indexOf("First Intro") + 1;
 var COL_SECOND_INTRO = LESSON_COLUMNS.indexOf("Second Intro") + 1;
 var COL_ANSWER = LESSON_COLUMNS.indexOf("Answer") + 1;
 var COL_VERIFIED = LESSON_COLUMNS.indexOf("Verified") + 1;
-var COL_MAX_VOLUME = LESSON_COLUMNS.indexOf("Max volume") + 1;
-var COL_AVG_VOLUME = LESSON_COLUMNS.indexOf("Avg volume") + 1;
+var COL_FIRST_INTRO_MAX_VOLUME =
+  LESSON_COLUMNS.indexOf("First Intro Max volume") + 1;
+var COL_FIRST_INTRO_AVG_VOLUME =
+  LESSON_COLUMNS.indexOf("First Intro Avg volume") + 1;
+var COL_SECOND_INTRO_MAX_VOLUME =
+  LESSON_COLUMNS.indexOf("Second Intro Max volume") + 1;
+var COL_SECOND_INTRO_AVG_VOLUME =
+  LESSON_COLUMNS.indexOf("Second Intro Avg volume") + 1;
+var COL_ANSWER_MAX_VOLUME = LESSON_COLUMNS.indexOf("Answer Max volume") + 1;
+var COL_ANSWER_AVG_VOLUME = LESSON_COLUMNS.indexOf("Answer Avg volume") + 1;
 var COL_FIRST_INTRO_HEARD = LESSON_COLUMNS.indexOf("First Intro Heard") + 1;
 var COL_SECOND_INTRO_HEARD = LESSON_COLUMNS.indexOf("Second Intro Heard") + 1;
 var COL_ANSWER_HEARD = LESSON_COLUMNS.indexOf("Answer Heard") + 1;
@@ -588,6 +600,48 @@ function heardSttTextsFromPhraseClips(clips) {
 }
 
 /**
+ * Per-clip FFmpeg loudness (maxDb/meanDb) for volume columns.
+ * @param {unknown} clips phrases[n].clips from lesson-audio-verify
+ * @returns {[unknown, unknown, unknown, unknown, unknown, unknown]}
+ */
+function volumeSixPackFromPhraseClips(clips) {
+  var fiMax = "";
+  var fiAvg = "";
+  var siMax = "";
+  var siAvg = "";
+  var ansMax = "";
+  var ansAvg = "";
+  if (!clips || !(clips instanceof Array)) {
+    return [fiMax, fiAvg, siMax, siAvg, ansMax, ansAvg];
+  }
+  var j;
+  for (j = 0; j < clips.length; j++) {
+    var c = clips[j];
+    if (c === null || typeof c !== "object") continue;
+    /** @type {{ id?: unknown, maxDb?: unknown, meanDb?: unknown }} */
+    var row = /** @type {{ id?: unknown, maxDb?: unknown, meanDb?: unknown }} */ (
+      c
+    );
+    var id = typeof row.id === "string" ? row.id : "";
+    var mx = row.maxDb;
+    var mn = row.meanDb;
+    var maxVal = typeof mx === "number" && !isNaN(mx) ? mx : "";
+    var meanVal = typeof mn === "number" && !isNaN(mn) ? mn : "";
+    if (id.endsWith("-en-first-intro")) {
+      fiMax = maxVal;
+      fiAvg = meanVal;
+    } else if (id.endsWith("-en-second-intro")) {
+      siMax = maxVal;
+      siAvg = meanVal;
+    } else if (id.endsWith("-es-answer")) {
+      ansMax = maxVal;
+      ansAvg = meanVal;
+    }
+  }
+  return [fiMax, fiAvg, siMax, siAvg, ansMax, ansAvg];
+}
+
+/**
  * Applies `phrases` from POST /api/lesson-audio-verify to the Verified column and row fill.
  * @param {unknown[]} phrasesPayload
  * @param {{ index: number }[]} phraseDirectory
@@ -613,39 +667,21 @@ function applyLessonVerificationToSheet(phrasesPayload, phraseDirectory) {
       vr &&
       vr.verified !== undefined &&
       vr.verified === true;
-    /** @type {{ maxVolumeDb?: unknown, avgVolumeDb?: unknown } | null} */
-    var vol =
-      vr && typeof vr === "object"
-        ? /** @type {{ maxVolumeDb?: unknown, avgVolumeDb?: unknown }} */ (
-            vr
-          )
-        : null;
-    var maxVolCell = "";
-    var avgVolCell = "";
-    if (vol !== null) {
-      if (
-        typeof vol.maxVolumeDb === "number" &&
-        !isNaN(vol.maxVolumeDb)
-      ) {
-        maxVolCell = vol.maxVolumeDb;
-      }
-      if (
-        typeof vol.avgVolumeDb === "number" &&
-        !isNaN(vol.avgVolumeDb)
-      ) {
-        avgVolCell = vol.avgVolumeDb;
-      }
-    }
-    sheet.getRange(row, COL_MAX_VOLUME).setValue(maxVolCell);
-    sheet.getRange(row, COL_AVG_VOLUME).setValue(avgVolCell);
     /** @type {{ clips?: unknown } | null} */
     var vrClipsHolder =
       vr && typeof vr === "object"
         ? /** @type {{ clips?: unknown }} */ (vr)
         : null;
-    var heardTriple = heardSttTextsFromPhraseClips(
-      vrClipsHolder && vrClipsHolder.clips ? vrClipsHolder.clips : []
-    );
+    var clipsArr =
+      vrClipsHolder && vrClipsHolder.clips ? vrClipsHolder.clips : [];
+    var volSix = volumeSixPackFromPhraseClips(clipsArr);
+    sheet.getRange(row, COL_FIRST_INTRO_MAX_VOLUME).setValue(volSix[0]);
+    sheet.getRange(row, COL_FIRST_INTRO_AVG_VOLUME).setValue(volSix[1]);
+    sheet.getRange(row, COL_SECOND_INTRO_MAX_VOLUME).setValue(volSix[2]);
+    sheet.getRange(row, COL_SECOND_INTRO_AVG_VOLUME).setValue(volSix[3]);
+    sheet.getRange(row, COL_ANSWER_MAX_VOLUME).setValue(volSix[4]);
+    sheet.getRange(row, COL_ANSWER_AVG_VOLUME).setValue(volSix[5]);
+    var heardTriple = heardSttTextsFromPhraseClips(clipsArr);
     sheet.getRange(row, COL_FIRST_INTRO_HEARD).setValue(heardTriple[0]);
     sheet.getRange(row, COL_SECOND_INTRO_HEARD).setValue(heardTriple[1]);
     sheet.getRange(row, COL_ANSWER_HEARD).setValue(heardTriple[2]);
@@ -692,23 +728,20 @@ function applySinglePhraseVerificationToSheet(onePhrase, phraseDirectory) {
     typeof onePhrase === "object" &&
     typeof onePhrase.verified !== "undefined" &&
     onePhrase.verified === true;
-  /** @type {{ maxVolumeDb?: unknown, avgVolumeDb?: unknown, clips?: unknown }} */
-  var op = /** @type {{ maxVolumeDb?: unknown, avgVolumeDb?: unknown, clips?: unknown }} */ (
-    onePhrase
-  );
-  var maxVolCell = "";
-  var avgVolCell = "";
-  if (typeof op.maxVolumeDb === "number" && !isNaN(op.maxVolumeDb)) {
-    maxVolCell = op.maxVolumeDb;
-  }
-  if (typeof op.avgVolumeDb === "number" && !isNaN(op.avgVolumeDb)) {
-    avgVolCell = op.avgVolumeDb;
-  }
-  sheet.getRange(rowNum, COL_MAX_VOLUME).setValue(maxVolCell);
-  sheet.getRange(rowNum, COL_AVG_VOLUME).setValue(avgVolCell);
-  var heardTriple = heardSttTextsFromPhraseClips(
-    op.clips && op.clips instanceof Array ? op.clips : []
-  );
+  /** @type {{ clips?: unknown } | null} */
+  var op =
+    onePhrase !== null && typeof onePhrase === "object"
+      ? /** @type {{ clips?: unknown }} */ (onePhrase)
+      : null;
+  var clipsArr = op && op.clips && op.clips instanceof Array ? op.clips : [];
+  var volSix = volumeSixPackFromPhraseClips(clipsArr);
+  sheet.getRange(rowNum, COL_FIRST_INTRO_MAX_VOLUME).setValue(volSix[0]);
+  sheet.getRange(rowNum, COL_FIRST_INTRO_AVG_VOLUME).setValue(volSix[1]);
+  sheet.getRange(rowNum, COL_SECOND_INTRO_MAX_VOLUME).setValue(volSix[2]);
+  sheet.getRange(rowNum, COL_SECOND_INTRO_AVG_VOLUME).setValue(volSix[3]);
+  sheet.getRange(rowNum, COL_ANSWER_MAX_VOLUME).setValue(volSix[4]);
+  sheet.getRange(rowNum, COL_ANSWER_AVG_VOLUME).setValue(volSix[5]);
+  var heardTriple = heardSttTextsFromPhraseClips(clipsArr);
   sheet.getRange(rowNum, COL_FIRST_INTRO_HEARD).setValue(heardTriple[0]);
   sheet.getRange(rowNum, COL_SECOND_INTRO_HEARD).setValue(heardTriple[1]);
   sheet.getRange(rowNum, COL_ANSWER_HEARD).setValue(heardTriple[2]);
@@ -1133,6 +1166,9 @@ function phraseRow(phrase) {
     es.answer ?? "",
     es.grammar ?? "",
     false,
+    "",
+    "",
+    "",
     "",
     "",
     "",
