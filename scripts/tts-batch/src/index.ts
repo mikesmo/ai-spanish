@@ -40,7 +40,7 @@ dotenv.config();
 
 const DEFAULT_INPUT = path.resolve(
   process.cwd(),
-  'apps/web/public/lesson1.json'
+  'apps/web/data/transcripts/lesson1.json'
 );
 const DEFAULT_OUT = path.resolve(process.cwd(), 'output');
 
@@ -124,7 +124,7 @@ Usage:
   npm run tts:batch -- [options]
 
 Options:
-  --input, -i     Path to transcript JSON (default: TRANSCRIPT_INPUT env or apps/web/public/lesson1.json)
+  --input, -i     Path to transcript JSON (default: TRANSCRIPT_INPUT env or apps/web/data/transcripts/lesson1.json)
   --out, -o       Output directory (default: ./output)
   --bucket, -b    S3 bucket name (default: S3_BUCKET_NAME env)
   --force         Regenerate all audio (ignore cache)
@@ -140,7 +140,7 @@ Options:
 Examples:
   npm run tts:batch -- --upload-only --bucket my-bucket
   npm run tts:batch -- --upload-only --out ./output --bucket my-bucket --lesson lesson1
-  npm run tts:batch -- --local-only --only-phrase 11 --out ./output --input apps/web/public/lesson1.json
+  npm run tts:batch -- --local-only --only-phrase 11 --out ./output --input apps/web/data/transcripts/lesson1.json
 
 Environment:
   DEEPGRAM_API_KEY        Required unless --upload-only; required for --verify-stt (not for --verify-loudness alone)

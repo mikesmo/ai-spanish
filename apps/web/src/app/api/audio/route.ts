@@ -33,7 +33,7 @@ function isAllowedSegment(s: string): s is Segment {
  * Requires a valid Supabase session (see middleware and assertApiUser).
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
-  const auth = await assertApiUser();
+  const auth = await assertApiUser(request);
   if (!auth.ok) return auth.response;
 
   const { searchParams } = request.nextUrl;

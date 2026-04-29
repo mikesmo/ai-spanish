@@ -3,6 +3,8 @@ import fs from 'fs';
 import path from 'path';
 import { assertApiUser } from '@/lib/auth/assert-api-user';
 
+const TRANSCRIPTS_DIR = path.join(process.cwd(), 'data', 'transcripts');
+
 const DEFAULT_LESSON = '1';
 const VALID_LESSON_IDS = new Set(['1', '2']);
 
@@ -14,7 +16,7 @@ function resolveLessonId(raw: string | null): string {
 }
 
 export async function GET(request: NextRequest) {
-  const auth = await assertApiUser();
+  const auth = await assertApiUser(request);
   if (!auth.ok) return auth.response;
 
   try {
@@ -22,7 +24,7 @@ export async function GET(request: NextRequest) {
       request.nextUrl.searchParams.get('lesson'),
     );
     const fileName = `lesson${lessonId}.json`;
-    const jsonPath = path.join(process.cwd(), 'public', fileName);
+    const jsonPath = path.join(TRANSCRIPTS_DIR, fileName);
     const fileContent = fs.readFileSync(jsonPath, 'utf8');
     
     // Parse the JSON content

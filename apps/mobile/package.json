@@ -9,10 +9,11 @@
     "prebuild": "expo prebuild"
   },
   "dependencies": {
-    "@ai-spanish/assets": "file:../../packages/assets",
     "@ai-spanish/ai": "file:../../packages/ai",
     "@ai-spanish/logic": "file:../../packages/logic",
     "@deepgram/sdk": "^4.7.0",
+    "@react-native-async-storage/async-storage": "1.23.1",
+    "@supabase/supabase-js": "^2.105.1",
     "@tanstack/react-query": "^5.90.5",
     "expo": "~52.0.0",
     "expo-asset": "~11.0.5",

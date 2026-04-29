@@ -19,7 +19,7 @@ const lessonIdSchema = z.string().min(1);
 export async function POST(request: NextRequest) {
   if (process.env.NODE_ENV !== 'development') return DEV_ONLY;
 
-  const auth = await assertApiUser();
+  const auth = await assertApiUser(request);
   if (!auth.ok) return auth.response;
 
   let body: unknown;
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   if (process.env.NODE_ENV !== 'development') return DEV_ONLY;
 
-  const auth = await assertApiUser();
+  const auth = await assertApiUser(request);
   if (!auth.ok) return auth.response;
 
   const lesson = request.nextUrl.searchParams.get('lesson');

@@ -11,7 +11,9 @@ export type { TranscriptResponse } from "./schemas/transcript.schema";
 export const fetchTranscript = async (
   lessonId: string,
 ): Promise<TranscriptResponse> => {
-  const response = await fetch(transcriptPathWithLesson(lessonId));
+  const response = await fetch(transcriptPathWithLesson(lessonId), {
+    credentials: 'include',
+  });
   const payload: unknown = await response.json();
 
   if (!response.ok) {

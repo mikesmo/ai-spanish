@@ -1,6 +1,5 @@
 import { Audio } from "expo-av";
-
-const NO_YOU_TRY_SOUND = require("@ai-spanish/assets/no-you-try.mp3") as number;
+import { fetchPackageAudioUri } from "./fetchPackageAudioUri";
 
 function abortError(): Error {
   const e = new Error("Aborted");
@@ -9,14 +8,15 @@ function abortError(): Error {
 }
 
 /**
- * Plays the "now you try" priming clip; resolves when playback finishes.
- * On abort: stops/unloads and rejects with AbortError.
+ * Plays the "now you try" priming clip from the authenticated package-audio API.
  */
 export async function playRecordingPrimingAudio(signal: AbortSignal): Promise<void> {
   if (signal.aborted) throw abortError();
 
+  const uri = await fetchPackageAudioUri("no-you-try");
+
   await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
-  const { sound } = await Audio.Sound.createAsync(NO_YOU_TRY_SOUND);
+  const { sound } = await Audio.Sound.createAsync({ uri });
 
   let settled = false;
 

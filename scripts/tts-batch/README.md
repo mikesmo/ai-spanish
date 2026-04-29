@@ -2,7 +2,7 @@
 
 Batch-generates MP3 clips from the bilingual transcript using [Deepgram](https://deepgram.com/) text-to-speech (same models as `@ai-spanish/ai`), writes a local manifest, and optionally uploads audio plus `manifest.json` to Amazon S3.
 
-Run commands from the **monorepo root** so default paths resolve (`apps/web/public/lesson1.json`, `./output`).
+Run commands from the **monorepo root** so default paths resolve (`apps/web/data/transcripts/lesson1.json`, `./output`).
 
 ## System requirements
 
@@ -33,7 +33,7 @@ Run commands from the **monorepo root** so default paths resolve (`apps/web/publ
 
 ## Three-step workflow (audio only → validate → upload)
 
-Run from the **monorepo root** so defaults apply (`apps/web/public/lesson1.json`, `./output`). Configure `scripts/tts-batch/.env` (copy from `.env.example`) for API keys and optional S3 settings.
+Run from the **monorepo root** so defaults apply (`apps/web/data/transcripts/lesson1.json`, `./output`). Configure `scripts/tts-batch/.env` (copy from `.env.example`) for API keys and optional S3 settings.
 
 ### 1. Generate audio from the transcript (no S3)
 
@@ -41,10 +41,10 @@ Synthesizes MP3s under `output/audio/`, writes `output/manifest.json` and the ha
 
 ```bash
 cd /path/to/ai-spanish
-npm run tts:batch -- --input apps/web/public/lesson1.json --local-only
+npm run tts:batch -- --input apps/web/data/transcripts/lesson1.json --local-only
 ```
 
-- Omit `--input` if `TRANSCRIPT_INPUT` in `.env` already points at this file (the default is `apps/web/public/lesson1.json`).
+- Omit `--input` if `TRANSCRIPT_INPUT` in `.env` already points at this file (the default is `apps/web/data/transcripts/lesson1.json`).
 - Add `--force` to regenerate every clip (ignores the hash cache).
 - Use `--out <dir>` if you want something other than `./output`.
 
@@ -94,7 +94,7 @@ Use the same `--lesson` and prefix you intend for production so keys stay consis
 | `S3_BUCKET_NAME` | Bucket **name only** (e.g. `my-bucket`). Do not use `s3://...` or paths |
 | `AUDIO_CONTENT_PREFIX` | Single path segment for S3 keys; default in code: `audio-content` |
 | `S3_LESSON` | Optional lesson folder under the prefix (overridden by `--lesson`) |
-| `TRANSCRIPT_INPUT` | Path to transcript JSON (relative to cwd or absolute); default: `apps/web/public/lesson1.json`. Overridden by `--input` |
+| `TRANSCRIPT_INPUT` | Path to transcript JSON (relative to cwd or absolute); default: `apps/web/data/transcripts/lesson1.json`. Overridden by `--input` |
 
 Secrets belong in `.env` (gitignored). Never commit real keys.
 
@@ -102,7 +102,7 @@ Secrets belong in `.env` (gitignored). Never commit real keys.
 
 | Flag | Description |
 |------|-------------|
-| `--input`, `-i` | Transcript JSON (default: `TRANSCRIPT_INPUT` env, then `apps/web/public/lesson1.json`) |
+| `--input`, `-i` | Transcript JSON (default: `TRANSCRIPT_INPUT` env, then `apps/web/data/transcripts/lesson1.json`) |
 | `--out`, `-o` | Output directory (default: `./output`) |
 | `--bucket`, `-b` | S3 bucket name (default: `S3_BUCKET_NAME`) |
 | `--lesson` | Optional segment under `AUDIO_CONTENT_PREFIX` (overrides `S3_LESSON`) |

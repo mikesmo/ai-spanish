@@ -64,6 +64,15 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
 
   const pathname = request.nextUrl.pathname;
 
+  const authHeader = request.headers.get('authorization');
+  if (
+    pathname.startsWith('/api/') &&
+    authHeader?.startsWith('Bearer ') &&
+    authHeader.slice(7).trim().length > 0
+  ) {
+    return supabaseResponse;
+  }
+
   if (user && pathname === '/login') {
     const next = safeNextPath(request.nextUrl.searchParams.get('next'));
     const redirectUrl = request.nextUrl.clone();

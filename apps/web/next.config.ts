@@ -10,10 +10,6 @@ const nextConfig: NextConfig = {
       ".web.js",
       ...config.resolve.extensions,
     ];
-    config.module.rules.push({
-      test: /\.mp3$/i,
-      type: "asset/resource",
-    });
     return config;
   },
 };

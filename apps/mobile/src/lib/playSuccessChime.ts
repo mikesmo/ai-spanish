@@ -1,7 +1,5 @@
 import { Audio } from "expo-av";
-
-// Shared `packages/assets/success.mp3` via workspace package.
-const SUCCESS_SOUND = require("@ai-spanish/assets/success.mp3") as number;
+import { fetchPackageAudioUri } from "./fetchPackageAudioUri";
 
 function abortError(): Error {
   const e = new Error("Aborted");
@@ -10,14 +8,15 @@ function abortError(): Error {
 }
 
 /**
- * Plays the success clip; resolves when playback finishes.
- * On abort: stops/unloads and rejects with AbortError.
+ * Plays the success clip from the authenticated package-audio API.
  */
 export async function playSuccessChime(signal: AbortSignal): Promise<void> {
   if (signal.aborted) throw abortError();
 
+  const uri = await fetchPackageAudioUri("success");
+
   await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
-  const { sound } = await Audio.Sound.createAsync(SUCCESS_SOUND);
+  const { sound } = await Audio.Sound.createAsync({ uri });
 
   let settled = false;
 

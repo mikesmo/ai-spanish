@@ -40,7 +40,7 @@ type LegacyPhrase = {
 
 const DEFAULT_INPUT = path.resolve(
   process.cwd(),
-  'apps/web/public/lesson1.json',
+  'apps/web/data/transcripts/lesson1.json',
 );
 
 function slugify(input: string): string {

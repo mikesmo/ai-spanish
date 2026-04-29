@@ -62,12 +62,12 @@ If `DEEPGRAM_ENV=development` is set, `GET /api/authenticate` skips Supabase and
 
 ## Project Structure
 
-- `public/lesson1.json` - JSON file containing Spanish phrases and their English translations
+- `data/transcripts/lesson1.json` — JSON file containing Spanish phrases and their English translations (served only via authenticated `/api/transcript`, not as a static URL)
 - `src/app/page.tsx` - Main homepage component that reads and displays the phrases
 
 ## Modifying the Content
 
-To change the displayed phrases, edit the `public/lesson1.json` file (or add lessons under `public/lesson*.json`). The app will display the updated content. Each phrase is an object with at least `name` (stable slug), `index` (0-based phrase order in the lesson; used as the TTS / audio filename prefix), `English`, and `Spanish`. Optional `type` may be `"new"` or `"combination"`.
+To change the displayed phrases, edit `data/transcripts/lesson1.json` (or add `lesson2.json`, etc., under `data/transcripts/`). The app will display the updated content. Each phrase is an object with at least `name` (stable slug), `index` (0-based phrase order in the lesson; used as the TTS / audio filename prefix), `English`, and `Spanish`. Optional `type` may be `"new"` or `"combination"`.
 
 Example shape (abbreviated):
 

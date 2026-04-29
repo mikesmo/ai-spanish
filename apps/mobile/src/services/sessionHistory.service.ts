@@ -1,4 +1,5 @@
 import type { HistoryEntry, SessionCheckpointParsed } from "@ai-spanish/logic";
+import { supabase } from "../lib/supabase";
 
 const WEB_ORIGIN = process.env.EXPO_PUBLIC_WEB_ORIGIN;
 
@@ -25,9 +26,21 @@ export async function postSessionHistoryEntry(
   const url = `${WEB_ORIGIN.replace(/\/$/, "")}/api/session-history`;
 
   try {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (supabase) {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        headers.Authorization = `Bearer ${session.access_token}`;
+      }
+    }
+
     const response = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({ lessonId, entry, checkpoint }),
     });
 

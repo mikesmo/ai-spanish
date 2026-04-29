@@ -1,12 +1,12 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import { TextToSpeechClient } from '@google-cloud/text-to-speech';
 import { assertApiUser } from '@/lib/auth/assert-api-user';
 
 // Language options
 type Language = 'es' | 'en';
 
-export async function POST(request: Request) {
-  const auth = await assertApiUser();
+export async function POST(request: NextRequest) {
+  const auth = await assertApiUser(request);
   if (!auth.ok) return auth.response;
 
   try {

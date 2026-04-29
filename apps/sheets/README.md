@@ -78,5 +78,5 @@ Use `clasp deploy` to create a deployment when you expose a Web App endpoint (no
 
 ## Config
 
-- **`LESSON1_JSON_URL`** in [`Code.js`](./Code.js) — production URL for `/lesson1.json` (deployed Next.js `public/` asset).
+- **`LESSON1_JSON_URL`** in [`Code.js`](./Code.js) — **obsolete**: lesson JSON is no longer served as `/lesson1.json`; use an authenticated API or a manual export unless you host a mirror URL yourself.
 - **Spreadsheet association** — clasp updates the script tied to `.clasp.json`; the script must stay bound or linked as you already set up in Sheets.

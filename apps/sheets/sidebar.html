@@ -30,8 +30,7 @@
   </head>
   <body>
     <div>
-      Fetches lesson data from your deployed web app (<code>/lesson1.json</code>) and replaces the contents of the
-      active sheet (excluding nested <code>words</code>).
+      Imports lesson rows via Apps Script from your configured lesson JSON URL (see Code.js). Lesson sources live in the repo under <code>data/transcripts/</code> and are served only through authenticated APIs in production—not as <code>/lesson1.json</code>.
     </div>
     <button type="button" id="loadBtn">Load lesson from web</button>
     <div id="status" aria-live="polite"></div>

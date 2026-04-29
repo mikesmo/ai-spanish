@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const auth = await assertApiUser();
+  const auth = await assertApiUser(request);
   if (!auth.ok) return auth.response;
 
   // gotta use the request object to invalidate the cache every request :vomit:

@@ -1,4 +1,4 @@
-/** Public static asset served by the Next.js app ({origin}/lesson1.json). Replace with your deployed origin. */
+/** @deprecated Static `{origin}/lesson1.json` was removed; lesson JSON is auth-only via `/api/transcript`. Point this URL only if you restore a public mirror — otherwise this sheet action will fail at runtime. */
 const LESSON1_JSON_URL = "https://ai-spanish-web.vercel.app/lesson1.json";
 
 const LESSON_COLUMNS = [
@@ -25,7 +25,7 @@ function showSidebar() {
 }
 
 /**
- * Fetches `/lesson1.json` from LESSON1_JSON_URL, omits Spanish.words only, writes active sheet (header + rows).
+ * Fetches lesson JSON from LESSON1_JSON_URL (legacy static path; see deprecation on LESSON1_JSON_URL).
  * Returns a plain object for google.script.run (success/error).
  */
 function populateLessonFromJson() {
