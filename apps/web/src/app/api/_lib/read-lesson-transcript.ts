@@ -1,9 +1,6 @@
-import fs from 'fs';
-import path from 'path';
-
 import type { Phrase } from '@ai-spanish/logic';
 
-const TRANSCRIPTS_DIR = path.join(process.cwd(), 'data', 'transcripts');
+import { fetchLessonTranscriptPhrases } from '@/server/lesson-transcript-repository';
 
 const VALID_LESSON_IDS = new Set(['1', '2']);
 const DEFAULT_LESSON = '1';
@@ -17,14 +14,12 @@ export function resolveLessonIdForFiles(raw: string | null | undefined): string 
   return s;
 }
 
-/** Reads parsed lesson transcript JSON from `data/transcripts/lesson{n}.json`. */
-export function readTranscriptFile(lessonIdRaw: string | null | undefined): Phrase[] {
+/**
+ * Loads parsed lesson transcript phrases from Supabase `lesson_transcripts`.
+ */
+export async function loadLessonTranscript(
+  lessonIdRaw: string | null | undefined,
+): Promise<Phrase[]> {
   const canonical = resolveLessonIdForFiles(lessonIdRaw ?? '');
-  const jsonPath = path.join(TRANSCRIPTS_DIR, `lesson${canonical}.json`);
-  const raw = fs.readFileSync(jsonPath, 'utf8');
-  const phrases = JSON.parse(raw) as unknown;
-  if (!Array.isArray(phrases)) {
-    throw new Error('Transcript must be a JSON array of phrases');
-  }
-  return phrases as Phrase[];
+  return fetchLessonTranscriptPhrases(canonical);
 }

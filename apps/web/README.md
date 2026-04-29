@@ -1,12 +1,12 @@
 # Spanish Phrases App
 
-A simple Next.js application that reads Spanish phrases from a JSON file and displays them on the homepage.
+A simple Next.js application that loads Spanish lesson phrases from Supabase and displays them on the homepage.
 
 ## Features
 
 - Next.js 15 with App Router
 - Supabase email/password authentication (session cookies + middleware)
-- Server-side JSON file reading
+- Server-side phrase decks loaded from Supabase (`lesson_transcripts`), exposed via authenticated `/api/transcript`
 - Responsive design with Tailwind CSS
 - Spanish-English phrase pairs
 - Speech recognition for practice
@@ -62,14 +62,33 @@ If `DEEPGRAM_ENV=development` is set, `GET /api/authenticate` skips Supabase and
 
 ## Project Structure
 
-- `data/transcripts/lesson1.json` — JSON file containing Spanish phrases and their English translations (served only via authenticated `/api/transcript`, not as a static URL)
+- [`supabase/migrations/`](../../supabase/migrations/) — database migrations for `lesson_transcripts` (apply with Supabase CLI; see [`supabase/README.md`](../../supabase/README.md))
 - `src/app/page.tsx` - Main homepage component that reads and displays the phrases
 
-## Modifying the Content
+## Modifying lesson content
 
-To change the displayed phrases, edit `data/transcripts/lesson1.json` (or add `lesson2.json`, etc., under `data/transcripts/`). The app will display the updated content. Each phrase is an object with at least `name` (stable slug), `index` (0-based phrase order in the lesson; used as the TTS / audio filename prefix), `English`, and `Spanish`. Optional `type` may be `"new"` or `"combination"`.
+Lesson phrases live in **Supabase** (`public.lesson_transcripts`, column `phrases` JSON). Authenticated clients load them through **`GET /api/transcript?lesson=1`** (see [`src/app/api/transcript/route.ts`](src/app/api/transcript/route.ts)).
 
-Example shape (abbreviated):
+To update content:
+
+- Call **`PUT` or `PATCH /api/transcript?lesson=1`** with a JSON body matching **`TranscriptResponse`** (same shape as `GET`). Requires **`SUPABASE_SERVICE_ROLE_KEY`** on the server alongside **`NEXT_PUBLIC_SUPABASE_URL`**.
+- Or edit `phrases` JSON in the Supabase Table Editor for quick fixes (DDL and policies remain in [`supabase/migrations/`](../../supabase/migrations/)).
+
+Each phrase object uses at least `name` (stable slug), `index` (0-based order; used as the TTS / audio filename prefix), `English`, and `Spanish`. Optional `type` may be `"new"` or `"combination"`.
+
+### Required env for transcripts
+
+Add to `.env.local` (see [.env.example](.env.example)):
+
+```env
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+```
+
+The service role key is **server-only**; never use a `NEXT_PUBLIC_*` variable for it.
+
+### Example phrase shape
+
+Abbreviated:
 
 ```json
 [

@@ -6,9 +6,9 @@
  * Accepts legacy shapes (`id`/`order`) or current shape (`name`/`index`).
  *
  * Usage:
- *   npm run migrate:lesson1
- * or:
- *   tsx scripts/migrate-lesson-weights/src/index.ts [path/to/lesson.json]
+ *   npm run migrate:lesson1 -- path/to/lesson.json
+ * or (Supabase `lesson_transcripts` row):
+ *   TRANSCRIPT_LESSON_ID=1 npm run migrate:lesson1
  *
  * Safe to re-run: if a phrase already has `name` it is kept; weights are
  * recomputed from POS on every run (the canonical derivation).
@@ -18,9 +18,14 @@ import path from 'node:path';
 
 import {
   POS_WEIGHTS,
-  transcriptResponseSchema,
   type PartOfSpeech,
 } from '@ai-spanish/logic';
+import { transcriptResponseSchema } from '../../../packages/logic/src/schemas/phrase.js';
+
+import {
+  fetchLessonPhrasesJson,
+  upsertLessonPhrasesJson,
+} from './supabase-lesson-transcript.js';
 
 type LegacyWord = { word: string; type: string; weight?: number };
 
@@ -38,10 +43,7 @@ type LegacyPhrase = {
   Spanish: { grammar: string; answer: string; words: LegacyWord[] };
 };
 
-const DEFAULT_INPUT = path.resolve(
-  process.cwd(),
-  'apps/web/data/transcripts/lesson1.json',
-);
+const VALID_LESSON_IDS = new Set(['1', '2']);
 
 function slugify(input: string): string {
   return input
@@ -63,17 +65,9 @@ function assertKnownPos(type: string, context: string): PartOfSpeech {
   return type as PartOfSpeech;
 }
 
-async function main(): Promise<void> {
-  const inputPath = path.resolve(process.cwd(), process.argv[2] ?? DEFAULT_INPUT);
-  const raw = await fs.readFile(inputPath, 'utf8');
-  const parsed = JSON.parse(raw) as LegacyPhrase[];
-
-  if (!Array.isArray(parsed)) {
-    throw new Error(`Expected an array in ${inputPath}`);
-  }
-
+function migratePhraseRows(parsed: LegacyPhrase[]): Record<string, unknown>[] {
   const usedNames = new Set<string>();
-  const migrated = parsed.map((phrase, loopIndex) => {
+  return parsed.map((phrase, loopIndex) => {
     const pos = phrase.Spanish?.answer ?? `phrase-${loopIndex}`;
     let name =
       phrase.name ??
@@ -120,6 +114,38 @@ async function main(): Promise<void> {
     }
     return row;
   });
+}
+
+async function main(): Promise<void> {
+  const cliPath = process.argv[2]?.trim();
+  const lessonFromEnv = process.env.TRANSCRIPT_LESSON_ID?.trim();
+
+  let parsed: LegacyPhrase[];
+  let sink: 'file' | 'supabase';
+  let filePath = '';
+  let lessonId = '';
+
+  if (cliPath) {
+    filePath = path.resolve(process.cwd(), cliPath);
+    const raw = await fs.readFile(filePath, 'utf8');
+    parsed = JSON.parse(raw) as LegacyPhrase[];
+    sink = 'file';
+  } else if (lessonFromEnv && VALID_LESSON_IDS.has(lessonFromEnv)) {
+    lessonId = lessonFromEnv;
+    const rawJson = await fetchLessonPhrasesJson(lessonFromEnv);
+    parsed = rawJson as LegacyPhrase[];
+    sink = 'supabase';
+  } else {
+    throw new Error(
+      'Provide path/to/lesson.json as the first argument, or set TRANSCRIPT_LESSON_ID to 1 or 2 with NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.',
+    );
+  }
+
+  if (!Array.isArray(parsed)) {
+    throw new Error('Expected transcript phrases to be a JSON array');
+  }
+
+  const migrated = migratePhraseRows(parsed);
 
   const result = transcriptResponseSchema.safeParse(migrated);
   if (!result.success) {
@@ -127,10 +153,18 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const serialized = JSON.stringify(migrated, null, 2) + '\n';
-  await fs.writeFile(inputPath, serialized, 'utf8');
+  if (sink === 'file') {
+    const serialized = JSON.stringify(migrated, null, 2) + '\n';
+    await fs.writeFile(filePath, serialized, 'utf8');
+    console.log(
+      `[migrate-lesson-weights] ${migrated.length} phrases updated in ${filePath}`,
+    );
+    return;
+  }
+
+  await upsertLessonPhrasesJson(lessonId, migrated);
   console.log(
-    `[migrate-lesson-weights] ${migrated.length} phrases updated in ${inputPath}`,
+    `[migrate-lesson-weights] ${migrated.length} phrases updated in Supabase lesson_transcripts (${lessonId})`,
   );
 }
 

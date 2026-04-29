@@ -35,8 +35,13 @@ export interface ManifestEntry {
 /** On-disk cache: job id → content hash */
 export type HashCache = Record<string, string>;
 
+export type TranscriptCliSource =
+  | { source: 'file'; path: string }
+  | { source: 'supabase'; lessonId: string };
+
 export interface CliOptions {
-  inputPath: string;
+  /** Set when TTS needs a transcript; omitted for --upload-only / verify-only modes. */
+  transcriptSource: TranscriptCliSource | null;
   outDir: string;
   bucket: string | undefined;
   force: boolean;

@@ -21,7 +21,7 @@ import {
 } from '@ai-spanish/audio-verify';
 import { assertApiUser } from '@/lib/auth/assert-api-user';
 
-import { readTranscriptFile, resolveLessonIdForFiles } from '@/app/api/_lib/read-lesson-transcript';
+import { loadLessonTranscript, resolveLessonIdForFiles } from '@/app/api/_lib/read-lesson-transcript';
 
 export const maxDuration = 300;
 
@@ -130,7 +130,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   let phrases: Phrase[];
   try {
-    phrases = readTranscriptFile(lessonParam ?? '');
+    phrases = await loadLessonTranscript(lessonParam ?? '');
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return NextResponse.json({ ok: false, message: msg }, { status: 500 });

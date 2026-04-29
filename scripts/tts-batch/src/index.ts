@@ -8,7 +8,13 @@ import dotenv from 'dotenv';
 import { buildTtsJobs } from './parser.js';
 import { createJobQueue, withRetry } from './queue.js';
 import { synthesizeToBuffer } from './tts-client.js';
-import type { CliOptions, ManifestEntry, S3PathConfig, TtsJob } from './types.js';
+import type {
+  CliOptions,
+  ManifestEntry,
+  S3PathConfig,
+  TranscriptCliSource,
+  TtsJob,
+} from './types.js';
 import { uploadToS3 } from './uploader.js';
 import {
   audioFileExists,
@@ -28,6 +34,7 @@ import {
 } from './writer.js';
 import { runVerifyLoudness } from './verify-loudness.js';
 import { runVerifyStt } from './stt-verify.js';
+import { loadTranscriptFromSupabase } from './load-transcript-supabase.js';
 
 import type { Phrase } from '@ai-spanish/logic';
 
@@ -37,17 +44,59 @@ const PACKAGE_ROOT = path.resolve(__dirname, '..');
 dotenv.config({ path: path.join(PACKAGE_ROOT, '.env') });
 dotenv.config();
 
-const DEFAULT_INPUT = path.resolve(
-  process.cwd(),
-  'apps/web/data/transcripts/lesson1.json'
-);
+const VALID_TRANSCRIPT_LESSON_IDS = new Set(['1', '2']);
+
 const DEFAULT_OUT = path.resolve(process.cwd(), 'output');
+
+function resolveTranscriptSource(args: string[]): TranscriptCliSource {
+  let inputFromCli: string | undefined;
+  let transcriptLessonCli: string | undefined;
+
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (a === '--input' || a === '-i') {
+      inputFromCli = path.resolve(process.cwd(), args[++i] ?? '');
+    } else if (a === '--transcript-lesson') {
+      transcriptLessonCli = (args[++i] ?? '').trim();
+    }
+  }
+
+  const envInput = process.env.TRANSCRIPT_INPUT?.trim();
+  const filePath =
+    inputFromCli ??
+    (envInput ? path.resolve(process.cwd(), envInput) : undefined);
+
+  const dbLesson =
+    transcriptLessonCli ||
+    process.env.TRANSCRIPT_LESSON_ID?.trim() ||
+    undefined;
+
+  if (filePath && dbLesson) {
+    throw new Error(
+      'Use either a file transcript (--input / TRANSCRIPT_INPUT) or Supabase (--transcript-lesson / TRANSCRIPT_LESSON_ID), not both.',
+    );
+  }
+
+  if (filePath) {
+    return { source: 'file', path: filePath };
+  }
+
+  if (dbLesson) {
+    if (!VALID_TRANSCRIPT_LESSON_IDS.has(dbLesson)) {
+      throw new Error(
+        `--transcript-lesson / TRANSCRIPT_LESSON_ID must be one of: ${[...VALID_TRANSCRIPT_LESSON_IDS].join(', ')}`,
+      );
+    }
+    return { source: 'supabase', lessonId: dbLesson };
+  }
+
+  throw new Error(
+    'No transcript source: pass --input PATH, set TRANSCRIPT_INPUT, or use --transcript-lesson <id> (or TRANSCRIPT_LESSON_ID) with NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.',
+  );
+}
 
 function parseArgs(argv: string[]): CliOptions {
   const args = argv.slice(2);
-  let inputPath = process.env.TRANSCRIPT_INPUT
-    ? path.resolve(process.cwd(), process.env.TRANSCRIPT_INPUT)
-    : DEFAULT_INPUT;
   let outDir = DEFAULT_OUT;
   let bucket: string | undefined = process.env.S3_BUCKET_NAME;
   let force = false;
@@ -62,7 +111,9 @@ function parseArgs(argv: string[]): CliOptions {
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
     if (a === '--input' || a === '-i') {
-      inputPath = path.resolve(process.cwd(), args[++i] ?? '');
+      args[++i];
+    } else if (a === '--transcript-lesson') {
+      args[++i];
     } else if (a === '--out' || a === '-o') {
       outDir = path.resolve(process.cwd(), args[++i] ?? '');
     } else if (a === '--bucket' || a === '-b') {
@@ -93,8 +144,13 @@ function parseArgs(argv: string[]): CliOptions {
     }
   }
 
+  const transcriptSource =
+    uploadOnly || verifyStt || verifyLoudness
+      ? null
+      : resolveTranscriptSource(args);
+
   return {
-    inputPath,
+    transcriptSource,
     outDir,
     bucket,
     force,
@@ -117,13 +173,14 @@ function resolveS3PathConfig(opts: CliOptions): S3PathConfig {
 
 function printHelp(): void {
   console.log(`
-TTS batch — Deepgram TTS from lesson1.json
+TTS batch — Deepgram TTS from transcript JSON or Supabase
 
 Usage:
   npm run tts:batch -- [options]
 
 Options:
-  --input, -i     Path to transcript JSON (default: TRANSCRIPT_INPUT env or apps/web/data/transcripts/lesson1.json)
+  --input, -i        Path to transcript JSON (or set TRANSCRIPT_INPUT)
+  --transcript-lesson  Lesson id stored in Supabase (1 or 2); alternative to --input. Requires NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY (or set TRANSCRIPT_LESSON_ID instead of this flag)
   --out, -o       Output directory (default: ./output)
   --bucket, -b    S3 bucket name (default: S3_BUCKET_NAME env)
   --force         Regenerate all audio (ignore cache)
@@ -139,7 +196,7 @@ Options:
 Examples:
   npm run tts:batch -- --upload-only --bucket my-bucket
   npm run tts:batch -- --upload-only --out ./output --bucket my-bucket --lesson lesson1
-  npm run tts:batch -- --local-only --only-phrase 11 --out ./output --input apps/web/data/transcripts/lesson1.json
+  npm run tts:batch -- --local-only --only-phrase 11 --out ./output --transcript-lesson 1
 
 Environment:
   DEEPGRAM_API_KEY        Required unless --upload-only; required for --verify-stt (not for --verify-loudness alone)
@@ -148,7 +205,8 @@ Environment:
   AWS_* / S3_BUCKET_NAME  Required unless --local-only; required for --upload-only
   AUDIO_CONTENT_PREFIX    S3 key prefix (default: audio-content); single segment, e.g. audio-content
   S3_LESSON               Optional lesson segment if --lesson not passed
-  TRANSCRIPT_INPUT        Path to transcript JSON; overrides the built-in default (overridden by --input)
+  TRANSCRIPT_INPUT        Path to transcript JSON file when using --input
+  TRANSCRIPT_LESSON_ID    Load transcript from Supabase when no --input / TRANSCRIPT_INPUT (requires NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY)
 `);
 }
 
@@ -443,8 +501,18 @@ async function main(): Promise<void> {
   const region = process.env.AWS_REGION?.trim() || 'us-east-1';
   const s3Path = resolveS3PathConfig(opts);
 
-  console.log(`Reading transcript: ${path.resolve(opts.inputPath)}`);
-  const phrases = await loadTranscript(opts.inputPath);
+  if (!opts.transcriptSource) {
+    throw new Error('Missing transcript source (internal)');
+  }
+  const transcriptLabel =
+    opts.transcriptSource.source === 'file'
+      ? path.resolve(opts.transcriptSource.path)
+      : `Supabase lesson_id=${opts.transcriptSource.lessonId}`;
+  console.log(`Reading transcript: ${transcriptLabel}`);
+  const phrases =
+    opts.transcriptSource.source === 'file'
+      ? await loadTranscript(opts.transcriptSource.path)
+      : await loadTranscriptFromSupabase(opts.transcriptSource.lessonId);
   const jobs = buildTtsJobs(phrases);
   console.log(`Built ${jobs.length} TTS job(s)`);
 
