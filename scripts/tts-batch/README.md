@@ -18,7 +18,7 @@ Run commands from the **monorepo root**. Point **`--input`** at a transcript JSO
 ## Setup
 
 1. Install dependencies at the repo root: `npm install`
-2. Copy `.env.example` to `.env` in this directory and fill in values
+2. Copy **[`.env.scripts.example`](../../.env.scripts.example)** at the **monorepo root** to **`.env.scripts`** and fill in values used by this script (see [Environment variables](#environment-variables)).
 3. Invoke via the root script (recommended):
 
    ```bash
@@ -33,7 +33,7 @@ Run commands from the **monorepo root**. Point **`--input`** at a transcript JSO
 
 ## Three-step workflow (audio only → validate → upload)
 
-Run from the **monorepo root**. Configure `scripts/tts-batch/.env` (copy from `.env.example`) for API keys. For Supabase-backed transcripts, set `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and either **`TRANSCRIPT_LESSON_ID`** or **`--transcript-lesson`** instead of a local JSON path.
+Run from the **monorepo root**. Configure repo-root **`.env.scripts`** (copy from **[`.env.scripts.example`](../../.env.scripts.example)**) for API keys. For Supabase-backed transcripts, set `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and either **`TRANSCRIPT_LESSON_ID`** or **`--transcript-lesson`** instead of a local JSON path.
 
 ### 1. Generate audio from the transcript (no S3)
 
@@ -99,7 +99,7 @@ Use the same `--lesson` and prefix you intend for production so keys stay consis
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL (same as web app) when loading transcripts from the database |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server key for reading `lesson_transcripts` (never expose publicly) |
 
-Secrets belong in `.env` (gitignored). Never commit real keys.
+Secrets belong in repo-root **`.env.scripts`** (gitignored). Never commit real keys.
 
 ## CLI options
 

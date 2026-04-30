@@ -10,11 +10,15 @@
  * or (Supabase `lesson_transcripts` row):
  *   TRANSCRIPT_LESSON_ID=1 npm run migrate:lesson1
  *
+ * Supabase URL and service role may be set in repo-root `.env.scripts` (see `.env.scripts.example`).
+ *
  * Safe to re-run: if a phrase already has `name` it is kept; weights are
  * recomputed from POS on every run (the canonical derivation).
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
+
+import { loadScriptsEnv } from '../../load-scripts-env.js';
 
 import {
   isTranscriptLessonIdSyntaxValid,
@@ -27,6 +31,8 @@ import {
   fetchLessonPhrasesJson,
   upsertLessonPhrasesJson,
 } from './supabase-lesson-transcript.js';
+
+loadScriptsEnv();
 
 type LegacyWord = { word: string; type: string; weight?: number };
 

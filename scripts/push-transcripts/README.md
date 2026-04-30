@@ -13,7 +13,7 @@ Run commands from the **monorepo root** (`ai-spanish/`). Paths are resolved rela
 ## Setup
 
 1. Install dependencies at the repo root: **`npm install`**
-2. Copy **[`.env.example`](.env.example)** to **`.env`** in this directory and set **`NEXT_PUBLIC_SUPABASE_URL`** and **`SUPABASE_SERVICE_ROLE_KEY`**. Repo **`.gitignore`** ignores **`.env`**.
+2. Copy **[`.env.scripts.example`](../../.env.scripts.example)** at the **monorepo root** to **`.env.scripts`** and set **`NEXT_PUBLIC_SUPABASE_URL`** and **`SUPABASE_SERVICE_ROLE_KEY`** (and any other vars you need). Root **`.gitignore`** ignores **`.env.scripts`**.
 3. Apply Supabase migrations so **`lesson_id`** matches your ids (see [`supabase/migrations/`](../../supabase/migrations/)).
 
 ## Security
@@ -30,7 +30,7 @@ Files are processed in numeric **`lessonId`** order.
 
 ## Workflow
 
-From the **monorepo root**, with **`.env`** configured or variables exported:
+From the **monorepo root**, with **`.env.scripts`** configured or variables exported:
 
 ```bash
 npm run push:transcripts
@@ -51,7 +51,7 @@ Each lesson logs **`Upserted lesson N (... phrases)`**. Existing **`lesson_id`**
 | **`NEXT_PUBLIC_SUPABASE_URL`** | **Required.** Supabase project URL. |
 | **`SUPABASE_SERVICE_ROLE_KEY`** | **Required.** Service role secret for **`lesson_transcripts`** writes. |
 
-Loaded from **`scripts/push-transcripts/.env`** (see **`dotenv`** in **`src/index.ts`**) or your shell.
+Loaded from repo-root **`.env.scripts`** via **`scripts/load-scripts-env.ts`**, or set variables in your shell.
 
 ## Typecheck
 

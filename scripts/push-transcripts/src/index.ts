@@ -12,7 +12,7 @@
  * Same credentials pattern as [`migrate-lesson-weights`](../migrate-lesson-weights/src/supabase-lesson-transcript.ts) and
  * [`tts-batch`](../tts-batch/). Does **not** call the Next.js API.
  *
- * Optional: copy `.env.example` to `.env` in this package (see [README](../README.md)).
+ * Configure secrets in repo-root **`.env.scripts`** (copy from **`.env.scripts.example`**).
  *
  * ```bash
  * npm run push:transcripts
@@ -22,21 +22,19 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import dotenv from 'dotenv';
-
 import {
   isTranscriptLessonIdSyntaxValid,
   transcriptResponseSchema,
 } from '@ai-spanish/logic';
 
+import { loadScriptsEnv } from '../../load-scripts-env.js';
+
 import { upsertLessonPhrasesJson } from './supabase-lesson-transcript.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const PACKAGE_ROOT = path.resolve(__dirname, '..');
-const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
+loadScriptsEnv();
 
-dotenv.config({ path: path.join(PACKAGE_ROOT, '.env') });
-dotenv.config();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
 
 const TRANSCRIPTS_DIR = path.join(REPO_ROOT, 'apps/web/data/transcripts');
 

@@ -28,6 +28,9 @@ ios/
 .env.production.local
 !.env.example
 
+.env.scripts
+!.env.scripts.example
+
 # Logs
 npm-debug.log*
 yarn-debug.log*

@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-import dotenv from 'dotenv';
+import { loadScriptsEnv } from '../../load-scripts-env.js';
 
 import { buildTtsJobs } from './parser.js';
 import { createJobQueue, withRetry } from './queue.js';
@@ -38,11 +37,7 @@ import { loadTranscriptFromSupabase } from './load-transcript-supabase.js';
 
 import { isTranscriptLessonIdSyntaxValid, type Phrase } from '@ai-spanish/logic';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const PACKAGE_ROOT = path.resolve(__dirname, '..');
-
-dotenv.config({ path: path.join(PACKAGE_ROOT, '.env') });
-dotenv.config();
+loadScriptsEnv();
 
 const DEFAULT_OUT = path.resolve(process.cwd(), 'output');
 
