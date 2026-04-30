@@ -22,6 +22,16 @@ export function phraseClipJobId(phraseName: string, segment: PhraseSynthSegment)
 }
 
 /**
+ * Parses clip id suffix into a synth segment (`second-intro` before `first-intro`).
+ */
+export function phraseSynthSegmentFromClipId(id: string): PhraseSynthSegment | null {
+  if (id.endsWith('-second-intro')) return 'second-intro';
+  if (id.endsWith('-first-intro')) return 'first-intro';
+  if (id.endsWith('-answer')) return 'answer';
+  return null;
+}
+
+/**
  * Returns duplicate phrase names (lower-trimmed) if any; empty array when all unique.
  */
 export function findDuplicatePhraseNames(phrases: readonly { name: string }[]): string[] {

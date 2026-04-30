@@ -46,6 +46,7 @@ export {
   languageForPhraseAudioSegment,
   mergePhraseSegmentText,
   phraseClipJobId,
+  phraseSynthSegmentFromClipId,
   type PhraseSynthSegment,
 } from './phraseAudioSegments';
 export { usePhraseDisplay } from './usePhraseDisplay';

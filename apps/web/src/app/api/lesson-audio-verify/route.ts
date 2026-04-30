@@ -10,9 +10,12 @@ import {
   buildPhraseAudioClipSpecs,
   buildS3AudioKey,
   findDuplicatePhraseNames,
+  isPhraseSynthSegment,
   normalizeAudioContentPrefix,
   normalizeLessonSegment,
+  phraseSynthSegmentFromClipId,
   s3LessonFolderForTranscriptLessonId,
+  type PhraseSynthSegment,
 } from '@ai-spanish/logic';
 import {
   analyzeLoudnessFile,
@@ -77,9 +80,10 @@ function rollupPhraseVolumeDb(clips: ClipVerifyResult[]): Pick<
 
 /**
  * POST /api/lesson-audio-verify
- * Body JSON: `{ lesson?: string, phraseIndex?: number, clipExpectedTextOverrides?: Record<string,string> }`.
+ * Body JSON: `{ lesson?, phraseIndex?, clipExpectedTextOverrides?, segments? }`.
  * Omit `phraseIndex` to verify every clip in the lesson; set `phraseIndex` to verify clips for one phrase row (progressive Sheets flow).
  * Optional `clipExpectedTextOverrides` maps clip id (`{phrase}-{segment}`) to expected STT text (e.g. spreadsheet cells).
+ * Optional `segments` (`first-intro` | `second-intro` | `answer`) requires `phraseIndex` and restricts verification to those clips only (Sheets Record single-segment).
  * Intended for **local** Next + ngrok (`ENABLE_LESSON_AUDIO_VERIFY=true`, ffmpeg + Deepgram env).
  */
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -109,6 +113,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   let lessonParam: string | undefined;
   let phraseIndexFilter: number | undefined;
   let clipExpectedTextOverrides: Record<string, string> | undefined;
+  let segmentsFilter: PhraseSynthSegment[] | undefined;
   if (
     bodyJson !== null &&
     typeof bodyJson === 'object' &&
@@ -140,6 +145,42 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         }
       }
     }
+    if ('segments' in o && o.segments !== null && o.segments !== undefined) {
+      const rawSeg = o.segments;
+      if (!Array.isArray(rawSeg)) {
+        return NextResponse.json(
+          { ok: false, message: 'segments must be an array of segment strings when provided' },
+          { status: 400 },
+        );
+      }
+      const parsed: PhraseSynthSegment[] = [];
+      for (const item of rawSeg) {
+        const s = typeof item === 'string' ? item.trim() : '';
+        if (!isPhraseSynthSegment(s)) {
+          return NextResponse.json(
+            {
+              ok: false,
+              message: `Invalid segment in segments: ${String(item)} (expected first-intro, second-intro, or answer)`,
+            },
+            { status: 400 },
+          );
+        }
+        parsed.push(s);
+      }
+      if (parsed.length > 0) {
+        segmentsFilter = [...new Set(parsed)];
+      }
+    }
+  }
+
+  if (segmentsFilter !== undefined && segmentsFilter.length > 0 && phraseIndexFilter === undefined) {
+    return NextResponse.json(
+      {
+        ok: false,
+        message: 'segments requires phraseIndex when verifying a subset of clips',
+      },
+      { status: 400 },
+    );
   }
 
   let phrases: Phrase[];
@@ -337,8 +378,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     Math.min(parseInt(process.env.LESSON_AUDIO_VERIFY_CONCURRENCY ?? '6', 10) || 6, 8),
   );
   const limit = pLimit(conc);
-  const specsToVerify =
+  let specsToVerify =
     phraseIndexFilter !== undefined ? specs.filter((s) => s.phraseIndex === phraseIndexFilter) : specs;
+  if (segmentsFilter !== undefined && segmentsFilter.length > 0) {
+    const allowed = new Set(segmentsFilter);
+    specsToVerify = specsToVerify.filter((s) => {
+      const seg = phraseSynthSegmentFromClipId(s.id);
+      return seg !== null && allowed.has(seg);
+    });
+  }
 
   const LESSON_AUDIO_VERIFY_LOG_PREFIX = '[ai-spanish/lesson-audio-verify]';
   const clipsNeededPerPhrase = new Map<number, number>();

@@ -134,6 +134,17 @@
         white-space: pre-wrap;
         word-break: break-word;
       }
+      .save-progress {
+        margin-top: 14px;
+        font-size: 12px;
+        line-height: 1.45;
+        color: #5f6368;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .save-progress.save-progress--hidden {
+        display: none;
+      }
     </style>
   </head>
   <body>
@@ -170,10 +181,10 @@
               type="button"
               class="preview-record"
               data-segment="first-intro"
-              aria-label="Record First Intro audio from cell text"
+              aria-label="Save First Intro audio from cell text"
               disabled
             >
-              Record
+              Save
             </button>
           </div>
         </div>
@@ -200,10 +211,10 @@
               type="button"
               class="preview-record"
               data-segment="second-intro"
-              aria-label="Record Second Intro audio from cell text"
+              aria-label="Save Second Intro audio from cell text"
               disabled
             >
-              Record
+              Save
             </button>
           </div>
         </div>
@@ -230,14 +241,20 @@
               type="button"
               class="preview-record"
               data-segment="answer"
-              aria-label="Record Answer audio from cell text"
+              aria-label="Save Answer audio from cell text"
               disabled
             >
-              Record
+              Save
             </button>
           </div>
         </div>
       </dl>
+      <div
+        id="saveProgressStatus"
+        class="save-progress save-progress--hidden"
+        aria-live="polite"
+        aria-atomic="true"
+      ></div>
     </section>
 
     <div id="authLoggedOutPanel">
@@ -268,13 +285,6 @@
 
     <div id="authLoggedInPanel" style="display: none">
       <div class="help">
-        Select a <strong>data row</strong> for phrase text and <strong>Play</strong> for clips from
-        <code>/api/audio</code>. Use <strong>Record</strong> to synthesize the cell text (TTS),
-        upload to S3, verify loudness + STT, then save the segment to the transcript on success (needs
-        local Next + tunnel;
-        <code>ENABLE_LESSON_AUDIO_SYNTHESIZE</code>,
-        <code>ENABLE_LESSON_AUDIO_VERIFY</code>,
-        Supabase service role). Session refreshes automatically before the access token expires.
         Use <strong>Verify audio</strong> to check clips against web audio (needs local Next + tunnel; see README).
       </div>
       <div class="auth-actions">
@@ -305,7 +315,7 @@
       var playSessionBusy = false;
       var recordSessionBusy = false;
       var PLAY_LABEL = "Play";
-      var RECORD_LABEL = "Record";
+      var RECORD_LABEL = "Save";
       var silentRefreshPending = false;
       var NO_AUDIO_HEARD = "No audio";
 
@@ -570,12 +580,22 @@
       }
 
       function finishRecordSession() {
+        hideSaveProgressPanel();
         recordSessionBusy = false;
         syncPlayButtonsState();
       }
 
+      function hideSaveProgressPanel() {
+        var el = document.getElementById("saveProgressStatus");
+        if (!el) {
+          return;
+        }
+        el.textContent = "";
+        el.classList.add("save-progress--hidden");
+      }
+
       function setRecordButtonLoading(btn) {
-        btn.textContent = "Recording…";
+        btn.textContent = "Saving…";
         btn.setAttribute("aria-busy", "true");
       }
 
@@ -731,92 +751,381 @@
         });
       }
 
-      function runRecordRound(btn, segment, phraseName, phraseIdx, round) {
-        var fi = lastPreviewData ? lastPreviewData.firstIntro : "";
-        var si = lastPreviewData ? lastPreviewData.secondIntro : "";
-        var an = lastPreviewData ? lastPreviewData.answer : "";
+      var SAVE_PROGRESS_STEPS = [
+        "Name check",
+        "Synthesize & upload",
+        "Loudness and transcribe check",
+        "Saving",
+      ];
+
+      /** @param {number} activeStepIndex */
+      function setSaveProgressActive(activeStepIndex) {
+        var el = document.getElementById("saveProgressStatus");
+        if (!el) {
+          return;
+        }
+        el.classList.remove("save-progress--hidden");
+        var lines = ["Saving…"];
+        var i;
+        for (i = 0; i < SAVE_PROGRESS_STEPS.length; i++) {
+          if (i < activeStepIndex) {
+            lines.push("✓ " + SAVE_PROGRESS_STEPS[i]);
+          } else if (i === activeStepIndex) {
+            lines.push("→ " + SAVE_PROGRESS_STEPS[i] + "…");
+          } else {
+            lines.push("  " + SAVE_PROGRESS_STEPS[i]);
+          }
+        }
+        el.textContent = lines.join("\n");
+      }
+
+      function segmentTextBodyForSave(segment, fi, si, an) {
+        var f = fi != null ? String(fi) : "";
+        var s = si != null ? String(si) : "";
+        var a = an != null ? String(an) : "";
+        if (segment === "second-intro") {
+          return s;
+        }
+        if (segment === "answer") {
+          return a;
+        }
+        return f;
+      }
+
+      /**
+       * @param {unknown} res
+       * @param {number} authRound
+       * @param {function(): void} retryFn
+       */
+      function saveFlowMaybeRefreshAuth(res, authRound, retryFn) {
+        if (
+          res &&
+          /** @type {{ unauthorized?: unknown }} */ (res).unauthorized &&
+          refreshToken &&
+          authRound === 0
+        ) {
+          google.script.run
+            .withSuccessHandler(function (ref) {
+              if (ref && ref.ok) {
+                setSessionFromRefreshResult(ref);
+                retryFn();
+              } else {
+                clearSession("Session expired. Sign in again.");
+                finishRecordSession();
+              }
+            })
+            .withFailureHandler(function () {
+              clearSession("Session expired. Sign in again.");
+              finishRecordSession();
+            })
+            .refreshSupabaseAccessToken(refreshToken);
+          return true;
+        }
+        return false;
+      }
+
+      function refreshPreviewAfterSave() {
         google.script.run
-          .withSuccessHandler(function (res) {
-            if (res && res.unauthorized && refreshToken && round === 0) {
-              google.script.run
-                .withSuccessHandler(function (ref) {
-                  if (ref && ref.ok) {
-                    setSessionFromRefreshResult(ref);
-                    runRecordRound(btn, segment, phraseName, phraseIdx, 1);
-                  } else {
-                    clearSession("Session expired. Sign in again.");
-                    finishRecordSession();
-                  }
-                })
-                .withFailureHandler(function () {
-                  clearSession("Session expired. Sign in again.");
-                  finishRecordSession();
-                })
-                .refreshSupabaseAccessToken(refreshToken);
-              return;
-            }
+          .withSuccessHandler(displayPreview)
+          .withFailureHandler(function () {})
+          .getActiveRowPhrasePreview();
+      }
 
-            finishRecordSession();
+      /**
+       * @param {string} phase focus | preflight | synth | verify | merge
+       * @param {unknown[]=} clipsForMergeFailure
+       */
+      function runSaveChain(
+        btn,
+        segment,
+        phraseName,
+        phraseIdx,
+        authRound,
+        phase,
+        fi,
+        si,
+        an,
+        clipsForMergeFailure
+      ) {
+        var textBody = segmentTextBodyForSave(segment, fi, si, an);
+        var nameTrim =
+          typeof phraseName === "string" ? phraseName.trim() : "";
 
-            if (res && res.verifyDisabled) {
-              clearVerificationHeardHints();
+        if (phase === "focus") {
+          setSaveProgressActive(0);
+          google.script.run
+            .withSuccessHandler(function () {
+              runSaveChain(
+                btn,
+                segment,
+                phraseName,
+                phraseIdx,
+                authRound,
+                "preflight",
+                fi,
+                si,
+                an,
+                clipsForMergeFailure
+              );
+            })
+            .withFailureHandler(function (err) {
+              finishRecordSession();
+              setStatus(err.message || String(err), "err");
+            })
+            .focusLessonRowForPhraseIndex(phraseDirectory, phraseIdx);
+          return;
+        }
+
+        if (phase === "preflight") {
+          setSaveProgressActive(0);
+          google.script.run
+            .withSuccessHandler(function (res) {
+              if (
+                saveFlowMaybeRefreshAuth(res, authRound, function () {
+                  runSaveChain(
+                    btn,
+                    segment,
+                    phraseName,
+                    phraseIdx,
+                    1,
+                    "preflight",
+                    fi,
+                    si,
+                    an,
+                    clipsForMergeFailure
+                  );
+                })
+              ) {
+                return;
+              }
+              if (!res || res.ok !== true) {
+                finishRecordSession();
+                clearVerificationHeardHints();
+                setStatus((res && res.message) || "Preflight failed.", "err");
+                refreshPreviewAfterSave();
+                return;
+              }
+              runSaveChain(
+                btn,
+                segment,
+                phraseName,
+                phraseIdx,
+                authRound,
+                "synth",
+                fi,
+                si,
+                an,
+                clipsForMergeFailure
+              );
+            })
+            .withFailureHandler(function (err) {
+              finishRecordSession();
+              setStatus(err.message || String(err), "err");
+            })
+            .recordPhraseSavePreflight(sessionAccessToken, transcriptLessonId);
+          return;
+        }
+
+        if (phase === "synth") {
+          setSaveProgressActive(1);
+          google.script.run
+            .withSuccessHandler(function (res) {
+              if (
+                saveFlowMaybeRefreshAuth(res, authRound, function () {
+                  runSaveChain(
+                    btn,
+                    segment,
+                    phraseName,
+                    phraseIdx,
+                    1,
+                    "synth",
+                    fi,
+                    si,
+                    an,
+                    clipsForMergeFailure
+                  );
+                })
+              ) {
+                return;
+              }
+              if (res && res.synthDisabled) {
+                finishRecordSession();
+                clearVerificationHeardHints();
+                setStatus(
+                  res.message ||
+                    "Synthesis not enabled (ENABLE_LESSON_AUDIO_SYNTHESIZE).",
+                  "err"
+                );
+                refreshPreviewAfterSave();
+                return;
+              }
+              if (!res || res.ok !== true) {
+                finishRecordSession();
+                clearVerificationHeardHints();
+                setStatus((res && res.message) || "Synthesis failed.", "err");
+                refreshPreviewAfterSave();
+                return;
+              }
+              runSaveChain(
+                btn,
+                segment,
+                phraseName,
+                phraseIdx,
+                authRound,
+                "verify",
+                fi,
+                si,
+                an,
+                clipsForMergeFailure
+              );
+            })
+            .withFailureHandler(function (err) {
+              finishRecordSession();
+              setStatus(err.message || String(err), "err");
+            })
+            .lessonAudioSynthesize(
+              sessionAccessToken,
+              transcriptLessonId,
+              nameTrim,
+              segment,
+              textBody
+            );
+          return;
+        }
+
+        if (phase === "verify") {
+          setSaveProgressActive(2);
+          /** @type {Record<string, string>} */
+          var overrides = {};
+          overrides[nameTrim + "-" + segment] = textBody;
+          google.script.run
+            .withSuccessHandler(function (res) {
+              if (
+                saveFlowMaybeRefreshAuth(res, authRound, function () {
+                  runSaveChain(
+                    btn,
+                    segment,
+                    phraseName,
+                    phraseIdx,
+                    1,
+                    "verify",
+                    fi,
+                    si,
+                    an,
+                    clipsForMergeFailure
+                  );
+                })
+              ) {
+                return;
+              }
+              if (res && res.verifyDisabled) {
+                finishRecordSession();
+                clearVerificationHeardHints();
+                setStatus(
+                  res.message ||
+                    "Verification not enabled on server (ENABLE_LESSON_AUDIO_VERIFY).",
+                  "err"
+                );
+                refreshPreviewAfterSave();
+                return;
+              }
+              if (!res || res.ok !== true) {
+                finishRecordSession();
+                clearVerificationHeardHints();
+                setStatus((res && res.message) || "Verification failed.", "err");
+                refreshPreviewAfterSave();
+                return;
+              }
+              /** @type {{ verified?: unknown, clips?: unknown[], message?: string }} */
+              var vr = res;
+              if (vr.verified === true) {
+                runSaveChain(
+                  btn,
+                  segment,
+                  phraseName,
+                  phraseIdx,
+                  authRound,
+                  "merge",
+                  fi,
+                  si,
+                  an,
+                  vr.clips || []
+                );
+                return;
+              }
+              finishRecordSession();
+              applyVerificationHeardHints(vr.clips || []);
               setStatus(
-                res.message ||
-                  "Verification not enabled on server (ENABLE_LESSON_AUDIO_VERIFY).",
+                vr.message || "Saved; clip failed verification.",
                 "err"
               );
-              return;
-            }
-            if (res && res.synthDisabled) {
-              clearVerificationHeardHints();
-              setStatus(
-                res.message ||
-                  "Synthesis not enabled (ENABLE_LESSON_AUDIO_SYNTHESIZE).",
-                "err"
-              );
-              return;
-            }
+              refreshPreviewAfterSave();
+            })
+            .withFailureHandler(function (err) {
+              finishRecordSession();
+              setStatus(err.message || String(err), "err");
+            })
+            .verifyLessonAudioPhrase(
+              sessionAccessToken,
+              transcriptLessonId,
+              phraseDirectory,
+              phraseIdx,
+              overrides,
+              [segment]
+            );
+          return;
+        }
 
-            if (res && res.ok && res.verified && res.mergeSaved) {
+        if (phase === "merge") {
+          setSaveProgressActive(3);
+          var clipsHint =
+            clipsForMergeFailure instanceof Array ? clipsForMergeFailure : [];
+          google.script.run
+            .withSuccessHandler(function (res) {
+              if (
+                saveFlowMaybeRefreshAuth(res, authRound, function () {
+                  runSaveChain(
+                    btn,
+                    segment,
+                    phraseName,
+                    phraseIdx,
+                    1,
+                    "merge",
+                    fi,
+                    si,
+                    an,
+                    clipsHint
+                  );
+                })
+              ) {
+                return;
+              }
+              finishRecordSession();
+              if (!res || res.ok !== true) {
+                applyVerificationHeardHints(clipsHint);
+                setStatus(
+                  (res && res.message) || "Verified but transcript merge failed.",
+                  "err"
+                );
+                refreshPreviewAfterSave();
+                return;
+              }
               applyVerificationHeardHints([]);
-              setStatus("Recorded, verified, and transcript saved.", "ok");
-            } else if (res && res.ok && res.verified && !res.mergeSaved) {
-              applyVerificationHeardHints(res.clips || []);
-              setStatus(
-                res.message || "Verified but transcript merge failed.",
-                "err"
-              );
-            } else if (res && res.ok && !res.verified) {
-              applyVerificationHeardHints(res.clips || []);
-              setStatus(
-                res.message || "Recorded; some clips failed verification.",
-                "err"
-              );
-            } else {
-              applyVerificationHeardHints(res.clips || []);
-              setStatus((res && res.message) || "Record failed.", "err");
-            }
-
-            google.script.run
-              .withSuccessHandler(displayPreview)
-              .withFailureHandler(function () {})
-              .getActiveRowPhrasePreview();
-          })
-          .withFailureHandler(function (err) {
-            finishRecordSession();
-            setStatus(err.message || String(err), "err");
-          })
-          .recordPhraseSegment(
-            sessionAccessToken,
-            transcriptLessonId,
-            phraseDirectory,
-            phraseIdx,
-            phraseName,
-            segment,
-            fi,
-            si,
-            an
-          );
+              setStatus("Saved, verified, and transcript saved.", "ok");
+              refreshPreviewAfterSave();
+            })
+            .withFailureHandler(function (err) {
+              finishRecordSession();
+              setStatus(err.message || String(err), "err");
+            })
+            .mergeTranscriptSegment(
+              sessionAccessToken,
+              transcriptLessonId,
+              phraseIdx,
+              segment,
+              textBody
+            );
+        }
       }
 
       function recordSegment(segment, btn) {
@@ -832,10 +1141,13 @@
           return;
         }
         if (!canRecordSegment(segment)) {
-          setStatus("Add non-empty text to this column before recording.", "err");
+          setStatus("Add non-empty text to this column before saving.", "err");
           return;
         }
         var phraseName = lastPreviewData.phraseName;
+        var fi = lastPreviewData ? lastPreviewData.firstIntro : "";
+        var si = lastPreviewData ? lastPreviewData.secondIntro : "";
+        var an = lastPreviewData ? lastPreviewData.answer : "";
 
         recordSessionBusy = true;
         var pb = document.querySelectorAll(".preview-play");
@@ -855,7 +1167,7 @@
             finishRecordSession();
             return;
           }
-          runRecordRound(btn, segment, phraseName, phraseIdx, 0);
+          runSaveChain(btn, segment, phraseName, phraseIdx, 0, "focus", fi, si, an, []);
         });
       }
 

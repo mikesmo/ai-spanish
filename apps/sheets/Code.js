@@ -693,11 +693,49 @@ function applyLessonVerificationToSheet(phrasesPayload, phraseDirectory) {
 }
 
 /**
+ * Writes Max/Avg volume + Heard for one verified clip (partial phrase verify).
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet
+ * @param {number} rowNum 1-based
+ * @param {unknown} clip
+ */
+function applySingleClipVerificationToSheetCells(sheet, rowNum, clip) {
+  if (clip === null || typeof clip !== "object") {
+    return;
+  }
+  /** @type {{ id?: unknown, ok?: unknown, transcript?: unknown, maxDb?: unknown, meanDb?: unknown }} */
+  var row = clip;
+  var id = typeof row.id === "string" ? row.id : "";
+  var mx = row.maxDb;
+  var mn = row.meanDb;
+  var maxVal = typeof mx === "number" && !isNaN(mx) ? mx : "";
+  var meanVal = typeof mn === "number" && !isNaN(mn) ? mn : "";
+  var heard = "";
+  if (row.ok !== true) {
+    var tr = typeof row.transcript === "string" ? row.transcript.trim() : "";
+    heard = tr.length > 0 ? tr : "No audio";
+  }
+  if (id.endsWith("-first-intro")) {
+    sheet.getRange(rowNum, COL_FIRST_INTRO_MAX_VOLUME).setValue(maxVal);
+    sheet.getRange(rowNum, COL_FIRST_INTRO_AVG_VOLUME).setValue(meanVal);
+    sheet.getRange(rowNum, COL_FIRST_INTRO_HEARD).setValue(heard);
+  } else if (id.endsWith("-second-intro")) {
+    sheet.getRange(rowNum, COL_SECOND_INTRO_MAX_VOLUME).setValue(maxVal);
+    sheet.getRange(rowNum, COL_SECOND_INTRO_AVG_VOLUME).setValue(meanVal);
+    sheet.getRange(rowNum, COL_SECOND_INTRO_HEARD).setValue(heard);
+  } else if (id.endsWith("-answer")) {
+    sheet.getRange(rowNum, COL_ANSWER_MAX_VOLUME).setValue(maxVal);
+    sheet.getRange(rowNum, COL_ANSWER_AVG_VOLUME).setValue(meanVal);
+    sheet.getRange(rowNum, COL_ANSWER_HEARD).setValue(heard);
+  }
+}
+
+/**
  * Updates one spreadsheet row from a single `phrases[n]` payload entry.
  * @param {unknown} onePhrase
  * @param {{ index: number }[]} phraseDirectory
+ * @param {boolean=} partialApply When true, only update volume/heard cells for clips present; skip Verified and row fill.
  */
-function applySinglePhraseVerificationToSheet(onePhrase, phraseDirectory) {
+function applySinglePhraseVerificationToSheet(onePhrase, phraseDirectory, partialApply) {
   if (!Array.isArray(phraseDirectory) || phraseDirectory.length === 0) {
     return;
   }
@@ -734,6 +772,14 @@ function applySinglePhraseVerificationToSheet(onePhrase, phraseDirectory) {
       ? /** @type {{ clips?: unknown }} */ (onePhrase)
       : null;
   var clipsArr = op && op.clips && op.clips instanceof Array ? op.clips : [];
+  if (partialApply === true) {
+    var sheetPart = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    var idxClip;
+    for (idxClip = 0; idxClip < clipsArr.length; idxClip++) {
+      applySingleClipVerificationToSheetCells(sheetPart, rowNum, clipsArr[idxClip]);
+    }
+    return;
+  }
   var volSix = volumeSixPackFromPhraseClips(clipsArr);
   sheet.getRange(rowNum, COL_FIRST_INTRO_MAX_VOLUME).setValue(volSix[0]);
   sheet.getRange(rowNum, COL_FIRST_INTRO_AVG_VOLUME).setValue(volSix[1]);
@@ -1002,6 +1048,79 @@ function mergeTranscriptSegment(accessToken, transcriptLessonId, phraseIndex, se
 }
 
 /**
+ * Activates the spreadsheet row for the given transcript phrase index (sidebar Save flow).
+ * @param {{ index: number }[]} phraseDirectory
+ * @param {number} phraseIndex
+ */
+function focusLessonRowForPhraseIndex(phraseDirectory, phraseIndex) {
+  try {
+    if (!Array.isArray(phraseDirectory)) {
+      return;
+    }
+    var pi =
+      typeof phraseIndex === "number" && !isNaN(phraseIndex)
+        ? Math.floor(phraseIndex)
+        : parseInt(String(phraseIndex), 10);
+    if (isNaN(pi)) {
+      return;
+    }
+    var focusRowRecord = findLessonRowNumForPhraseIndex(phraseDirectory, pi);
+    if (focusRowRecord !== null) {
+      activatePhraseLessonRow(focusRowRecord);
+    }
+  } catch (ignoreFocus) {}
+}
+
+/**
+ * Loads transcript JSON and ensures there are no duplicate phrase names (before synthesis).
+ * @param {string} accessToken
+ * @param {string} transcriptLessonId
+ * @returns {{ ok: boolean, message?: string, unauthorized?: boolean }}
+ */
+function recordPhraseSavePreflight(accessToken, transcriptLessonId) {
+  try {
+    var token = typeof accessToken === "string" ? accessToken.trim() : "";
+    if (!token) {
+      return { ok: false, message: "Not signed in." };
+    }
+    var lessonId =
+      typeof transcriptLessonId === "string" && transcriptLessonId
+        ? transcriptLessonId
+        : DEFAULT_TRANSCRIPT_LESSON_ID;
+    var tr = fetchTranscriptPhrasesJson(token, lessonId);
+    if (!tr || tr.ok !== true) {
+      /** @type {{ ok?: boolean, message?: string, unauthorized?: boolean }} */
+      var badTr = tr || { ok: false };
+      return {
+        ok: false,
+        message:
+          typeof badTr.message === "string"
+            ? badTr.message
+            : "Could not load transcript.",
+        unauthorized: badTr.unauthorized === true,
+      };
+    }
+    var phrasesArr = tr.phrases instanceof Array ? tr.phrases : [];
+    var dupKeys = duplicatePhraseNameKeys(phrasesArr);
+    if (dupKeys.length > 0) {
+      return {
+        ok: false,
+        message:
+          "Duplicate phrase names in lesson transcript (fix in DB): " +
+          dupKeys.join(", "),
+      };
+    }
+    return { ok: true };
+  } catch (ePre) {
+    return {
+      ok: false,
+      message:
+        typeof ePre.message === "string" ? ePre.message : String(ePre),
+    };
+  }
+}
+
+/**
  * Record flow: duplicate-name check → POST synthesize → verify with sheet overrides → merge segment if verified.
  * @param {string} firstIntro
  * @param {string} secondIntro
@@ -1037,7 +1156,7 @@ function recordPhraseSegment(
     var name = typeof phraseName === "string" ? phraseName.trim() : "";
     var seg = typeof segment === "string" ? segment.trim() : "";
     if (seg !== "first-intro" && seg !== "second-intro" && seg !== "answer") {
-      return { ok: false, message: "Invalid segment for recording." };
+      return { ok: false, message: "Invalid segment for save." };
     }
     var fi = firstIntro != null ? String(firstIntro) : "";
     var si = secondIntro != null ? String(secondIntro) : "";
@@ -1061,27 +1180,17 @@ function recordPhraseSegment(
       activatePhraseLessonRow(focusRowRecord);
     }
 
-    var tr = fetchTranscriptPhrasesJson(token, transcriptLessonId);
-    if (!tr || tr.ok !== true) {
+    var pre = recordPhraseSavePreflight(token, transcriptLessonId);
+    if (!pre || pre.ok !== true) {
       /** @type {{ ok?: boolean, message?: string, unauthorized?: boolean }} */
-      var badTr = tr || { ok: false };
+      var badPre = pre || { ok: false };
       return {
         ok: false,
         message:
-          typeof badTr.message === "string"
-            ? badTr.message
+          typeof badPre.message === "string"
+            ? badPre.message
             : "Could not load transcript.",
-        unauthorized: badTr.unauthorized === true,
-      };
-    }
-    var phrasesArr = tr.phrases instanceof Array ? tr.phrases : [];
-    var dupKeys = duplicatePhraseNameKeys(phrasesArr);
-    if (dupKeys.length > 0) {
-      return {
-        ok: false,
-        message:
-          "Duplicate phrase names in lesson transcript (fix in DB): " +
-          dupKeys.join(", "),
+        unauthorized: badPre.unauthorized === true,
       };
     }
 
@@ -1102,16 +1211,15 @@ function recordPhraseSegment(
 
     /** @type {Record<string, string>} */
     var overrides = {};
-    overrides[name + "-first-intro"] = fi;
-    overrides[name + "-second-intro"] = si;
-    overrides[name + "-answer"] = ans;
+    overrides[name + "-" + seg] = textBody;
 
     var vr = verifyLessonAudioPhrase(
       token,
       transcriptLessonId,
       phraseDirectory,
       pi,
-      overrides
+      overrides,
+      [seg]
     );
     if (!vr || vr.ok !== true) {
       /** @type {{ ok?: boolean, message?: string, verifyDisabled?: boolean, unauthorized?: boolean }} */
@@ -1175,9 +1283,17 @@ function recordPhraseSegment(
  * @param {{ name: string, index: number }[]} phraseDirectory
  * @param {number} phraseIndex transcript canonical index (`Phrase.index`)
  * @param {Record<string, string>=} clipExpectedTextOverrides optional clip id → expected STT text (sheet cells)
+ * @param {string[]=} partialSegments when non-empty, verify only these segments (`first-intro`, etc.) and partial sheet apply.
  * @returns {{ ok: boolean, verified?: boolean, clips?: unknown[], message?: string, verifyDisabled?: boolean, summary?: unknown, unauthorized?: boolean }}
  */
-function verifyLessonAudioPhrase(accessToken, transcriptLessonId, phraseDirectory, phraseIndex, clipExpectedTextOverrides) {
+function verifyLessonAudioPhrase(
+  accessToken,
+  transcriptLessonId,
+  phraseDirectory,
+  phraseIndex,
+  clipExpectedTextOverrides,
+  partialSegments
+) {
   try {
     var token = typeof accessToken === "string" ? accessToken.trim() : "";
     if (!token) {
@@ -1209,8 +1325,11 @@ function verifyLessonAudioPhrase(accessToken, transcriptLessonId, phraseDirector
         ? transcriptLessonId
         : DEFAULT_TRANSCRIPT_LESSON_ID;
 
+    var partialApply =
+      partialSegments instanceof Array && partialSegments.length > 0;
+
     var url = cfg.webOrigin + "/api/lesson-audio-verify";
-    /** @type {{ lesson: string, phraseIndex: number, clipExpectedTextOverrides?: Record<string, string> }} */
+    /** @type {{ lesson: string, phraseIndex: number, clipExpectedTextOverrides?: Record<string, string>, segments?: string[] }} */
     var payloadVerify = {
       lesson: lessonId,
       phraseIndex: pi,
@@ -1221,6 +1340,9 @@ function verifyLessonAudioPhrase(accessToken, transcriptLessonId, phraseDirector
       typeof clipExpectedTextOverrides === "object"
     ) {
       payloadVerify.clipExpectedTextOverrides = clipExpectedTextOverrides;
+    }
+    if (partialApply) {
+      payloadVerify.segments = partialSegments;
     }
     var response = UrlFetchApp.fetch(url, {
       method: "post",
@@ -1283,7 +1405,7 @@ function verifyLessonAudioPhrase(accessToken, transcriptLessonId, phraseDirector
     if (phrasesPhrase.length >= 1) {
       /** @type {unknown} */
       var firstPg = phrasesPhrase[0];
-      applySinglePhraseVerificationToSheet(firstPg, phraseDirectory);
+      applySinglePhraseVerificationToSheet(firstPg, phraseDirectory, partialApply);
       var phraseVerifiedRow =
         firstPg !== null &&
         typeof firstPg === "object" &&
