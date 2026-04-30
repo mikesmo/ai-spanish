@@ -11,5 +11,5 @@
     "resolveJsonModule": true,
     "verbatimModuleSyntax": false
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "../lib/**/*.ts"]
 }

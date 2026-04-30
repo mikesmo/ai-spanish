@@ -30,7 +30,7 @@ function resolveRepoRoot(): string {
 
 /**
  * Loads monorepo-root `.env.scripts`, then cwd `.env` for any keys not set there.
- * Call once at process startup before reading `process.env` (shared by push-transcripts,
+ * Call once at process startup before reading `process.env` (shared by sync-transcripts,
  * tts-batch, migrate-lesson-weights).
  */
 export function loadScriptsEnv(): void {

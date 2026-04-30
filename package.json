@@ -17,7 +17,8 @@
     "typecheck": "turbo typecheck",
     "tts:batch": "tsx scripts/tts-batch/src/index.ts",
     "migrate:lesson1": "tsx scripts/migrate-lesson-weights/src/index.ts",
-    "push:transcripts": "tsx scripts/push-transcripts/src/index.ts"
+    "push:transcripts": "tsx scripts/sync-transcripts/src/index.ts",
+    "pull:transcripts": "tsx scripts/sync-transcripts/src/pull.ts"
   },
   "devDependencies": {
     "@types/react": "^18.3.12",

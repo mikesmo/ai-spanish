@@ -1,5 +1,5 @@
 {
-  "name": "@ai-spanish/push-transcripts",
+  "name": "@ai-spanish/sync-transcripts",
   "version": "1.0.0",
   "private": true,
   "scripts": {

@@ -20,7 +20,7 @@ Do **not** confuse this with **`apps/web/.env.local`** (Next.js) — that stays 
 | Directory | Purpose | Detailed docs |
 |-----------|---------|----------------|
 | **`tts-batch/`** | Batch Deepgram TTS: generate lesson audio clips, manifest, optional S3 upload, verification helpers. | [`tts-batch/README.md`](tts-batch/README.md) |
-| **`push-transcripts/`** | Upsert phrase decks from **`apps/web/data/transcripts/<id>.json`** into Supabase **`lesson_transcripts`** using the service role (no HTTP API). | [`push-transcripts/README.md`](push-transcripts/README.md) |
+| **`sync-transcripts/`** | **Push:** upsert into **`lesson_transcripts`** from default **`apps/web/data/transcripts/`**, or **`PUSH_TRANSCRIPTS_SOURCE_DIR`** / **`--source-dir`**, or one **`--file`**. **Pull:** **`npm run pull:transcripts`** → **`{base}/{id}.json`**. | [`sync-transcripts/README.md`](sync-transcripts/README.md) |
 | **`migrate-lesson-weights/`** | Idempotent normalization: stable phrase **`name`** slugs and per-word **`weight`** from **`POS_WEIGHTS`**; reads/writes JSON files or Supabase **`lesson_transcripts`** via **`TRANSCRIPT_LESSON_ID`**. No separate README — see **`src/index.ts`** header JSDoc and **`npm run migrate:lesson1`**. | _(inline docs)_ |
 
 ## Root npm shortcuts
@@ -30,6 +30,9 @@ From the repo root:
 ```bash
 npm run tts:batch -- --help
 npm run push:transcripts
+npm run push:transcripts -- --help
+npm run pull:transcripts
+npm run pull:transcripts -- 1
 npm run migrate:lesson1 -- path/to/lesson.json
 ```
 
@@ -37,6 +40,8 @@ Equivalent workspace entrypoints:
 
 ```bash
 npm run start --workspace=@ai-spanish/tts-batch -- --help
-npm run start --workspace=@ai-spanish/push-transcripts
+npm run start --workspace=@ai-spanish/sync-transcripts
+npm run push:transcripts -- --help
+npm run pull:transcripts -- --help
 npm run start --workspace=@ai-spanish/migrate-lesson-weights -- path/to/lesson.json
 ```

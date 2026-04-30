@@ -19,4 +19,4 @@ supabase db reset
 
 Do **not** hand-edit production schema in the dashboard only — keep DDL and seed data in versioned SQL here.
 
-Operational scripts (**`npm run push:transcripts`**, **`tts:batch`**, **`migrate:lesson1`**) load secrets from repo-root **`.env.scripts`**; copy **[`.env.scripts.example`](../.env.scripts.example)** to **`.env.scripts`** at the monorepo root (gitignored).
+Operational scripts (**`npm run push:transcripts`**, **`npm run pull:transcripts`**, **`tts:batch`**, **`migrate:lesson1`**) load secrets from repo-root **`.env.scripts`**; copy **[`.env.scripts.example`](../.env.scripts.example)** to **`.env.scripts`** at the monorepo root (gitignored).
