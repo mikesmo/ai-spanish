@@ -25,11 +25,36 @@ export const lessons: readonly LessonListEntry[] = [
 
 const lessonIds = new Set(lessons.map((l) => l.id));
 
+/** Matches `lesson_transcripts.lesson_id` check: positive integer string, no leading zeros. */
+const TRANSCRIPT_LESSON_ID_SYNTAX = /^[1-9][0-9]*$/;
+
+/**
+ * True when `lessonId` is allowed for stored transcripts (API + DB).
+ * Independent of catalog membership so new lessons can be uploaded before UI lists them.
+ */
+export function isTranscriptLessonIdSyntaxValid(lessonId: string): boolean {
+  return TRANSCRIPT_LESSON_ID_SYNTAX.test(lessonId);
+}
+
+/**
+ * Normalizes `?lesson=` query values for transcript routes.
+ * Empty or syntactically invalid values fall back to {@link DEFAULT_TRANSCRIPT_LESSON_ID}.
+ */
+export function resolveTranscriptLessonQueryParam(
+  raw: string | null | undefined,
+): string {
+  const s = raw?.trim() ?? '';
+  if (s === '' || !isTranscriptLessonIdSyntaxValid(s)) {
+    return DEFAULT_TRANSCRIPT_LESSON_ID;
+  }
+  return s;
+}
+
 export function getLessonTitle(lessonId: string): string {
   return lessons.find((l) => l.id === lessonId)?.title ?? `Lesson ${lessonId}`;
 }
 
-/** True when `lessonId` is a known transcript lesson (matches API whitelist). */
+/** True when `lessonId` is listed in {@link lessons} (in-app catalog / navigation). */
 export function isValidTranscriptLessonId(lessonId: string): boolean {
   return lessonIds.has(lessonId);
 }

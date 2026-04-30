@@ -17,6 +17,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 import {
+  isTranscriptLessonIdSyntaxValid,
   POS_WEIGHTS,
   type PartOfSpeech,
 } from '@ai-spanish/logic';
@@ -42,8 +43,6 @@ type LegacyPhrase = {
   };
   Spanish: { grammar: string; answer: string; words: LegacyWord[] };
 };
-
-const VALID_LESSON_IDS = new Set(['1', '2']);
 
 function slugify(input: string): string {
   return input
@@ -130,14 +129,14 @@ async function main(): Promise<void> {
     const raw = await fs.readFile(filePath, 'utf8');
     parsed = JSON.parse(raw) as LegacyPhrase[];
     sink = 'file';
-  } else if (lessonFromEnv && VALID_LESSON_IDS.has(lessonFromEnv)) {
+  } else if (lessonFromEnv && isTranscriptLessonIdSyntaxValid(lessonFromEnv)) {
     lessonId = lessonFromEnv;
     const rawJson = await fetchLessonPhrasesJson(lessonFromEnv);
     parsed = rawJson as LegacyPhrase[];
     sink = 'supabase';
   } else {
     throw new Error(
-      'Provide path/to/lesson.json as the first argument, or set TRANSCRIPT_LESSON_ID to 1 or 2 with NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.',
+      'Provide path/to/lesson.json as the first argument, or set TRANSCRIPT_LESSON_ID to a valid transcript lesson id (positive integer string, no leading zeros) with NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.',
     );
   }
 

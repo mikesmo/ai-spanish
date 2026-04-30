@@ -54,3 +54,4 @@ Thumbs.db
 .claude/
 output
 .cursor
+apps/web/data/transcripts

@@ -36,15 +36,13 @@ import { runVerifyLoudness } from './verify-loudness.js';
 import { runVerifyStt } from './stt-verify.js';
 import { loadTranscriptFromSupabase } from './load-transcript-supabase.js';
 
-import type { Phrase } from '@ai-spanish/logic';
+import { isTranscriptLessonIdSyntaxValid, type Phrase } from '@ai-spanish/logic';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ROOT = path.resolve(__dirname, '..');
 
 dotenv.config({ path: path.join(PACKAGE_ROOT, '.env') });
 dotenv.config();
-
-const VALID_TRANSCRIPT_LESSON_IDS = new Set(['1', '2']);
 
 const DEFAULT_OUT = path.resolve(process.cwd(), 'output');
 
@@ -82,9 +80,9 @@ function resolveTranscriptSource(args: string[]): TranscriptCliSource {
   }
 
   if (dbLesson) {
-    if (!VALID_TRANSCRIPT_LESSON_IDS.has(dbLesson)) {
+    if (!isTranscriptLessonIdSyntaxValid(dbLesson)) {
       throw new Error(
-        `--transcript-lesson / TRANSCRIPT_LESSON_ID must be one of: ${[...VALID_TRANSCRIPT_LESSON_IDS].join(', ')}`,
+        '--transcript-lesson / TRANSCRIPT_LESSON_ID must be a positive integer string without leading zeros (e.g. 1, 12).',
       );
     }
     return { source: 'supabase', lessonId: dbLesson };

@@ -67,11 +67,13 @@ If `DEEPGRAM_ENV=development` is set, `GET /api/authenticate` skips Supabase and
 
 ## Modifying lesson content
 
-Lesson phrases live in **Supabase** (`public.lesson_transcripts`, column `phrases` JSON). Authenticated clients load them through **`GET /api/transcript?lesson=1`** (see [`src/app/api/transcript/route.ts`](src/app/api/transcript/route.ts)).
+Lesson phrases live in **Supabase** (`public.lesson_transcripts`, column `phrases` JSON). `lesson_id` is a **positive decimal string without leading zeros** (`1`, `2`, `12`, …). Authenticated clients load them through **`GET /api/transcript?lesson=1`** (see [`src/app/api/transcript/route.ts`](src/app/api/transcript/route.ts)).
 
 To update content:
 
-- Call **`PUT` or `PATCH /api/transcript?lesson=1`** with a JSON body matching **`TranscriptResponse`** (same shape as `GET`). Requires **`SUPABASE_SERVICE_ROLE_KEY`** on the server alongside **`NEXT_PUBLIC_SUPABASE_URL`**.
+- Call **`PUT` or `PATCH /api/transcript?lesson=<id>`** with a JSON body matching **`TranscriptResponse`** (same shape as `GET`). Requires **`SUPABASE_SERVICE_ROLE_KEY`** on the server alongside **`NEXT_PUBLIC_SUPABASE_URL`**. **`PUT`** upserts: existing ids update in place; **new ids insert a new row** once migrations allowing extended ids have been applied (see [`supabase/migrations/`](../../supabase/migrations/)).
+- **CLI (bulk from disk):** From the monorepo root, place files at **`apps/web/data/transcripts/<id>.json`** (e.g. `1.json`, `3.json`). Configure **`NEXT_PUBLIC_SUPABASE_URL`** and **`SUPABASE_SERVICE_ROLE_KEY`** (see [`scripts/push-transcripts/README.md`](../../scripts/push-transcripts/README.md)), then run **`npm run push:transcripts`**. The CLI writes **`lesson_transcripts`** directly via Supabase (no Next.js server required). New lessons can exist in the DB before they appear in the [`lessonCatalog`](../../packages/logic/src/lessonCatalog.ts)—add a **`lessons`** entry when the app shell should list them.
+
 - Or edit `phrases` JSON in the Supabase Table Editor for quick fixes (DDL and policies remain in [`supabase/migrations/`](../../supabase/migrations/)).
 
 Each phrase object uses at least `name` (stable slug), `index` (0-based order; used as the TTS / audio filename prefix), `English`, and `Spanish`. Optional `type` may be `"new"` or `"combination"`.

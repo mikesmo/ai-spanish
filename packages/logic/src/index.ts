@@ -105,6 +105,8 @@ export {
   lessons,
   getLessonTitle,
   isValidTranscriptLessonId,
+  isTranscriptLessonIdSyntaxValid,
+  resolveTranscriptLessonQueryParam,
   transcriptPathWithLesson,
   s3LessonFolderForTranscriptLessonId,
   type LessonListEntry,

@@ -1,6 +1,9 @@
 import { type NextRequest, NextResponse } from 'next/server';
 
-import { transcriptResponseSchema } from '@ai-spanish/logic';
+import {
+  resolveTranscriptLessonQueryParam,
+  transcriptResponseSchema,
+} from '@ai-spanish/logic';
 
 import { assertApiUser } from '@/lib/auth/assert-api-user';
 import {
@@ -8,16 +11,6 @@ import {
   getLessonTranscriptDbEnv,
   upsertLessonTranscriptPhrases,
 } from '@/server/lesson-transcript-repository';
-
-const DEFAULT_LESSON = '1';
-const VALID_LESSON_IDS = new Set(['1', '2']);
-
-function resolveLessonId(raw: string | null): string {
-  if (raw == null || raw === '' || !VALID_LESSON_IDS.has(raw)) {
-    return DEFAULT_LESSON;
-  }
-  return raw;
-}
 
 function transcriptStorageMisconfiguredResponse(): NextResponse {
   return NextResponse.json(
@@ -38,7 +31,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const lessonId = resolveLessonId(
+    const lessonId = resolveTranscriptLessonQueryParam(
       request.nextUrl.searchParams.get('lesson'),
     );
     const phrases = await fetchLessonTranscriptPhrases(lessonId);
@@ -75,7 +68,9 @@ async function handlePut(request: NextRequest): Promise<NextResponse> {
     return transcriptStorageMisconfiguredResponse();
   }
 
-  const lessonId = resolveLessonId(request.nextUrl.searchParams.get('lesson'));
+  const lessonId = resolveTranscriptLessonQueryParam(
+    request.nextUrl.searchParams.get('lesson'),
+  );
 
   let bodyJson: unknown;
   try {

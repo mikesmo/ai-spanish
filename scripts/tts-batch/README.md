@@ -2,7 +2,7 @@
 
 Batch-generates MP3 clips from the bilingual transcript using [Deepgram](https://deepgram.com/) text-to-speech (same models as `@ai-spanish/ai`), writes a local manifest, and optionally uploads audio plus `manifest.json` to Amazon S3.
 
-Run commands from the **monorepo root**. Point **`--input`** at a transcript JSON file, or load lesson **`1`** / **`2`** from Supabase via **`--transcript-lesson`** (see [Environment variables](#environment-variables)).
+Run commands from the **monorepo root**. Point **`--input`** at a transcript JSON file, or load a lesson transcript from Supabase via **`--transcript-lesson`** (lesson id: positive integer string without leading zeros, e.g. **`1`**, **`3`**) (see [Environment variables](#environment-variables)).
 
 ## System requirements
 
@@ -95,7 +95,7 @@ Use the same `--lesson` and prefix you intend for production so keys stay consis
 | `AUDIO_CONTENT_PREFIX` | Single path segment for S3 keys; default in code: `audio-content` |
 | `S3_LESSON` | Optional lesson folder under the prefix (overridden by `--lesson`) |
 | `TRANSCRIPT_INPUT` | Path to transcript JSON file (same as `--input`). Omit when using **`TRANSCRIPT_LESSON_ID`** / **`--transcript-lesson`** with Supabase |
-| `TRANSCRIPT_LESSON_ID` | `1` or `2`: load phrases from Supabase `lesson_transcripts`. Requires `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` |
+| `TRANSCRIPT_LESSON_ID` | Transcript lesson id (`1`, `3`, …): load phrases from Supabase `lesson_transcripts`. Requires `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL (same as web app) when loading transcripts from the database |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server key for reading `lesson_transcripts` (never expose publicly) |
 
@@ -106,7 +106,7 @@ Secrets belong in `.env` (gitignored). Never commit real keys.
 | Flag | Description |
 |------|-------------|
 | `--input`, `-i` | Transcript JSON file path (or use `TRANSCRIPT_INPUT`) |
-| `--transcript-lesson` | `1` or `2`: load transcript from Supabase instead of a file |
+| `--transcript-lesson` | Transcript lesson id: load transcript from Supabase instead of a file |
 | `--out`, `-o` | Output directory (default: `./output`) |
 | `--bucket`, `-b` | S3 bucket name (default: `S3_BUCKET_NAME`) |
 | `--lesson` | Optional segment under `AUDIO_CONTENT_PREFIX` (overrides `S3_LESSON`) |

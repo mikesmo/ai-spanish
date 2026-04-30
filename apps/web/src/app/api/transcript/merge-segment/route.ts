@@ -4,6 +4,7 @@ import {
   findDuplicatePhraseNames,
   isPhraseSynthSegment,
   mergePhraseSegmentText,
+  resolveTranscriptLessonQueryParam,
   transcriptResponseSchema,
 } from '@ai-spanish/logic';
 import { assertApiUser } from '@/lib/auth/assert-api-user';
@@ -12,16 +13,6 @@ import {
   getLessonTranscriptDbEnv,
   upsertLessonTranscriptPhrases,
 } from '@/server/lesson-transcript-repository';
-
-const DEFAULT_LESSON = '1';
-const VALID_LESSON_IDS = new Set(['1', '2']);
-
-function resolveLessonId(raw: string | null): string {
-  if (raw == null || raw === '' || !VALID_LESSON_IDS.has(raw)) {
-    return DEFAULT_LESSON;
-  }
-  return raw;
-}
 
 function transcriptStorageMisconfiguredResponse(): NextResponse {
   return NextResponse.json(
@@ -63,7 +54,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (typeof l === 'string') lessonParam = l;
     else if (typeof l === 'number' && Number.isFinite(l)) lessonParam = String(Math.trunc(l));
   }
-  const lessonId = resolveLessonId(lessonParam);
+  const lessonId = resolveTranscriptLessonQueryParam(lessonParam);
 
   let phraseIndex: number | undefined;
   const pi = o.phraseIndex;
