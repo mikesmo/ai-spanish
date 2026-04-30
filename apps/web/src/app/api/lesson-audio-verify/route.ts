@@ -9,6 +9,7 @@ import type { Phrase, PhraseAudioClipSpec } from '@ai-spanish/logic';
 import {
   buildPhraseAudioClipSpecs,
   buildS3AudioKey,
+  findDuplicatePhraseNames,
   normalizeAudioContentPrefix,
   normalizeLessonSegment,
   s3LessonFolderForTranscriptLessonId,
@@ -76,8 +77,9 @@ function rollupPhraseVolumeDb(clips: ClipVerifyResult[]): Pick<
 
 /**
  * POST /api/lesson-audio-verify
- * Body JSON: `{ lesson?: string, phraseIndex?: number }`.
+ * Body JSON: `{ lesson?: string, phraseIndex?: number, clipExpectedTextOverrides?: Record<string,string> }`.
  * Omit `phraseIndex` to verify every clip in the lesson; set `phraseIndex` to verify clips for one phrase row (progressive Sheets flow).
+ * Optional `clipExpectedTextOverrides` maps clip id (`{phrase}-{segment}`) to expected STT text (e.g. spreadsheet cells).
  * Intended for **local** Next + ngrok (`ENABLE_LESSON_AUDIO_VERIFY=true`, ffmpeg + Deepgram env).
  */
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -106,6 +108,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   let lessonParam: string | undefined;
   let phraseIndexFilter: number | undefined;
+  let clipExpectedTextOverrides: Record<string, string> | undefined;
   if (
     bodyJson !== null &&
     typeof bodyJson === 'object' &&
@@ -126,6 +129,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         if (/^-?\d+$/.test(t)) phraseIndexFilter = parseInt(t, 10);
       }
     }
+    if ('clipExpectedTextOverrides' in o && o.clipExpectedTextOverrides !== null) {
+      const raw = o.clipExpectedTextOverrides;
+      if (typeof raw === 'object' && !Array.isArray(raw)) {
+        clipExpectedTextOverrides = {};
+        for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+          if (typeof v === 'string') {
+            clipExpectedTextOverrides[k] = v;
+          }
+        }
+      }
+    }
   }
 
   let phrases: Phrase[];
@@ -136,8 +150,27 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ ok: false, message: msg }, { status: 500 });
   }
 
+  const dupLessonNames = findDuplicatePhraseNames(phrases);
+  if (dupLessonNames.length > 0) {
+    return NextResponse.json(
+      {
+        ok: false,
+        message:
+          'This lesson has duplicate phrase names in storage; fix names before verifying audio.',
+        duplicateNames: dupLessonNames,
+      },
+      { status: 409 },
+    );
+  }
+
   const canonicalLessonId = resolveLessonIdForFiles(lessonParam ?? '');
-  const specs = buildPhraseAudioClipSpecs(phrases);
+  let specs = buildPhraseAudioClipSpecs(phrases);
+  if (clipExpectedTextOverrides && Object.keys(clipExpectedTextOverrides).length > 0) {
+    specs = specs.map((s) => {
+      const ovr = clipExpectedTextOverrides![s.id];
+      return typeof ovr === 'string' ? { ...s, text: ovr } : s;
+    });
+  }
 
   if (phraseIndexFilter !== undefined) {
     const transcriptIndices = [...new Set(phrases.map((p) => p.index))];

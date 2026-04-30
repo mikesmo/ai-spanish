@@ -10,7 +10,8 @@
       "react-native": "./src/index.native.ts",
       "default": "./src/index.ts"
     },
-    "./tts/deepgram": "./src/tts/deepgram.ts"
+    "./tts/deepgram": "./src/tts/deepgram.ts",
+    "./tts/voices": "./src/tts/voices.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

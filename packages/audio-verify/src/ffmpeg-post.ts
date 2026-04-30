@@ -12,8 +12,12 @@ function run(cmd: string, args: string[]): Promise<string> {
     const proc = spawn(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'] });
     let stdout = '';
     let stderr = '';
-    proc.stdout.on('data', (d: Buffer) => { stdout += d.toString(); });
-    proc.stderr.on('data', (d: Buffer) => { stderr += d.toString(); });
+    proc.stdout.on('data', (d: Buffer) => {
+      stdout += d.toString();
+    });
+    proc.stderr.on('data', (d: Buffer) => {
+      stderr += d.toString();
+    });
     proc.on('error', (err) => reject(new Error(`Failed to start ${cmd}: ${err.message}`)));
     proc.on('close', (code) => {
       if (code === 0) {
@@ -31,9 +35,12 @@ function run(cmd: string, args: string[]): Promise<string> {
  */
 export async function getAudioDurationSeconds(filePath: string): Promise<number> {
   const out = await run('ffprobe', [
-    '-v', 'error',
-    '-show_entries', 'format=duration',
-    '-of', 'default=noprint_wrappers=1:nokey=1',
+    '-v',
+    'error',
+    '-show_entries',
+    'format=duration',
+    '-of',
+    'default=noprint_wrappers=1:nokey=1',
     filePath,
   ]);
   const d = parseFloat(out);
@@ -57,7 +64,9 @@ export async function postProcessMp3(filePath: string): Promise<void> {
   const fadeDuration = Math.min(FADE_OUT_DURATION_S, usableDuration);
 
   if (fadeDuration <= 0) {
-    console.warn(`  [ffmpeg] ${path.basename(filePath)}: clip too short to fade (${duration.toFixed(3)}s), skipping post-process`);
+    console.warn(
+      `  [ffmpeg] ${path.basename(filePath)}: clip too short to fade (${duration.toFixed(3)}s), skipping post-process`,
+    );
     return;
   }
 
@@ -70,15 +79,18 @@ export async function postProcessMp3(filePath: string): Promise<void> {
   try {
     await run('ffmpeg', [
       '-y',
-      '-i', filePath,
-      '-af', filter,
-      '-c:a', 'libmp3lame',
-      '-q:a', '2',
+      '-i',
+      filePath,
+      '-af',
+      filter,
+      '-c:a',
+      'libmp3lame',
+      '-q:a',
+      '2',
       tmpFile,
     ]);
     await fs.rename(tmpFile, filePath);
   } catch (err) {
-    // Clean up temp file if it exists
     await fs.unlink(tmpFile).catch(() => undefined);
     throw err;
   }

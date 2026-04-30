@@ -10,7 +10,7 @@ import {
   normalizeLessonSegment,
 } from '@ai-spanish/logic';
 
-import { postProcessMp3 } from './ffmpeg-post.js';
+import { postProcessMp3 } from '@ai-spanish/audio-verify/ffmpeg-post';
 import type { ManifestEntry, S3PathConfig, TtsJob } from './types.js';
 
 export { DEFAULT_AUDIO_CONTENT_PREFIX, normalizeAudioContentPrefix, normalizeLessonSegment };

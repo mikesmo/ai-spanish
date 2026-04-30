@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@ai-spanish/ai": "*",
     "@ai-spanish/audio-verify": "*",
     "@ai-spanish/assets": "*",
     "@ai-spanish/logic": "*",

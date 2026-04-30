@@ -41,8 +41,16 @@
         white-space: pre-wrap;
         word-break: break-word;
       }
-      .preview-play {
+      .preview-actions {
         margin-top: 6px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+      }
+      .preview-play,
+      .preview-record {
+        margin-top: 0;
         padding: 4px 10px;
         font-size: 12px;
         cursor: pointer;
@@ -53,7 +61,8 @@
         min-width: 7.5em;
         box-sizing: border-box;
       }
-      .preview-play:disabled {
+      .preview-play:disabled,
+      .preview-record:disabled {
         cursor: not-allowed;
         opacity: 0.65;
       }
@@ -147,15 +156,26 @@
             style="display: none"
             aria-live="polite"
           ></div>
-          <button
-            type="button"
-            class="preview-play"
-            data-segment="first-intro"
-            aria-label="Play First Intro audio"
-            disabled
-          >
-            Play
-          </button>
+          <div class="preview-actions">
+            <button
+              type="button"
+              class="preview-play"
+              data-segment="first-intro"
+              aria-label="Play First Intro audio"
+              disabled
+            >
+              Play
+            </button>
+            <button
+              type="button"
+              class="preview-record"
+              data-segment="first-intro"
+              aria-label="Record First Intro audio from cell text"
+              disabled
+            >
+              Record
+            </button>
+          </div>
         </div>
         <div class="preview-field">
           <dt>Second Intro</dt>
@@ -166,15 +186,26 @@
             style="display: none"
             aria-live="polite"
           ></div>
-          <button
-            type="button"
-            class="preview-play"
-            data-segment="second-intro"
-            aria-label="Play Second Intro audio"
-            disabled
-          >
-            Play
-          </button>
+          <div class="preview-actions">
+            <button
+              type="button"
+              class="preview-play"
+              data-segment="second-intro"
+              aria-label="Play Second Intro audio"
+              disabled
+            >
+              Play
+            </button>
+            <button
+              type="button"
+              class="preview-record"
+              data-segment="second-intro"
+              aria-label="Record Second Intro audio from cell text"
+              disabled
+            >
+              Record
+            </button>
+          </div>
         </div>
         <div class="preview-field">
           <dt>Answer</dt>
@@ -185,15 +216,26 @@
             style="display: none"
             aria-live="polite"
           ></div>
-          <button
-            type="button"
-            class="preview-play"
-            data-segment="answer"
-            aria-label="Play Answer audio"
-            disabled
-          >
-            Play
-          </button>
+          <div class="preview-actions">
+            <button
+              type="button"
+              class="preview-play"
+              data-segment="answer"
+              aria-label="Play Answer audio"
+              disabled
+            >
+              Play
+            </button>
+            <button
+              type="button"
+              class="preview-record"
+              data-segment="answer"
+              aria-label="Record Answer audio from cell text"
+              disabled
+            >
+              Record
+            </button>
+          </div>
         </div>
       </dl>
     </section>
@@ -227,7 +269,12 @@
     <div id="authLoggedInPanel" style="display: none">
       <div class="help">
         Select a <strong>data row</strong> for phrase text and <strong>Play</strong> for clips from
-        <code>/api/audio</code>. Session refreshes automatically before the access token expires.
+        <code>/api/audio</code>. Use <strong>Record</strong> to synthesize the cell text (TTS),
+        upload to S3, verify loudness + STT, then save the segment to the transcript on success (needs
+        local Next + tunnel;
+        <code>ENABLE_LESSON_AUDIO_SYNTHESIZE</code>,
+        <code>ENABLE_LESSON_AUDIO_VERIFY</code>,
+        Supabase service role). Session refreshes automatically before the access token expires.
         Use <strong>Verify audio</strong> to check clips against web audio (needs local Next + tunnel; see README).
       </div>
       <div class="auth-actions">
@@ -256,7 +303,9 @@
       var lastPreviewData = null;
       var sharedAudio = null;
       var playSessionBusy = false;
+      var recordSessionBusy = false;
       var PLAY_LABEL = "Play";
+      var RECORD_LABEL = "Record";
       var silentRefreshPending = false;
       var NO_AUDIO_HEARD = "No audio";
 
@@ -478,23 +527,56 @@
         );
       }
 
+      function canRecordSegment(segment) {
+        if (!lastPreviewData) return false;
+        var s =
+          segment === "first-intro"
+            ? lastPreviewData.firstIntro
+            : segment === "second-intro"
+              ? lastPreviewData.secondIntro
+              : segment === "answer"
+                ? lastPreviewData.answer
+                : "";
+        return String(s || "").trim().length > 0;
+      }
+
       function syncPlayButtonsState() {
-        var buttons = document.querySelectorAll(".preview-play");
+        var playBtns = document.querySelectorAll(".preview-play");
+        var recordBtns = document.querySelectorAll(".preview-record");
         var i;
 
-        if (playSessionBusy) {
-          for (i = 0; i < buttons.length; i++) {
-            buttons[i].disabled = true;
+        if (playSessionBusy || recordSessionBusy) {
+          for (i = 0; i < playBtns.length; i++) {
+            playBtns[i].disabled = true;
+          }
+          for (i = 0; i < recordBtns.length; i++) {
+            recordBtns[i].disabled = true;
           }
           return;
         }
 
         var canPlay = canPlayCurrentRow();
-        for (i = 0; i < buttons.length; i++) {
-          buttons[i].disabled = !canPlay;
-          buttons[i].innerHTML = PLAY_LABEL;
-          buttons[i].removeAttribute("aria-busy");
+        for (i = 0; i < playBtns.length; i++) {
+          playBtns[i].disabled = !canPlay;
+          playBtns[i].innerHTML = PLAY_LABEL;
+          playBtns[i].removeAttribute("aria-busy");
         }
+        for (i = 0; i < recordBtns.length; i++) {
+          var seg = recordBtns[i].getAttribute("data-segment");
+          recordBtns[i].disabled = !canPlay || !seg || !canRecordSegment(seg);
+          recordBtns[i].textContent = RECORD_LABEL;
+          recordBtns[i].removeAttribute("aria-busy");
+        }
+      }
+
+      function finishRecordSession() {
+        recordSessionBusy = false;
+        syncPlayButtonsState();
+      }
+
+      function setRecordButtonLoading(btn) {
+        btn.textContent = "Recording…";
+        btn.setAttribute("aria-busy", "true");
       }
 
       function finishPlaySession() {
@@ -646,6 +728,134 @@
             return;
           }
           runPresignRound(btn, segment, phraseName, 0);
+        });
+      }
+
+      function runRecordRound(btn, segment, phraseName, phraseIdx, round) {
+        var fi = lastPreviewData ? lastPreviewData.firstIntro : "";
+        var si = lastPreviewData ? lastPreviewData.secondIntro : "";
+        var an = lastPreviewData ? lastPreviewData.answer : "";
+        google.script.run
+          .withSuccessHandler(function (res) {
+            if (res && res.unauthorized && refreshToken && round === 0) {
+              google.script.run
+                .withSuccessHandler(function (ref) {
+                  if (ref && ref.ok) {
+                    setSessionFromRefreshResult(ref);
+                    runRecordRound(btn, segment, phraseName, phraseIdx, 1);
+                  } else {
+                    clearSession("Session expired. Sign in again.");
+                    finishRecordSession();
+                  }
+                })
+                .withFailureHandler(function () {
+                  clearSession("Session expired. Sign in again.");
+                  finishRecordSession();
+                })
+                .refreshSupabaseAccessToken(refreshToken);
+              return;
+            }
+
+            finishRecordSession();
+
+            if (res && res.verifyDisabled) {
+              clearVerificationHeardHints();
+              setStatus(
+                res.message ||
+                  "Verification not enabled on server (ENABLE_LESSON_AUDIO_VERIFY).",
+                "err"
+              );
+              return;
+            }
+            if (res && res.synthDisabled) {
+              clearVerificationHeardHints();
+              setStatus(
+                res.message ||
+                  "Synthesis not enabled (ENABLE_LESSON_AUDIO_SYNTHESIZE).",
+                "err"
+              );
+              return;
+            }
+
+            if (res && res.ok && res.verified && res.mergeSaved) {
+              applyVerificationHeardHints([]);
+              setStatus("Recorded, verified, and transcript saved.", "ok");
+            } else if (res && res.ok && res.verified && !res.mergeSaved) {
+              applyVerificationHeardHints(res.clips || []);
+              setStatus(
+                res.message || "Verified but transcript merge failed.",
+                "err"
+              );
+            } else if (res && res.ok && !res.verified) {
+              applyVerificationHeardHints(res.clips || []);
+              setStatus(
+                res.message || "Recorded; some clips failed verification.",
+                "err"
+              );
+            } else {
+              applyVerificationHeardHints(res.clips || []);
+              setStatus((res && res.message) || "Record failed.", "err");
+            }
+
+            google.script.run
+              .withSuccessHandler(displayPreview)
+              .withFailureHandler(function () {})
+              .getActiveRowPhrasePreview();
+          })
+          .withFailureHandler(function (err) {
+            finishRecordSession();
+            setStatus(err.message || String(err), "err");
+          })
+          .recordPhraseSegment(
+            sessionAccessToken,
+            transcriptLessonId,
+            phraseDirectory,
+            phraseIdx,
+            phraseName,
+            segment,
+            fi,
+            si,
+            an
+          );
+      }
+
+      function recordSegment(segment, btn) {
+        if (!lastPreviewData || !isLoggedIn()) {
+          return;
+        }
+        var phraseIdx = findPhraseIndex(lastPreviewData.phraseName);
+        if (phraseIdx === null) {
+          setStatus(
+            "This row’s phrase name is not in the loaded lesson. Reload lesson if you changed the sheet.",
+            "err"
+          );
+          return;
+        }
+        if (!canRecordSegment(segment)) {
+          setStatus("Add non-empty text to this column before recording.", "err");
+          return;
+        }
+        var phraseName = lastPreviewData.phraseName;
+
+        recordSessionBusy = true;
+        var pb = document.querySelectorAll(".preview-play");
+        var rb = document.querySelectorAll(".preview-record");
+        var k;
+        for (k = 0; k < pb.length; k++) {
+          pb[k].disabled = true;
+        }
+        for (k = 0; k < rb.length; k++) {
+          rb[k].disabled = true;
+        }
+        setRecordButtonLoading(btn);
+
+        ensureAccessTokenFresh(function (tokOk) {
+          if (!tokOk) {
+            clearSession("Session expired. Sign in again.");
+            finishRecordSession();
+            return;
+          }
+          runRecordRound(btn, segment, phraseName, phraseIdx, 0);
         });
       }
 
@@ -888,6 +1098,14 @@
         playButtons[j].addEventListener("click", function (ev) {
           var seg = ev.currentTarget.getAttribute("data-segment");
           if (seg) playSegment(seg, ev.currentTarget);
+        });
+      }
+
+      var recordButtons = document.querySelectorAll(".preview-record");
+      for (j = 0; j < recordButtons.length; j++) {
+        recordButtons[j].addEventListener("click", function (ev) {
+          var segR = ev.currentTarget.getAttribute("data-segment");
+          if (segR) recordSegment(segR, ev.currentTarget);
         });
       }
 

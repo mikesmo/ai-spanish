@@ -39,6 +39,15 @@ export {
   buildPhraseAudioClipSpecs,
   type PhraseAudioClipSpec,
 } from './phraseAudioClipSpecs';
+export {
+  PHRASE_SYNTH_SEGMENTS,
+  findDuplicatePhraseNames,
+  isPhraseSynthSegment,
+  languageForPhraseAudioSegment,
+  mergePhraseSegmentText,
+  phraseClipJobId,
+  type PhraseSynthSegment,
+} from './phraseAudioSegments';
 export { usePhraseDisplay } from './usePhraseDisplay';
 export type { UsePhraseDisplayOptions } from './usePhraseDisplay';
 export { runPhraseFeedbackNext } from './phraseFeedbackNext';

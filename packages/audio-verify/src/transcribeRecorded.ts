@@ -6,7 +6,7 @@ import {
   type Language,
 } from '@ai-spanish/logic';
 
-import { withRetry } from './async-retry';
+import { withRetry } from './async-retry.js';
 
 const DEEPGRAM_LANG: Record<Language, string> = {
   en: 'en',

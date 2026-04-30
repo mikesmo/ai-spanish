@@ -4,7 +4,9 @@
  * - SUPABASE_URL — https://<project-ref>.supabase.co
  * - SUPABASE_ANON_KEY — Supabase anon (public) key
  *
- * Flow: Supabase password or refresh grant → GET /api/transcript, GET /api/audio, POST /api/lesson-audio-verify with Bearer token;
+ * Flow: Supabase password or refresh grant → GET /api/transcript, GET /api/audio,
+ * POST /api/lesson-audio-synthesize, POST /api/lesson-audio-verify,
+ * POST /api/transcript/merge-segment with Bearer token;
  * sidebar stores access + refresh in memory and refreshes before expiry.
  */
 
@@ -749,14 +751,433 @@ function applySinglePhraseVerificationToSheet(onePhrase, phraseDirectory) {
 }
 
 /**
+ * GET /api/transcript JSON array for duplicate-name checks.
+ * @returns {{ ok: true, phrases: unknown[] } | { ok: false, message: string, unauthorized?: boolean }}
+ */
+function fetchTranscriptPhrasesJson(accessToken, transcriptLessonId) {
+  try {
+    var token = typeof accessToken === "string" ? accessToken.trim() : "";
+    if (!token) {
+      return { ok: false, message: "Not signed in." };
+    }
+    var cfg = readTranscriptConfig();
+    if (cfg.ok === false) {
+      return { ok: false, message: cfg.message };
+    }
+    var lessonId =
+      typeof transcriptLessonId === "string" && transcriptLessonId
+        ? transcriptLessonId
+        : DEFAULT_TRANSCRIPT_LESSON_ID;
+    var url =
+      cfg.webOrigin +
+      "/api/transcript?lesson=" +
+      encodeURIComponent(lessonId);
+    var response = UrlFetchApp.fetch(url, {
+      muteHttpExceptions: true,
+      followRedirects: true,
+      headers: headersForWebOrigin(token),
+    });
+    var httpCode = response.getResponseCode();
+    var body = response.getContentText();
+    if (httpCode === 401) {
+      return {
+        ok: false,
+        unauthorized: true,
+        message: "Transcript request unauthorized.",
+      };
+    }
+    if (httpCode < 200 || httpCode >= 300) {
+      return {
+        ok: false,
+        message: "Transcript request failed (HTTP " + httpCode + ").",
+      };
+    }
+    /** @type {unknown} */
+    var parsed = JSON.parse(body);
+    if (!(parsed instanceof Array)) {
+      return { ok: false, message: "Transcript response was not a JSON array." };
+    }
+    return { ok: true, phrases: parsed };
+  } catch (e) {
+    return {
+      ok: false,
+      message: typeof e.message === "string" ? e.message : String(e),
+    };
+  }
+}
+
+/**
+ * Lowercase slug keys that appear more than once across phrase `name` fields.
+ * @param {unknown[]} phrases
+ * @returns {string[]}
+ */
+function duplicatePhraseNameKeys(phrases) {
+  if (!(phrases instanceof Array)) {
+    return [];
+  }
+  var seen = {};
+  var dup = {};
+  var i;
+  for (i = 0; i < phrases.length; i++) {
+    var row = phrases[i];
+    var raw =
+      row !== null &&
+      typeof row === "object" &&
+      /** @type {{ name?: unknown }} */ (row).name !== undefined &&
+      /** @type {{ name?: unknown }} */ (row).name !== null
+        ? String(/** @type {{ name?: unknown }} */ (row).name).trim()
+        : "";
+    var k = raw.toLowerCase();
+    if (k === "") {
+      continue;
+    }
+    if (seen[k]) {
+      dup[k] = true;
+    }
+    seen[k] = true;
+  }
+  var out = [];
+  for (var key in dup) {
+    if (dup.hasOwnProperty(key)) {
+      out.push(key);
+    }
+  }
+  return out;
+}
+
+/**
+ * POST /api/lesson-audio-synthesize — Deepgram TTS + S3 for one clip.
+ * @returns {{ ok: boolean, message?: string, synthDisabled?: boolean, unauthorized?: boolean, payload?: unknown }}
+ */
+function lessonAudioSynthesize(accessToken, transcriptLessonId, phraseName, segment, text) {
+  try {
+    var token = typeof accessToken === "string" ? accessToken.trim() : "";
+    if (!token) {
+      return { ok: false, message: "Not signed in." };
+    }
+    var cfg = readTranscriptConfig();
+    if (cfg.ok === false) {
+      return { ok: false, message: cfg.message };
+    }
+    var lessonId =
+      typeof transcriptLessonId === "string" && transcriptLessonId
+        ? transcriptLessonId
+        : DEFAULT_TRANSCRIPT_LESSON_ID;
+    var url = cfg.webOrigin + "/api/lesson-audio-synthesize";
+    var payloadObj = {
+      phrase: phraseName,
+      segment: segment,
+      lesson: lessonId,
+      text: text,
+    };
+    var response = UrlFetchApp.fetch(url, {
+      method: "post",
+      contentType: "application/json",
+      muteHttpExceptions: true,
+      followRedirects: true,
+      payload: JSON.stringify(payloadObj),
+      headers: headersForWebOrigin(token),
+    });
+    var httpCode = response.getResponseCode();
+    var body = response.getContentText();
+    if (httpCode === 401) {
+      return {
+        ok: false,
+        unauthorized: true,
+        message: "Synthesis request unauthorized.",
+      };
+    }
+    if (httpCode === 503) {
+      var msg503 = "Synthesis is not enabled on this server.";
+      try {
+        /** @type {{ message?: string }} */
+        var j503 = JSON.parse(body);
+        if (typeof j503.message === "string" && j503.message) {
+          msg503 = j503.message;
+        }
+      } catch (e503) {
+        if (body && body.length > 0 && body.length < 400) {
+          msg503 = body;
+        }
+      }
+      return { ok: false, synthDisabled: true, message: msg503 };
+    }
+    if (httpCode < 200 || httpCode >= 300) {
+      var errSynth = "Synthesis failed (HTTP " + httpCode + ").";
+      try {
+        /** @type {{ message?: string }} */
+        var ej = JSON.parse(body);
+        if (typeof ej.message === "string" && ej.message) {
+          errSynth = ej.message;
+        }
+      } catch (ignoreEj) {}
+      return { ok: false, message: errSynth };
+    }
+    /** @type {{ ok?: unknown }} */
+    var dataSynth = JSON.parse(body);
+    return { ok: dataSynth.ok !== false, message: "", payload: dataSynth };
+  } catch (es) {
+    return {
+      ok: false,
+      message: typeof es.message === "string" ? es.message : String(es),
+    };
+  }
+}
+
+/**
+ * POST /api/transcript/merge-segment — persist one segment into Supabase-backed transcript.
+ * @returns {{ ok: boolean, message?: string, unauthorized?: boolean }}
+ */
+function mergeTranscriptSegment(accessToken, transcriptLessonId, phraseIndex, segment, text) {
+  try {
+    var token = typeof accessToken === "string" ? accessToken.trim() : "";
+    if (!token) {
+      return { ok: false, message: "Not signed in." };
+    }
+    var cfg = readTranscriptConfig();
+    if (cfg.ok === false) {
+      return { ok: false, message: cfg.message };
+    }
+    var lessonId =
+      typeof transcriptLessonId === "string" && transcriptLessonId
+        ? transcriptLessonId
+        : DEFAULT_TRANSCRIPT_LESSON_ID;
+    var pi =
+      typeof phraseIndex === "number" && !isNaN(phraseIndex)
+        ? Math.floor(phraseIndex)
+        : parseInt(String(phraseIndex), 10);
+    if (isNaN(pi)) {
+      return { ok: false, message: "Invalid phrase index." };
+    }
+    var url = cfg.webOrigin + "/api/transcript/merge-segment";
+    var mergePayload = {
+      lesson: lessonId,
+      phraseIndex: pi,
+      segment: segment,
+      text: typeof text === "string" ? text : String(text || ""),
+    };
+    var responseMerge = UrlFetchApp.fetch(url, {
+      method: "post",
+      contentType: "application/json",
+      muteHttpExceptions: true,
+      followRedirects: true,
+      payload: JSON.stringify(mergePayload),
+      headers: headersForWebOrigin(token),
+    });
+    var httpMerge = responseMerge.getResponseCode();
+    var bodyMerge = responseMerge.getContentText();
+    if (httpMerge === 401) {
+      return {
+        ok: false,
+        unauthorized: true,
+        message: "Merge transcript unauthorized.",
+      };
+    }
+    if (httpMerge === 503) {
+      return {
+        ok: false,
+        message: "Transcript storage not configured on server.",
+      };
+    }
+    if (httpMerge < 200 || httpMerge >= 300) {
+      var errM = "Merge transcript failed (HTTP " + httpMerge + ").";
+      try {
+        /** @type {{ error?: string, message?: string }} */
+        var mj = JSON.parse(bodyMerge);
+        if (typeof mj.error === "string" && mj.error) {
+          errM = mj.error;
+        } else if (typeof mj.message === "string" && mj.message) {
+          errM = mj.message;
+        }
+      } catch (ignoreMj) {}
+      return { ok: false, message: errM };
+    }
+    return { ok: true };
+  } catch (em) {
+    return {
+      ok: false,
+      message: typeof em.message === "string" ? em.message : String(em),
+    };
+  }
+}
+
+/**
+ * Record flow: duplicate-name check → POST synthesize → verify with sheet overrides → merge segment if verified.
+ * @param {string} firstIntro
+ * @param {string} secondIntro
+ * @param {string} answer
+ * @returns {{ ok: boolean, verified?: boolean, clips?: unknown[], mergeSaved?: boolean, message?: string, synthDisabled?: boolean, verifyDisabled?: boolean, summary?: unknown, unauthorized?: boolean }}
+ */
+function recordPhraseSegment(
+  accessToken,
+  transcriptLessonId,
+  phraseDirectory,
+  phraseIndex,
+  phraseName,
+  segment,
+  firstIntro,
+  secondIntro,
+  answer
+) {
+  try {
+    var token = typeof accessToken === "string" ? accessToken.trim() : "";
+    if (!token) {
+      return { ok: false, message: "Not signed in." };
+    }
+    if (!(phraseDirectory instanceof Array)) {
+      return { ok: false, message: "Missing phrase directory." };
+    }
+    var pi =
+      typeof phraseIndex === "number" && !isNaN(phraseIndex)
+        ? Math.floor(phraseIndex)
+        : parseInt(String(phraseIndex), 10);
+    if (isNaN(pi)) {
+      return { ok: false, message: "Invalid phrase index." };
+    }
+    var name = typeof phraseName === "string" ? phraseName.trim() : "";
+    var seg = typeof segment === "string" ? segment.trim() : "";
+    if (seg !== "first-intro" && seg !== "second-intro" && seg !== "answer") {
+      return { ok: false, message: "Invalid segment for recording." };
+    }
+    var fi = firstIntro != null ? String(firstIntro) : "";
+    var si = secondIntro != null ? String(secondIntro) : "";
+    var ans = answer != null ? String(answer) : "";
+    var textBody = fi;
+    if (seg === "second-intro") {
+      textBody = si;
+    }
+    if (seg === "answer") {
+      textBody = ans;
+    }
+    if (String(textBody).trim().length === 0) {
+      return {
+        ok: false,
+        message: "Cell text for this segment is empty; nothing to synthesize.",
+      };
+    }
+
+    var focusRowRecord = findLessonRowNumForPhraseIndex(phraseDirectory, pi);
+    if (focusRowRecord !== null) {
+      activatePhraseLessonRow(focusRowRecord);
+    }
+
+    var tr = fetchTranscriptPhrasesJson(token, transcriptLessonId);
+    if (!tr || tr.ok !== true) {
+      /** @type {{ ok?: boolean, message?: string, unauthorized?: boolean }} */
+      var badTr = tr || { ok: false };
+      return {
+        ok: false,
+        message:
+          typeof badTr.message === "string"
+            ? badTr.message
+            : "Could not load transcript.",
+        unauthorized: badTr.unauthorized === true,
+      };
+    }
+    var phrasesArr = tr.phrases instanceof Array ? tr.phrases : [];
+    var dupKeys = duplicatePhraseNameKeys(phrasesArr);
+    if (dupKeys.length > 0) {
+      return {
+        ok: false,
+        message:
+          "Duplicate phrase names in lesson transcript (fix in DB): " +
+          dupKeys.join(", "),
+      };
+    }
+
+    var synth = lessonAudioSynthesize(token, transcriptLessonId, name, seg, textBody);
+    if (!synth || synth.ok !== true) {
+      /** @type {{ ok?: boolean, message?: string, synthDisabled?: boolean, unauthorized?: boolean }} */
+      var badSynth = synth || { ok: false };
+      return {
+        ok: false,
+        message:
+          typeof badSynth.message === "string"
+            ? badSynth.message
+            : "Synthesis failed.",
+        synthDisabled: badSynth.synthDisabled === true,
+        unauthorized: badSynth.unauthorized === true,
+      };
+    }
+
+    /** @type {Record<string, string>} */
+    var overrides = {};
+    overrides[name + "-first-intro"] = fi;
+    overrides[name + "-second-intro"] = si;
+    overrides[name + "-answer"] = ans;
+
+    var vr = verifyLessonAudioPhrase(
+      token,
+      transcriptLessonId,
+      phraseDirectory,
+      pi,
+      overrides
+    );
+    if (!vr || vr.ok !== true) {
+      /** @type {{ ok?: boolean, message?: string, verifyDisabled?: boolean, unauthorized?: boolean }} */
+      var badV = vr || { ok: false };
+      return {
+        ok: false,
+        message:
+          typeof badV.message === "string"
+            ? badV.message
+            : "Verification failed.",
+        verifyDisabled: badV.verifyDisabled === true,
+        unauthorized: badV.unauthorized === true,
+      };
+    }
+
+    var mergedOk = true;
+    var mergeMsg = "";
+    if (vr.verified === true) {
+      var mr = mergeTranscriptSegment(token, transcriptLessonId, pi, seg, textBody);
+      mergedOk = mr && mr.ok === true;
+      mergeMsg = mr && typeof mr.message === "string" ? mr.message : "";
+      if (!mergedOk) {
+        return {
+          ok: false,
+          verified: true,
+          clips: vr.clips,
+          mergeSaved: false,
+          message:
+            (mergeMsg || "Could not save transcript to database.") +
+            " Audio was verified.",
+        };
+      }
+    }
+
+    return {
+      ok: true,
+      verified: vr.verified === true,
+      clips: vr.clips,
+      mergeSaved: vr.verified === true && mergedOk === true,
+      message:
+        vr.verified === true
+          ? mergedOk
+            ? ""
+            : mergeMsg
+          : vr.message || "Some clips failed verification.",
+      summary: vr.summary,
+    };
+  } catch (errRec) {
+    return {
+      ok: false,
+      message:
+        typeof errRec.message === "string" ? errRec.message : String(errRec),
+    };
+  }
+}
+
+/**
  * Verifies one transcript phrase (`phraseIndex`) via POST /api/lesson-audio-verify and updates that sheet row.
  * @param {string} accessToken
  * @param {string} transcriptLessonId
  * @param {{ name: string, index: number }[]} phraseDirectory
  * @param {number} phraseIndex transcript canonical index (`Phrase.index`)
+ * @param {Record<string, string>=} clipExpectedTextOverrides optional clip id → expected STT text (sheet cells)
  * @returns {{ ok: boolean, verified?: boolean, clips?: unknown[], message?: string, verifyDisabled?: boolean, summary?: unknown, unauthorized?: boolean }}
  */
-function verifyLessonAudioPhrase(accessToken, transcriptLessonId, phraseDirectory, phraseIndex) {
+function verifyLessonAudioPhrase(accessToken, transcriptLessonId, phraseDirectory, phraseIndex, clipExpectedTextOverrides) {
   try {
     var token = typeof accessToken === "string" ? accessToken.trim() : "";
     if (!token) {
@@ -789,12 +1210,24 @@ function verifyLessonAudioPhrase(accessToken, transcriptLessonId, phraseDirector
         : DEFAULT_TRANSCRIPT_LESSON_ID;
 
     var url = cfg.webOrigin + "/api/lesson-audio-verify";
+    /** @type {{ lesson: string, phraseIndex: number, clipExpectedTextOverrides?: Record<string, string> }} */
+    var payloadVerify = {
+      lesson: lessonId,
+      phraseIndex: pi,
+    };
+    if (
+      clipExpectedTextOverrides !== undefined &&
+      clipExpectedTextOverrides !== null &&
+      typeof clipExpectedTextOverrides === "object"
+    ) {
+      payloadVerify.clipExpectedTextOverrides = clipExpectedTextOverrides;
+    }
     var response = UrlFetchApp.fetch(url, {
       method: "post",
       contentType: "application/json",
       muteHttpExceptions: true,
       followRedirects: true,
-      payload: JSON.stringify({ lesson: lessonId, phraseIndex: pi }),
+      payload: JSON.stringify(payloadVerify),
       headers: headersForWebOrigin(token),
     });
 
