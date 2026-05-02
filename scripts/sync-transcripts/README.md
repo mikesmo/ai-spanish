@@ -1,6 +1,6 @@
 # Sync transcripts (`@ai-spanish/sync-transcripts`)
 
-**Push:** Upserts phrase JSON from disk into Supabase **`lesson_transcripts`**. Default scan dir is **`apps/web/data/transcripts/`**; override with **`PUSH_TRANSCRIPTS_SOURCE_DIR`** or **`--source-dir`**. Push one file with **`--file`** / **`-f`**.
+**Push:** Upserts phrase JSON from disk into Supabase **`lesson_transcripts`**. Default scan dir is **`input/`** at the repo root; override with **`PUSH_TRANSCRIPTS_SOURCE_DIR`** or **`--source-dir`**. Push one file with **`--file`** / **`-f`**.
 
 **Pull:** Exports **`lesson_transcripts`** from Supabase to **`{base}/<id>.json`** (see root **`npm run pull:transcripts`**).
 
@@ -46,13 +46,13 @@ npm run push:transcripts
 1. **`--source-dir <path>`** (relative to cwd unless absolute), e.g.  
    `npm run push:transcripts -- --source-dir output/transcripts`
 2. **`PUSH_TRANSCRIPTS_SOURCE_DIR`** in **`.env.scripts`** when **`--source-dir`** is not passed
-3. **`apps/web/data/transcripts`** under the repo root (default)
+3. **`input/`** under the repo root (default)
 
 **Single file** — **`--file`** / **`-f`** wins over bulk; **`--source-dir`** is ignored:
 
 ```bash
 npm run push:transcripts -- --file output/transcripts/1.json
-npm run push:transcripts -- -f apps/web/data/transcripts/1.json
+npm run push:transcripts -- -f input/1.json
 ```
 
 Or via workspace:

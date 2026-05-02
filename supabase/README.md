@@ -1,6 +1,6 @@
 # Supabase (database migrations)
 
-Lesson **schema** (e.g. `lesson_transcripts`) lives in **`migrations/`**. **Phrase JSON is not committed in migrations** — after a reset, load rows with **`npm run push:transcripts`** from [`apps/web/data/transcripts/`](../apps/web/data/transcripts) (or **`--file`** / **`PUSH_TRANSCRIPTS_SOURCE_DIR`**). See **[`scripts/sync-transcripts/README.md`](../scripts/sync-transcripts/README.md)**.
+Lesson **schema** (e.g. `lesson_transcripts`) lives in **`migrations/`**. **Phrase JSON is not committed in migrations** — after a reset, load rows with **`npm run push:transcripts`** from [`input/`](../input) (or **`--file`** / **`PUSH_TRANSCRIPTS_SOURCE_DIR`**). See **[`scripts/sync-transcripts/README.md`](../scripts/sync-transcripts/README.md)**.
 
 Apply migrations with the [Supabase CLI](https://supabase.com/docs/guides/cli):
 

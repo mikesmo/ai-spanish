@@ -20,7 +20,7 @@ Do **not** confuse this with **`apps/web/.env.local`** (Next.js) — that stays 
 | Directory | Purpose | Detailed docs |
 |-----------|---------|----------------|
 | **`tts-batch/`** | Batch Deepgram TTS: generate lesson audio clips, manifest, optional S3 upload, verification helpers. | [`tts-batch/README.md`](tts-batch/README.md) |
-| **`sync-transcripts/`** | **Push:** upsert into **`lesson_transcripts`** from default **`apps/web/data/transcripts/`**, or **`PUSH_TRANSCRIPTS_SOURCE_DIR`** / **`--source-dir`**, or one **`--file`**. **Pull:** **`npm run pull:transcripts`** → **`{base}/{id}.json`**. | [`sync-transcripts/README.md`](sync-transcripts/README.md) |
+| **`sync-transcripts/`** | **Push:** upsert into **`lesson_transcripts`** from default **`input/`** at repo root, or **`PUSH_TRANSCRIPTS_SOURCE_DIR`** / **`--source-dir`**, or one **`--file`**. **Pull:** **`npm run pull:transcripts`** → **`{base}/{id}.json`**. | [`sync-transcripts/README.md`](sync-transcripts/README.md) |
 | **`migrate-lesson-weights/`** | Idempotent normalization: stable phrase **`name`** slugs and per-word **`weight`** from **`POS_WEIGHTS`**; reads/writes JSON files or Supabase **`lesson_transcripts`** via **`TRANSCRIPT_LESSON_ID`**. No separate README — see **`src/index.ts`** header JSDoc and **`npm run migrate:lesson1`**. | _(inline docs)_ |
 
 ## Root npm shortcuts
