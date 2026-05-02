@@ -54,7 +54,7 @@ async function generateDeepgramTTS(text: string, language: Language = 'es') {
   
   // Choose the appropriate URL for Deepgram based on language
   const url = language === 'en'
-    ? 'https://api.deepgram.com/v1/speak?model=aura-2-pandora-en'
+    ? 'https://api.deepgram.com/v1/speak?model=aura-2-amalthea-en'
     : 'https://api.deepgram.com/v1/speak?model=aura-2-agustina-es';
   // Set up headers and request configuration
   const headers = {

@@ -1,7 +1,7 @@
 import type { Language } from '@ai-spanish/logic';
 
 const DEEPGRAM_MODELS: Record<Language, string> = {
-  en: 'aura-2-pandora-en',
+  en: 'aura-2-amalthea-en',
   es: 'aura-2-agustina-es',
 };
 

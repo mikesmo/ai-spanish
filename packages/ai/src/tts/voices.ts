@@ -1,6 +1,6 @@
 import type { Language } from '@ai-spanish/logic';
 
-const DEFAULT_VOICE_EN = 'aura-2-pandora-en';
+const DEFAULT_VOICE_EN = 'aura-2-amalthea-en';
 const DEFAULT_VOICE_ES = 'aura-2-agustina-es';
 
 function voiceFromEnv(varName: string, fallback: string): string {

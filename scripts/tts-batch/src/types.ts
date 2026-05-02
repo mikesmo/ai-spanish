@@ -12,7 +12,7 @@ export interface TtsJob {
   phraseName: string;
   language: Language;
   text: string;
-  /** Deepgram voice model id (e.g. aura-2-pandora-en). */
+  /** Deepgram voice model id (e.g. aura-2-amalthea-en). */
   voice: string;
 }
 
