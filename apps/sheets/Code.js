@@ -44,6 +44,7 @@ var LESSON_COLUMNS = [
 /** 1-based column indexes; must stay aligned with LESSON_COLUMNS. */
 var COL_INDEX = LESSON_COLUMNS.indexOf("Index") + 1;
 var COL_NAME = LESSON_COLUMNS.indexOf("Name") + 1;
+var COL_TYPE = LESSON_COLUMNS.indexOf("Type") + 1;
 var COL_FIRST_INTRO = LESSON_COLUMNS.indexOf("First intro") + 1;
 var COL_SECOND_INTRO = LESSON_COLUMNS.indexOf("Second intro") + 1;
 var COL_ANSWER = LESSON_COLUMNS.indexOf("Answer") + 1;
@@ -64,6 +65,13 @@ var COL_ANSWER_HEARD = LESSON_COLUMNS.indexOf("Answer heard") + 1;
 
 /** Light yellow background for rows that fail audio verification. */
 var VERIFY_ROW_FAIL_BG = "#fff9c4";
+
+/** Lesson sheet layout after import (`setColumnWidth` uses pixels). */
+var SHEET_COL_WIDTH_INDEX = 52;
+var SHEET_COL_WIDTH_NAME = 50;
+var SHEET_COL_WIDTH_TYPE = 50;
+/** Second intro column width; first intro is set to 3× this. */
+var SHEET_COL_WIDTH_SECOND_INTRO = 132;
 
 /** Must match apps/web/src/app/api/audio/route.ts ALLOWED_SEGMENTS. */
 var ALLOWED_AUDIO_SEGMENTS = [
@@ -1778,6 +1786,32 @@ function rectangularRowsForSetValues(rows2d, columnCount) {
   return out;
 }
 
+/**
+ * Freeze header row, narrow index/name/type columns, wide intro columns, wrap intros.
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet
+ * @param {number} rowCount rows written (including header), >= 1
+ */
+function applyLessonSheetLayout(sheet, rowCount) {
+  sheet.setFrozenRows(1);
+  sheet.setColumnWidth(COL_INDEX, SHEET_COL_WIDTH_INDEX);
+  sheet.setColumnWidth(COL_NAME, SHEET_COL_WIDTH_NAME);
+  sheet.setColumnWidth(COL_TYPE, SHEET_COL_WIDTH_TYPE);
+  sheet.setColumnWidth(
+    COL_SECOND_INTRO,
+    SHEET_COL_WIDTH_SECOND_INTRO,
+  );
+  sheet.setColumnWidth(
+    COL_FIRST_INTRO,
+    SHEET_COL_WIDTH_SECOND_INTRO * 3,
+  );
+  if (rowCount >= 1 && COL_FIRST_INTRO >= 1 && COL_SECOND_INTRO >= 1) {
+    var introCols = COL_SECOND_INTRO - COL_FIRST_INTRO + 1;
+    sheet
+      .getRange(1, COL_FIRST_INTRO, rowCount, introCols)
+      .setWrap(true);
+  }
+}
+
 function writeRowsToActiveSheet(rows) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
   var targetCols = LESSON_COLUMNS.length;
@@ -1813,5 +1847,6 @@ function writeRowsToActiveSheet(rows) {
         verifiedCol.setValues(falses);
       }
     }
+    applyLessonSheetLayout(sheet, targetRows);
   }
 }
