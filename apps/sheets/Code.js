@@ -22,43 +22,45 @@ var LESSON_COLUMNS = [
   "Index",
   "Name",
   "Type",
-  "First Intro",
-  "Second Intro",
+  "First intro",
+  "Second intro",
   "Question",
   "Answer",
+  "New words",
+  "New grammar",
   "Grammar",
   "Verified",
-  "First Intro Max volume",
-  "First Intro Avg volume",
-  "Second Intro Max volume",
-  "Second Intro Avg volume",
-  "Answer Max volume",
-  "Answer Avg volume",
-  "First Intro Heard",
-  "Second Intro Heard",
-  "Answer Heard",
+  "First intro max volume",
+  "First intro avg volume",
+  "Second intro max volume",
+  "Second intro avg volume",
+  "Answer max volume",
+  "Answer avg volume",
+  "First intro heard",
+  "Second intro heard",
+  "Answer heard",
 ];
 
 /** 1-based column indexes; must stay aligned with LESSON_COLUMNS. */
 var COL_INDEX = LESSON_COLUMNS.indexOf("Index") + 1;
 var COL_NAME = LESSON_COLUMNS.indexOf("Name") + 1;
-var COL_FIRST_INTRO = LESSON_COLUMNS.indexOf("First Intro") + 1;
-var COL_SECOND_INTRO = LESSON_COLUMNS.indexOf("Second Intro") + 1;
+var COL_FIRST_INTRO = LESSON_COLUMNS.indexOf("First intro") + 1;
+var COL_SECOND_INTRO = LESSON_COLUMNS.indexOf("Second intro") + 1;
 var COL_ANSWER = LESSON_COLUMNS.indexOf("Answer") + 1;
 var COL_VERIFIED = LESSON_COLUMNS.indexOf("Verified") + 1;
 var COL_FIRST_INTRO_MAX_VOLUME =
-  LESSON_COLUMNS.indexOf("First Intro Max volume") + 1;
+  LESSON_COLUMNS.indexOf("First intro max volume") + 1;
 var COL_FIRST_INTRO_AVG_VOLUME =
-  LESSON_COLUMNS.indexOf("First Intro Avg volume") + 1;
+  LESSON_COLUMNS.indexOf("First intro avg volume") + 1;
 var COL_SECOND_INTRO_MAX_VOLUME =
-  LESSON_COLUMNS.indexOf("Second Intro Max volume") + 1;
+  LESSON_COLUMNS.indexOf("Second intro max volume") + 1;
 var COL_SECOND_INTRO_AVG_VOLUME =
-  LESSON_COLUMNS.indexOf("Second Intro Avg volume") + 1;
-var COL_ANSWER_MAX_VOLUME = LESSON_COLUMNS.indexOf("Answer Max volume") + 1;
-var COL_ANSWER_AVG_VOLUME = LESSON_COLUMNS.indexOf("Answer Avg volume") + 1;
-var COL_FIRST_INTRO_HEARD = LESSON_COLUMNS.indexOf("First Intro Heard") + 1;
-var COL_SECOND_INTRO_HEARD = LESSON_COLUMNS.indexOf("Second Intro Heard") + 1;
-var COL_ANSWER_HEARD = LESSON_COLUMNS.indexOf("Answer Heard") + 1;
+  LESSON_COLUMNS.indexOf("Second intro avg volume") + 1;
+var COL_ANSWER_MAX_VOLUME = LESSON_COLUMNS.indexOf("Answer max volume") + 1;
+var COL_ANSWER_AVG_VOLUME = LESSON_COLUMNS.indexOf("Answer avg volume") + 1;
+var COL_FIRST_INTRO_HEARD = LESSON_COLUMNS.indexOf("First intro heard") + 1;
+var COL_SECOND_INTRO_HEARD = LESSON_COLUMNS.indexOf("Second intro heard") + 1;
+var COL_ANSWER_HEARD = LESSON_COLUMNS.indexOf("Answer heard") + 1;
 
 /** Light yellow background for rows that fail audio verification. */
 var VERIFY_ROW_FAIL_BG = "#fff9c4";
@@ -1723,6 +1725,8 @@ function phraseRow(phrase, loopIndex) {
     en["second-intro"] ?? "",
     en.question ?? "",
     es.answer ?? "",
+    es["newGrammar"] ?? "",
+    es["newWords"] ?? "",
     es.grammar ?? "",
     false,
     "",
