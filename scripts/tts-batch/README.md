@@ -151,7 +151,7 @@ output/
     hashes.json
 ```
 
-Transcript rows are flattened to jobs such as `{name}-first-intro`, `{name}-second-intro`, `{name}-answer` (empty strings skipped), where `{name}` is the phrase's stable slug **`name`** field (e.g. `perdona`). Each phrase also has a numeric **`index`** (0-based) used internally and an optional **`type`** (`new` | `combination`). Language is implied by the segment (`first-intro`/`second-intro` are English, `answer` is Spanish).
+Transcript rows are flattened to jobs such as `{name}-first-intro`, `{name}-second-intro`, `{name}-answer` (empty strings skipped), where `{name}` is the phrase's stable slug **`name`** field (e.g. `perdona`). Each phrase also has a numeric **`index`** (0-based) used internally and an optional **`type`** (`new` | `composite`). Language is implied by the segment (`first-intro`/`second-intro` are English, `answer` is Spanish).
 
 **Note:** Saved session history that embeds full phrase snapshots uses the same transcript shape. After changing these field names, older exported history entries may not parse until cleared or migrated.
 

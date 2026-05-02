@@ -8,7 +8,7 @@ export interface WordMeta {
   weight: number;
 }
 
-export type PhraseLessonType = 'new' | 'combination';
+export type PhraseLessonType = 'new' | 'composite';
 
 export interface Phrase {
   /** Stable slug for the phrase (e.g. transcript key / logging). */
@@ -21,7 +21,8 @@ export interface Phrase {
    * Lesson card kind from JSON. When `'new'`, the first in-session
    * presentation may show a Spanish pronunciation example (audio + text) on
    * AISpeaking after the English prompt; revisits skip that phase.
-   * Source files may use `"composite"`; it is normalized to `'combination'`.
+   * `'composite'` marks other cards (same UI behavior as non-`new` for
+   * pronunciation-example eligibility).
    */
   type?: PhraseLessonType;
   English: {

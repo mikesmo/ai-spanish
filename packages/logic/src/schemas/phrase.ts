@@ -28,13 +28,13 @@ export const wordMetaSchema = z
     },
   );
 
-/** Disk JSON may use `composite`; runtime / DB normalize to `combination`. */
+/** Canonical values: `new` | `composite`. Legacy `"combination"` normalizes to `composite`. */
 const phraseLessonTypeSchema = z
-  .enum(['new', 'combination', 'composite'])
-  .optional()
-  .transform((t) =>
-    t === undefined ? undefined : t === 'composite' ? 'combination' : t,
-  );
+  .union([
+    z.enum(['new', 'composite']),
+    z.literal('combination').transform(() => 'composite' as const),
+  ])
+  .optional();
 
 export const phraseSchema = z.object({
   name: z.string().min(1),

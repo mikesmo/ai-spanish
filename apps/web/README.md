@@ -76,7 +76,7 @@ To update content:
 
 - Or edit `phrases` JSON in the Supabase Table Editor for quick fixes (DDL and policies remain in [`supabase/migrations/`](../../supabase/migrations/)).
 
-Each phrase object uses at least `name` (stable slug), `index` (0-based order; used as the TTS / audio filename prefix), `English`, and `Spanish`. Optional `type` may be `"new"` or `"combination"`.
+Each phrase object uses at least `name` (stable slug), `index` (0-based order; used as the TTS / audio filename prefix), `English`, and `Spanish`. Optional `type` may be `"new"` or `"composite"`.
 
 ### Required env for transcripts
 

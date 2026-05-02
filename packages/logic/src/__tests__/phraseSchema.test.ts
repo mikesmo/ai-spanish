@@ -19,19 +19,19 @@ describe('phraseSchema', () => {
     expect(r.type).toBeUndefined();
   });
 
-  it('accepts type new and combination', () => {
+  it('accepts type new and composite', () => {
     expect(phraseSchema.parse({ ...minimalPhrase, type: 'new' as const }).type).toBe(
       'new',
     );
     expect(
-      phraseSchema.parse({ ...minimalPhrase, type: 'combination' as const }).type,
-    ).toBe('combination');
+      phraseSchema.parse({ ...minimalPhrase, type: 'composite' as const }).type,
+    ).toBe('composite');
   });
 
-  it('normalizes composite to combination', () => {
+  it('normalizes legacy combination to composite', () => {
     expect(
-      phraseSchema.parse({ ...minimalPhrase, type: 'composite' as const }).type,
-    ).toBe('combination');
+      phraseSchema.parse({ ...minimalPhrase, type: 'combination' as const }).type,
+    ).toBe('composite');
   });
 
   it('preserves category and Spanish newGrammar / newWords', () => {
@@ -66,8 +66,8 @@ describe('transcriptResponseSchema', () => {
     ];
     const parsed = transcriptResponseSchema.parse(rows);
     expect(parsed[0]!.type).toBe('new');
-    expect(parsed[1]!.type).toBe('combination');
-    expect(parsed[2]!.type).toBe('combination');
+    expect(parsed[1]!.type).toBe('composite');
+    expect(parsed[2]!.type).toBe('composite');
     expect(parsed[3]!.type).toBeUndefined();
   });
 });

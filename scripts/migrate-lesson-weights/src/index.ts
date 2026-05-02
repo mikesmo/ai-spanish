@@ -42,7 +42,7 @@ type LegacyPhrase = {
   order?: number;
   index?: number;
   category?: string;
-  type?: 'new' | 'combination' | 'composite';
+  type?: 'new' | 'composite' | 'combination';
   English: {
     'first-intro'?: string;
     'second-intro': string;
@@ -133,7 +133,8 @@ function migratePhraseRows(parsed: LegacyPhrase[]): Record<string, unknown>[] {
       row.category = phrase.category;
     }
     if (phrase.type != null) {
-      row.type = phrase.type === 'composite' ? 'combination' : phrase.type;
+      row.type =
+        phrase.type === 'combination' ? 'composite' : phrase.type;
     }
     return row;
   });
