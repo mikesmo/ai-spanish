@@ -1,6 +1,6 @@
 "use client";
 
-import { isValidTranscriptLessonId } from "@ai-spanish/logic";
+import { isTranscriptLessonIdSyntaxValid } from "@ai-spanish/logic";
 import { notFound, useParams } from "next/navigation";
 import { PhraseDisplay } from "../../components/PhraseDisplay";
 import { useLessonQuery } from "../../hooks/useLessonQuery";
@@ -12,7 +12,7 @@ function resolveLessonId(params: { id?: string | string[] }): string {
       : Array.isArray(params.id)
         ? params.id[0]
         : undefined;
-  if (raw == null || !isValidTranscriptLessonId(raw)) {
+  if (raw == null || !isTranscriptLessonIdSyntaxValid(raw)) {
     notFound();
   }
   return raw;

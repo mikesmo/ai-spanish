@@ -28,10 +28,19 @@ export const wordMetaSchema = z
     },
   );
 
+/** Disk JSON may use `composite`; runtime / DB normalize to `combination`. */
+const phraseLessonTypeSchema = z
+  .enum(['new', 'combination', 'composite'])
+  .optional()
+  .transform((t) =>
+    t === undefined ? undefined : t === 'composite' ? 'combination' : t,
+  );
+
 export const phraseSchema = z.object({
   name: z.string().min(1),
   index: z.number().int().nonnegative(),
-  type: z.enum(['new', 'combination']).optional(),
+  category: z.string().optional(),
+  type: phraseLessonTypeSchema,
   English: z.object({
     'first-intro': z.string().default(''),
     'second-intro': z.string(),
@@ -39,6 +48,8 @@ export const phraseSchema = z.object({
   }),
   Spanish: z.object({
     grammar: z.string(),
+    newGrammar: z.string().optional(),
+    newWords: z.string().optional(),
     answer: z.string(),
     words: z.array(wordMetaSchema).min(1),
   }),

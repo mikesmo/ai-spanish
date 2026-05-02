@@ -1,6 +1,7 @@
-import { lessons } from "@ai-spanish/logic";
+import { DEFAULT_COURSE_LEVEL_SLUG } from "@ai-spanish/logic";
 import { StatusBar } from "expo-status-bar";
 import {
+  ActivityIndicator,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -8,6 +9,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { useLessonsQuery } from "../src/hooks/useLessonsQuery";
 
 type LessonListScreenProps = {
   onChooseLesson: (lessonId: string) => void;
@@ -16,6 +18,10 @@ type LessonListScreenProps = {
 export default function LessonListScreen({
   onChooseLesson,
 }: LessonListScreenProps): JSX.Element {
+  const { data, isLoading, isError, error } = useLessonsQuery(
+    DEFAULT_COURSE_LEVEL_SLUG,
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
@@ -25,21 +31,48 @@ export default function LessonListScreen({
       >
         <Text style={styles.heading}>AI Spanish</Text>
         <Text style={styles.subtitle}>Choose a lesson to practice</Text>
-        <View style={styles.list}>
-          {lessons.map((lesson) => (
-            <Pressable
-              key={lesson.id}
-              onPress={() => onChooseLesson(lesson.id)}
-              style={({ pressed }) => [
-                styles.card,
-                pressed && styles.cardPressed,
-              ]}
-            >
-              <Text style={styles.cardTitle}>{lesson.title}</Text>
-              <Text style={styles.cardDescription}>{lesson.description}</Text>
-            </Pressable>
-          ))}
-        </View>
+
+        {isLoading ? (
+          <View style={styles.centerBlock}>
+            <ActivityIndicator />
+            <Text style={styles.hint}>Loading lessons…</Text>
+          </View>
+        ) : null}
+
+        {isError ? (
+          <Text style={styles.errorText}>
+            {error instanceof Error ? error.message : "Failed to load lessons."}
+          </Text>
+        ) : null}
+
+        {data?.courseLevel?.title ? (
+          <Text style={styles.levelLabel}>{data.courseLevel.title}</Text>
+        ) : null}
+
+        {data ? (
+          <View style={styles.list}>
+            {data.lessons.map((lesson) => (
+              <Pressable
+                key={lesson.lessonId}
+                onPress={() => onChooseLesson(lesson.lessonId)}
+                style={({ pressed }) => [
+                  styles.card,
+                  pressed && styles.cardPressed,
+                ]}
+              >
+                <Text style={styles.cardTitle}>{lesson.title}</Text>
+                <Text style={styles.cardDescription}>{lesson.description}</Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+
+        {!isLoading && data && data.lessons.length === 0 ? (
+          <Text style={styles.hint}>
+            No lessons in this course level yet. Add rows to lesson_catalog
+            after transcripts exist.
+          </Text>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
@@ -66,10 +99,32 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#6b7280",
     textAlign: "center",
-    marginBottom: 40,
+    marginBottom: 24,
+  },
+  levelLabel: {
+    fontSize: 12,
+    color: "#9ca3af",
+    textAlign: "center",
+    marginBottom: 16,
   },
   list: {
     gap: 16,
+  },
+  centerBlock: {
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 16,
+  },
+  hint: {
+    fontSize: 14,
+    color: "#6b7280",
+    textAlign: "center",
+  },
+  errorText: {
+    fontSize: 14,
+    color: "#D85A30",
+    textAlign: "center",
+    marginBottom: 16,
   },
   card: {
     borderWidth: 1,

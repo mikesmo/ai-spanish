@@ -1,4 +1,4 @@
-import { isValidTranscriptLessonId } from "@ai-spanish/logic";
+import { isTranscriptLessonIdSyntaxValid } from "@ai-spanish/logic";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import {
@@ -94,7 +94,7 @@ export default function LessonScreen({
   lessonId,
   onBack,
 }: LessonScreenProps): JSX.Element {
-  if (!isValidTranscriptLessonId(lessonId)) {
+  if (!isTranscriptLessonIdSyntaxValid(lessonId)) {
     return <InvalidLessonId onBack={onBack} />;
   }
   return <LessonSessionContent lessonId={lessonId} onBack={onBack} />;

@@ -41,13 +41,20 @@ type LegacyPhrase = {
   name?: string;
   order?: number;
   index?: number;
-  type?: 'new' | 'combination';
+  category?: string;
+  type?: 'new' | 'combination' | 'composite';
   English: {
     'first-intro'?: string;
     'second-intro': string;
     question: string;
   };
-  Spanish: { grammar: string; answer: string; words: LegacyWord[] };
+  Spanish: {
+    grammar: string;
+    answer: string;
+    newGrammar?: string;
+    newWords?: string;
+    words: LegacyWord[];
+  };
 };
 
 function slugify(input: string): string {
@@ -104,18 +111,29 @@ function migratePhraseRows(parsed: LegacyPhrase[]): Record<string, unknown>[] {
       };
     });
 
+    const spanish: Record<string, unknown> = {
+      grammar: phrase.Spanish.grammar,
+      answer: phrase.Spanish.answer,
+      words,
+    };
+    if (phrase.Spanish.newGrammar !== undefined) {
+      spanish.newGrammar = phrase.Spanish.newGrammar;
+    }
+    if (phrase.Spanish.newWords !== undefined) {
+      spanish.newWords = phrase.Spanish.newWords;
+    }
+
     const row: Record<string, unknown> = {
       name,
       index,
       English: phrase.English,
-      Spanish: {
-        grammar: phrase.Spanish.grammar,
-        answer: phrase.Spanish.answer,
-        words,
-      },
+      Spanish: spanish,
     };
+    if (phrase.category !== undefined) {
+      row.category = phrase.category;
+    }
     if (phrase.type != null) {
-      row.type = phrase.type;
+      row.type = phrase.type === 'composite' ? 'combination' : phrase.type;
     }
     return row;
   });

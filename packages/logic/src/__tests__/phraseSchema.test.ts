@@ -28,6 +28,27 @@ describe('phraseSchema', () => {
     ).toBe('combination');
   });
 
+  it('normalizes composite to combination', () => {
+    expect(
+      phraseSchema.parse({ ...minimalPhrase, type: 'composite' as const }).type,
+    ).toBe('combination');
+  });
+
+  it('preserves category and Spanish newGrammar / newWords', () => {
+    const r = phraseSchema.parse({
+      ...minimalPhrase,
+      category: 'Polite phrases',
+      Spanish: {
+        ...minimalPhrase.Spanish,
+        newGrammar: 'polite address',
+        newWords: 'perdón, señor',
+      },
+    });
+    expect(r.category).toBe('Polite phrases');
+    expect(r.Spanish.newGrammar).toBe('polite address');
+    expect(r.Spanish.newWords).toBe('perdón, señor');
+  });
+
   it('rejects invalid type', () => {
     expect(() =>
       phraseSchema.parse({ ...minimalPhrase, type: 'other' }),
@@ -40,11 +61,13 @@ describe('transcriptResponseSchema', () => {
     const rows = [
       { ...minimalPhrase, name: '1', index: 0, type: 'new' as const },
       { ...minimalPhrase, name: '2', index: 1, type: 'combination' as const },
-      { ...minimalPhrase, name: '3', index: 2 },
+      { ...minimalPhrase, name: '3', index: 2, type: 'composite' as const },
+      { ...minimalPhrase, name: '4', index: 3 },
     ];
     const parsed = transcriptResponseSchema.parse(rows);
     expect(parsed[0]!.type).toBe('new');
     expect(parsed[1]!.type).toBe('combination');
-    expect(parsed[2]!.type).toBeUndefined();
+    expect(parsed[2]!.type).toBe('combination');
+    expect(parsed[3]!.type).toBeUndefined();
   });
 });

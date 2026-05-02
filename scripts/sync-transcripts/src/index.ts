@@ -6,7 +6,7 @@
  * **Single file:** `--file path/to/1.json` (lesson id from basename).
  *
  * Source directory `{source}`: `--source-dir` → `PUSH_TRANSCRIPTS_SOURCE_DIR` →
- * `input` under repo root.
+ * `input/lessons` under repo root.
  *
  * Environment:
  * - **NEXT_PUBLIC_SUPABASE_URL**
@@ -38,7 +38,7 @@ loadScriptsEnv();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
 
-const DEFAULT_PUSH_TRANSCRIPTS_DIR = path.join(REPO_ROOT, 'input');
+const DEFAULT_PUSH_TRANSCRIPTS_DIR = path.join(REPO_ROOT, 'input', 'lessons');
 
 function printHelp(): void {
   console.log(`sync-transcripts (push) — upsert lesson_transcripts from JSON on disk
@@ -54,7 +54,7 @@ Usage:
 Source directory (bulk only), in order:
   1. --source-dir <path>
   2. PUSH_TRANSCRIPTS_SOURCE_DIR in .env.scripts or environment
-  3. <repo>/input
+  3. <repo>/input/lessons
 
 Requires NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.
 `);

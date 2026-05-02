@@ -7,6 +7,9 @@ export type LessonListEntry = {
 /** Default lesson when no `?lesson=` is specified (API + legacy single-lesson flows). */
 export const DEFAULT_TRANSCRIPT_LESSON_ID = '1' as const;
 
+/** Default course tier for GET `/api/lessons` when `?courseLevel=` is omitted. */
+export const DEFAULT_COURSE_LEVEL_SLUG = 'beginner' as const;
+
 /** Authoritative list of app lessons; ids match transcript + S3 layout (`lesson` + id). */
 export const lessons: readonly LessonListEntry[] = [
   {
@@ -22,8 +25,6 @@ export const lessons: readonly LessonListEntry[] = [
       'Asking and answering questions in everyday situations.',
   },
 ] as const;
-
-const lessonIds = new Set(lessons.map((l) => l.id));
 
 /** Matches `lesson_transcripts.lesson_id` check: positive integer string, no leading zeros. */
 const TRANSCRIPT_LESSON_ID_SYNTAX = /^[1-9][0-9]*$/;
@@ -54,9 +55,9 @@ export function getLessonTitle(lessonId: string): string {
   return lessons.find((l) => l.id === lessonId)?.title ?? `Lesson ${lessonId}`;
 }
 
-/** True when `lessonId` is listed in {@link lessons} (in-app catalog / navigation). */
+/** True when `lessonId` is syntactically valid for `lesson_transcripts` / transcript API. */
 export function isValidTranscriptLessonId(lessonId: string): boolean {
-  return lessonIds.has(lessonId);
+  return isTranscriptLessonIdSyntaxValid(lessonId);
 }
 
 /**
@@ -66,6 +67,16 @@ export function isValidTranscriptLessonId(lessonId: string): boolean {
 export function transcriptPathWithLesson(lessonId: string): string {
   const params = new URLSearchParams({ lesson: lessonId });
   return `/api/transcript?${params.toString()}`;
+}
+
+/**
+ * Path + query for GET lesson catalog (web + mobile), relative to web origin.
+ * Example: `"/api/lessons?courseLevel=beginner"`
+ */
+export function lessonsApiPath(courseLevelSlug?: string): string {
+  const slug = (courseLevelSlug?.trim() || DEFAULT_COURSE_LEVEL_SLUG).trim();
+  const params = new URLSearchParams({ courseLevel: slug });
+  return `/api/lessons?${params.toString()}`;
 }
 
 /**

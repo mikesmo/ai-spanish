@@ -101,13 +101,20 @@ export {
   createLessonTranscriptQueryOptions,
 } from './transcriptQuery';
 export {
+  LESSONS_QUERY_KEY_PREFIX,
+  lessonsQueryKey,
+  createLessonsQueryOptions,
+} from './lessonCatalogQuery';
+export {
   DEFAULT_TRANSCRIPT_LESSON_ID,
+  DEFAULT_COURSE_LEVEL_SLUG,
   lessons,
   getLessonTitle,
   isValidTranscriptLessonId,
   isTranscriptLessonIdSyntaxValid,
   resolveTranscriptLessonQueryParam,
   transcriptPathWithLesson,
+  lessonsApiPath,
   s3LessonFolderForTranscriptLessonId,
   type LessonListEntry,
 } from './lessonCatalog';

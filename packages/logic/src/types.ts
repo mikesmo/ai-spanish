@@ -15,10 +15,13 @@ export interface Phrase {
   name: string;
   /** 0-based phrase index in the lesson file (deck position). Audio clip ids use `name` instead of this index. */
   index: number;
+  /** Lesson grouping label from transcript JSON (e.g. "Polite phrases"). */
+  category?: string;
   /**
    * Lesson card kind from JSON. When `'new'`, the first in-session
    * presentation may show a Spanish pronunciation example (audio + text) on
    * AISpeaking after the English prompt; revisits skip that phase.
+   * Source files may use `"composite"`; it is normalized to `'combination'`.
    */
   type?: PhraseLessonType;
   English: {
@@ -28,6 +31,10 @@ export interface Phrase {
   };
   Spanish: {
     grammar: string;
+    /** Teaching/highlight grammar line from newer transcript JSON (optional). */
+    newGrammar?: string;
+    /** New vocabulary chunk from newer transcript JSON (optional). */
+    newWords?: string;
     answer: string;
     words: WordMeta[];
   };
