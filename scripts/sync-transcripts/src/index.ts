@@ -1,23 +1,20 @@
 #!/usr/bin/env node
 /**
- * Upserts transcript phrase decks into Supabase `lesson_transcripts` using the service role.
+ * Upserts lesson JSON into Supabase: `lesson_transcripts` + `lesson_catalog`.
  *
- * **Bulk:** Scans a directory for `{lessonId}.json` (valid decimal id, no leading zeros).
- * **Single file:** `--file path/to/1.json` (lesson id from basename).
+ * On-disk shape is always `{ meta, phrases }` (see `packages/logic` `lessonFileSchema`).
  *
- * Source directory `{source}`: `--source-dir` → `PUSH_TRANSCRIPTS_SOURCE_DIR` →
- * `input/lessons` under repo root.
+ * Source directory: `--source-dir` → `PUSH_TRANSCRIPTS_SOURCE_DIR` → `input/lessons`.
  *
  * Environment:
  * - **NEXT_PUBLIC_SUPABASE_URL**
  * - **SUPABASE_SERVICE_ROLE_KEY**
  * - **PUSH_TRANSCRIPTS_SOURCE_DIR** (optional bulk scan root)
- *
- * Does **not** call the Next.js API. Secrets: repo-root **`.env.scripts`**.
+ * - **PUSH_COURSE_LEVEL_SLUG** (optional default when `meta.courseLevelSlug` is omitted)
  *
  * ```bash
  * npm run push:transcripts
- * npm run push:transcripts -- --file output/transcripts/1.json
+ * npm run push:transcripts -- --file input/lessons/1.json
  * ```
  */
 import fs from 'node:fs/promises';
@@ -25,13 +22,17 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
+  DEFAULT_COURSE_LEVEL_SLUG,
   isTranscriptLessonIdSyntaxValid,
-  transcriptResponseSchema,
+  parseLessonFileJson,
 } from '@ai-spanish/logic';
 
 import { loadScriptsEnv } from '../../load-scripts-env.js';
-
-import { upsertLessonPhrasesJson } from './supabase-lesson-transcript.js';
+import {
+  fetchCourseLevelIdBySlug,
+  upsertLessonCatalogRow,
+  upsertLessonPhrasesJson,
+} from '../../lib/supabase-lesson-transcripts.js';
 
 loadScriptsEnv();
 
@@ -40,16 +41,29 @@ const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
 
 const DEFAULT_PUSH_TRANSCRIPTS_DIR = path.join(REPO_ROOT, 'input', 'lessons');
 
+interface ParsedPushArgs {
+  help: boolean;
+  sourceDir?: string;
+  file?: string;
+  lessonId?: string;
+  courseLevel?: string;
+  catalogTitle?: string;
+  catalogDescription?: string;
+  sortOrder?: number;
+}
+
 function printHelp(): void {
-  console.log(`sync-transcripts (push) — upsert lesson_transcripts from JSON on disk
+  console.log(`sync-transcripts (push) — upsert lesson_transcripts + lesson_catalog
 
 Usage:
   npm run push:transcripts [--] [--source-dir <dir>] [--file <path> | -f <path>]
+    [--lesson-id <id>] [--course-level <slug>] [--catalog-title <s>]
+    [--catalog-description <s>] [--sort-order <n>]
   npm run push:transcripts -- --help
 
-  Bulk (default): scan directory for *.json with valid lesson ids (e.g. 1.json).
-  Single file: --file / -f pushes one transcript; lesson id is the basename without .json.
-  If both --file and --source-dir are set, --file wins (directory is ignored).
+  Lesson files are JSON objects: { "meta": { ... }, "phrases": [ ... ] }.
+  meta.lessonId must match the filename (e.g. 1.json → "1").
+  meta.courseLevelSlug is optional if PUSH_COURSE_LEVEL_SLUG or --course-level is set.
 
 Source directory (bulk only), in order:
   1. --source-dir <path>
@@ -58,12 +72,6 @@ Source directory (bulk only), in order:
 
 Requires NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.
 `);
-}
-
-interface ParsedPushArgs {
-  help: boolean;
-  sourceDir?: string;
-  file?: string;
 }
 
 function parseArgs(argv: string[]): ParsedPushArgs {
@@ -100,6 +108,79 @@ function parseArgs(argv: string[]): ParsedPushArgs {
     }
     if (a.startsWith('--file=')) {
       out.file = a.slice('--file='.length);
+      continue;
+    }
+    if (a === '--lesson-id' || a === '-l') {
+      const v = rest[i + 1];
+      if (!v || v.startsWith('-')) {
+        throw new Error('[sync-transcripts] --lesson-id requires an id');
+      }
+      out.lessonId = v;
+      i++;
+      continue;
+    }
+    if (a.startsWith('--lesson-id=')) {
+      out.lessonId = a.slice('--lesson-id='.length);
+      continue;
+    }
+    if (a === '--course-level') {
+      const v = rest[i + 1];
+      if (!v || v.startsWith('-')) {
+        throw new Error('[sync-transcripts] --course-level requires a slug');
+      }
+      out.courseLevel = v;
+      i++;
+      continue;
+    }
+    if (a.startsWith('--course-level=')) {
+      out.courseLevel = a.slice('--course-level='.length);
+      continue;
+    }
+    if (a === '--catalog-title') {
+      const v = rest[i + 1];
+      if (!v || v.startsWith('-')) {
+        throw new Error('[sync-transcripts] --catalog-title requires a value');
+      }
+      out.catalogTitle = v;
+      i++;
+      continue;
+    }
+    if (a.startsWith('--catalog-title=')) {
+      out.catalogTitle = a.slice('--catalog-title='.length);
+      continue;
+    }
+    if (a === '--catalog-description') {
+      const v = rest[i + 1];
+      if (!v || v.startsWith('-')) {
+        throw new Error('[sync-transcripts] --catalog-description requires a value');
+      }
+      out.catalogDescription = v;
+      i++;
+      continue;
+    }
+    if (a.startsWith('--catalog-description=')) {
+      out.catalogDescription = a.slice('--catalog-description='.length);
+      continue;
+    }
+    if (a === '--sort-order') {
+      const v = rest[i + 1];
+      if (!v || v.startsWith('-')) {
+        throw new Error('[sync-transcripts] --sort-order requires an integer');
+      }
+      const n = Number.parseInt(v, 10);
+      if (!Number.isInteger(n)) {
+        throw new Error('[sync-transcripts] --sort-order must be an integer');
+      }
+      out.sortOrder = n;
+      i++;
+      continue;
+    }
+    if (a.startsWith('--sort-order=')) {
+      const n = Number.parseInt(a.slice('--sort-order='.length), 10);
+      if (!Number.isInteger(n)) {
+        throw new Error('[sync-transcripts] --sort-order must be an integer');
+      }
+      out.sortOrder = n;
       continue;
     }
     if (a === '--') {
@@ -152,34 +233,6 @@ async function listTranscriptLessonFiles(
   return out;
 }
 
-async function pushLesson(params: {
-  lessonId: string;
-  filePath: string;
-}): Promise<void> {
-  const raw = await fs.readFile(params.filePath, 'utf8');
-  let parsedJson: unknown;
-  try {
-    parsedJson = JSON.parse(raw) as unknown;
-  } catch {
-    throw new Error(`Invalid JSON in ${params.filePath}`);
-  }
-
-  const validated = transcriptResponseSchema.safeParse(parsedJson);
-  if (!validated.success) {
-    console.error(
-      `[sync-transcripts] Validation failed for lesson ${params.lessonId}:`,
-      validated.error.flatten(),
-    );
-    throw new Error(`Transcript validation failed for lesson ${params.lessonId}`);
-  }
-
-  await upsertLessonPhrasesJson(params.lessonId, validated.data);
-
-  console.log(
-    `[sync-transcripts] Upserted lesson ${params.lessonId} (${validated.data.length} phrases).`,
-  );
-}
-
 function lessonIdFromPushFile(absFilePath: string): string {
   const base = path.basename(absFilePath);
   if (!base.endsWith('.json')) {
@@ -194,6 +247,71 @@ function lessonIdFromPushFile(absFilePath: string): string {
     );
   }
   return lessonId;
+}
+
+async function pushLesson(params: {
+  lessonIdFromFilename: string;
+  filePath: string;
+  cli: ParsedPushArgs;
+}): Promise<void> {
+  const raw = await fs.readFile(params.filePath, 'utf8');
+  let parsedJson: unknown;
+  try {
+    parsedJson = JSON.parse(raw) as unknown;
+  } catch {
+    throw new Error(`Invalid JSON in ${params.filePath}`);
+  }
+
+  const lessonFile = parseLessonFileJson(parsedJson, params.filePath);
+  const { meta } = lessonFile;
+  const phrases = lessonFile.phrases;
+
+  if (params.cli.lessonId !== undefined && params.cli.lessonId !== meta.lessonId) {
+    throw new Error(
+      `[sync-transcripts] --lesson-id ${params.cli.lessonId} does not match meta.lessonId ${meta.lessonId} (${params.filePath})`,
+    );
+  }
+
+  if (meta.lessonId !== params.lessonIdFromFilename) {
+    throw new Error(
+      `[sync-transcripts] meta.lessonId "${meta.lessonId}" must match filename id "${params.lessonIdFromFilename}" (${params.filePath})`,
+    );
+  }
+
+  const lessonId = meta.lessonId;
+
+  const title = params.cli.catalogTitle ?? meta.title;
+  const description = params.cli.catalogDescription ?? meta.description;
+  const sortOrder = params.cli.sortOrder ?? meta.sortOrder;
+  const courseLevelSlug = (
+    params.cli.courseLevel ??
+    meta.courseLevelSlug ??
+    process.env.PUSH_COURSE_LEVEL_SLUG?.trim() ??
+    DEFAULT_COURSE_LEVEL_SLUG
+  ).trim();
+
+  await upsertLessonPhrasesJson(lessonId, phrases);
+  console.log(
+    `[sync-transcripts] Upserted lesson_transcripts ${lessonId} (${phrases.length} phrases).`,
+  );
+
+  const courseLevelId = await fetchCourseLevelIdBySlug(courseLevelSlug);
+  if (!courseLevelId) {
+    throw new Error(
+      `[sync-transcripts] Unknown course_levels.slug "${courseLevelSlug}". Add the row or set meta.courseLevelSlug / PUSH_COURSE_LEVEL_SLUG / --course-level.`,
+    );
+  }
+
+  await upsertLessonCatalogRow({
+    lessonId,
+    courseLevelId,
+    title,
+    description,
+    sortOrder,
+  });
+  console.log(
+    `[sync-transcripts] Upserted lesson_catalog ${lessonId} (course level: ${courseLevelSlug}, sort_order: ${sortOrder}).`,
+  );
 }
 
 async function main(): Promise<void> {
@@ -213,8 +331,12 @@ async function main(): Promise<void> {
 
   if (parsed.file !== undefined && parsed.file.length > 0) {
     const absPath = path.resolve(process.cwd(), parsed.file);
-    const lessonId = lessonIdFromPushFile(absPath);
-    await pushLesson({ lessonId, filePath: absPath });
+    const lessonIdFromFilename = lessonIdFromPushFile(absPath);
+    await pushLesson({
+      lessonIdFromFilename,
+      filePath: absPath,
+      cli: parsed,
+    });
     return;
   }
 
@@ -227,7 +349,7 @@ async function main(): Promise<void> {
   }
 
   for (const { lessonId, absPath } of files) {
-    await pushLesson({ lessonId, filePath: absPath });
+    await pushLesson({ lessonIdFromFilename: lessonId, filePath: absPath, cli: parsed });
   }
 }
 

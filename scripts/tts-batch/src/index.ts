@@ -35,7 +35,11 @@ import { runVerifyLoudness } from './verify-loudness.js';
 import { runVerifyStt } from './stt-verify.js';
 import { loadTranscriptFromSupabase } from './load-transcript-supabase.js';
 
-import { isTranscriptLessonIdSyntaxValid, type Phrase } from '@ai-spanish/logic';
+import {
+  isTranscriptLessonIdSyntaxValid,
+  parseLessonFileJson,
+  type Phrase,
+} from '@ai-spanish/logic';
 
 loadScriptsEnv();
 
@@ -240,10 +244,24 @@ async function loadTranscript(inputPath: string): Promise<Phrase[]> {
   } catch {
     throw new Error(`Invalid JSON in transcript: ${absolutePath}`);
   }
-  if (!Array.isArray(data)) {
-    throw new Error(`Transcript must be a JSON array of phrases (${absolutePath})`);
-  }
   const fileLabel = absolutePath;
+  if (!Array.isArray(data)) {
+    if (data && typeof data === 'object' && !Array.isArray(data)) {
+      const { phrases } = parseLessonFileJson(data, fileLabel);
+      for (let i = 0; i < phrases.length; i++) {
+        const item = phrases[i];
+        const o = item as Record<string, unknown>;
+        const nameHint =
+          typeof o.name === 'string' && o.name.trim() !== '' ? ` "${o.name}"` : '';
+        const label = `Transcript entry ${i}${nameHint}`;
+        readPhraseIndexFromJson(o, label, fileLabel);
+      }
+      return phrases as Phrase[];
+    }
+    throw new Error(
+      `Transcript must be { meta, phrases } or a JSON array of phrases (${absolutePath})`,
+    );
+  }
   for (let i = 0; i < data.length; i++) {
     const item = data[i];
     if (!item || typeof item !== 'object' || Array.isArray(item)) {

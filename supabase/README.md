@@ -1,6 +1,6 @@
 # Supabase (database migrations)
 
-Lesson **schema** (e.g. `lesson_transcripts`, **`course_levels`**, **`lesson_catalog`**) lives in **`migrations/`**. **Phrase JSON is not committed in migrations** — after a reset, load transcript rows with **`npm run push:transcripts`** from [`input/lessons/`](../input/lessons) (or **`--file`** / **`PUSH_TRANSCRIPTS_SOURCE_DIR`**). See **[`scripts/sync-transcripts/README.md`](../scripts/sync-transcripts/README.md)**.
+Lesson **schema** (e.g. `lesson_transcripts`, **`course_levels`**, **`lesson_catalog`**) lives in **`migrations/`**. **Phrase JSON is not committed in migrations** — after a reset, load lesson files from [`input/lessons/`](../input/lessons) with **`npm run push:transcripts`** (or **`--file`** / **`PUSH_TRANSCRIPTS_SOURCE_DIR`**). Push reads each file’s **`meta`** and upserts **`lesson_catalog`** and **`lesson_transcripts`**. See **[`scripts/sync-transcripts/README.md`](../scripts/sync-transcripts/README.md)**.
 
 **Lesson list in the app** comes from **`lesson_catalog`** (joined with **`course_levels`**). The migration seeds **`course_levels`** (`beginner`) and tries to seed **`lesson_catalog`** for lessons **1** and **2** only when those **`lesson_transcripts`** rows already exist. After a **`db reset`**, run **`npm run push:transcripts`** first, then run **[`seed_lesson_catalog_after_transcripts.sql`](seed_lesson_catalog_after_transcripts.sql)** (or equivalent `INSERT`s) so the home screen lists lessons.
 

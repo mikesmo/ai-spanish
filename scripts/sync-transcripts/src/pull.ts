@@ -1,36 +1,33 @@
 #!/usr/bin/env node
 /**
- * Pulls validated transcript JSON from Supabase `lesson_transcripts` (service role).
+ * Pulls lesson JSON from Supabase into canonical `{ meta, phrases }` files.
  *
  * Default: all rows → `{base}/<lessonId>.json`
  * Optional: single lesson via positional id or `--lesson <id>`.
  *
  * Base directory: `--output-dir <path>` → `PULL_TRANSCRIPTS_OUTPUT_DIR` → `process.cwd()`.
- *
- * ```bash
- * npm run pull:transcripts
- * npm run pull:transcripts -- 1
- * npm run pull:transcripts -- --output-dir /tmp
- * ```
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
 import {
+  DEFAULT_COURSE_LEVEL_SLUG,
   isTranscriptLessonIdSyntaxValid,
   transcriptResponseSchema,
+  type LessonFileMeta,
 } from '@ai-spanish/logic';
 
 import { loadScriptsEnv } from '../../load-scripts-env.js';
 import {
   fetchAllLessonTranscripts,
+  fetchLessonCatalogMeta,
   fetchLessonPhrasesJson,
 } from '../../lib/supabase-lesson-transcripts.js';
 
 loadScriptsEnv();
 
 function printHelp(): void {
-  console.log(`sync-transcripts (pull) — export lesson_transcripts from Supabase
+  console.log(`sync-transcripts (pull) — export lesson_transcripts + lesson_catalog from Supabase
 
 Usage:
   npm run pull:transcripts [--] [--output-dir <dir>] [--lesson <id>] [<lessonId>]
@@ -38,6 +35,9 @@ Usage:
 
   With no lesson argument: exports every row to <base>/<id>.json
   With lesson id (positional or --lesson): exports one file only.
+
+  Each file is { "meta": { ... }, "phrases": [ ... ] }.
+  When no lesson_catalog row exists, meta is filled with defaults (title "Lesson <id>", etc.).
 
 Output base <base>:
   1. --output-dir <path>
@@ -129,13 +129,41 @@ function resolveOutputBase(cliOutputDir: string | undefined): string {
   return process.cwd();
 }
 
+function buildDefaultMeta(lessonId: string): LessonFileMeta {
+  const n = Number(lessonId);
+  const sortOrder = Number.isInteger(n) && n > 0 ? n : 1;
+  return {
+    lessonId,
+    sortOrder,
+    title: `Lesson ${lessonId}`,
+    description: '',
+    courseLevelSlug: DEFAULT_COURSE_LEVEL_SLUG,
+  };
+}
+
 async function writeLessonFile(
   outputBase: string,
   lessonId: string,
   data: ReturnType<typeof transcriptResponseSchema.parse>,
 ): Promise<void> {
   const filePath = path.join(outputBase, `${lessonId}.json`);
-  const body = `${JSON.stringify(data, null, 2)}\n`;
+
+  const catalogRow = await fetchLessonCatalogMeta(lessonId);
+  let meta: LessonFileMeta;
+  if (catalogRow) {
+    meta = {
+      lessonId,
+      sortOrder: catalogRow.sort_order,
+      title: catalogRow.title,
+      description: catalogRow.description,
+      courseLevelSlug: catalogRow.course_level_slug,
+    };
+  } else {
+    meta = buildDefaultMeta(lessonId);
+  }
+
+  const bodyObj = { meta, phrases: data };
+  const body = `${JSON.stringify(bodyObj, null, 2)}\n`;
   await fs.writeFile(filePath, body, 'utf8');
   console.log(
     `[sync-transcripts] Wrote ${filePath} (${data.length} phrases).`,

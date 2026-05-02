@@ -148,10 +148,39 @@ async function main(): Promise<void> {
   let filePath = '';
   let lessonId = '';
 
+  /** Present when input file is `{ meta, phrases }`; written back unchanged on file sink */
+  let fileMeta: unknown = undefined;
+
   if (cliPath) {
     filePath = path.resolve(process.cwd(), cliPath);
     const raw = await fs.readFile(filePath, 'utf8');
-    parsed = JSON.parse(raw) as LegacyPhrase[];
+    let rawData: unknown;
+    try {
+      rawData = JSON.parse(raw) as unknown;
+    } catch {
+      throw new Error(`Invalid JSON in ${filePath}`);
+    }
+    if (Array.isArray(rawData)) {
+      parsed = rawData as LegacyPhrase[];
+    } else if (
+      rawData &&
+      typeof rawData === 'object' &&
+      !Array.isArray(rawData) &&
+      'phrases' in rawData
+    ) {
+      const o = rawData as { phrases: unknown; meta?: unknown };
+      if (!Array.isArray(o.phrases)) {
+        throw new Error(`Expected file.phrases to be an array (${filePath})`);
+      }
+      parsed = o.phrases as LegacyPhrase[];
+      if (o.meta !== undefined) {
+        fileMeta = o.meta;
+      }
+    } else {
+      throw new Error(
+        `Expected transcript JSON array or { meta?, phrases: [...] } (${filePath})`,
+      );
+    }
     sink = 'file';
   } else if (lessonFromEnv && isTranscriptLessonIdSyntaxValid(lessonFromEnv)) {
     lessonId = lessonFromEnv;
@@ -164,10 +193,6 @@ async function main(): Promise<void> {
     );
   }
 
-  if (!Array.isArray(parsed)) {
-    throw new Error('Expected transcript phrases to be a JSON array');
-  }
-
   const migrated = migratePhraseRows(parsed);
 
   const result = transcriptResponseSchema.safeParse(migrated);
@@ -177,7 +202,9 @@ async function main(): Promise<void> {
   }
 
   if (sink === 'file') {
-    const serialized = JSON.stringify(migrated, null, 2) + '\n';
+    const payload =
+      fileMeta !== undefined ? { meta: fileMeta, phrases: migrated } : migrated;
+    const serialized = JSON.stringify(payload, null, 2) + '\n';
     await fs.writeFile(filePath, serialized, 'utf8');
     console.log(
       `[migrate-lesson-weights] ${migrated.length} phrases updated in ${filePath}`,

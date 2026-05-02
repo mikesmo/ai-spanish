@@ -1,8 +1,8 @@
 # Sync transcripts (`@ai-spanish/sync-transcripts`)
 
-**Push:** Upserts phrase JSON from disk into Supabase **`lesson_transcripts`**. Default scan dir is **`input/lessons/`** at the repo root; override with **`PUSH_TRANSCRIPTS_SOURCE_DIR`** or **`--source-dir`**. Push one file with **`--file`** / **`-f`**.
+**Push:** Reads canonical lesson files **`{ "meta": …, "phrases": … }`** from disk, upserts **`lesson_transcripts`** (phrases) and **`lesson_catalog`** (meta + course level). Default scan dir is **`input/lessons/`**; override with **`PUSH_TRANSCRIPTS_SOURCE_DIR`** or **`--source-dir`**. Push one file with **`--file`** / **`-f`**.
 
-**Pull:** Exports **`lesson_transcripts`** from Supabase to **`{base}/<id>.json`** (see root **`npm run pull:transcripts`**).
+**Pull:** Exports **`lesson_transcripts`** (and **`lesson_catalog`** when present) to **`{base}/<id>.json`** in the same **`{ meta, phrases }`** shape (see root **`npm run pull:transcripts`**).
 
 These scripts do **not** call the Next.js **`/api/transcript`** route (no Bearer user JWT, no running web server).
 
@@ -22,14 +22,33 @@ Run commands from the **monorepo root** (`ai-spanish/`). Paths are resolved rela
 
 The **service role** key bypasses Row Level Security. Use only in trusted environments (same posture as **[`migrate-lesson-weights`](../migrate-lesson-weights/src/index.ts)** and **`tts-batch`**). Never commit keys or expose them to client bundles.
 
-## Transcript files on disk (push)
+## Lesson files on disk (push)
 
-- **Bulk:** every **`{lessonId}.json`** in the resolved source directory — **`lessonId`**: positive integer string, **no leading zeros** (**`1.json`**, **`3.json`**).
-- **Single file:** **`--file path/to/1.json`** (or **`-f`**); **`lesson_id`** in the database is the filename stem (**`1.json`** → **`1`**).
-- Names like **`lesson1.json`** are **skipped** in bulk (invalid id); use **`1.json`** for lesson **1**.
-- Body: JSON array matching **`transcriptResponseSchema`** / **`TranscriptResponse`** (same shape as **`GET /api/transcript`**).
+Root shape is an object (not a bare array):
 
-Bulk runs process files in numeric **`lessonId`** order.
+```json
+{
+  "meta": {
+    "lessonId": "1",
+    "sortOrder": 1,
+    "title": "…",
+    "description": "…",
+    "courseLevelSlug": "beginner"
+  },
+  "phrases": [ /* TranscriptResponse: same as GET /api/transcript body */ ]
+}
+```
+
+- **`meta.lessonId`** must match the filename stem **`1.json`** → **`"1"`** (positive integer string, no leading zeros).
+- **`meta.courseLevelSlug`** is optional if **`PUSH_COURSE_LEVEL_SLUG`** or **`--course-level`** is set (default slug **`beginner`** in code matches seeded **`course_levels`**).
+- **Bulk:** every **`{lessonId}.json`** in the resolved source directory; invalid stems skipped (e.g. **`lesson1.json`**).
+- **Single file:** **`--file` / `-f`**; same **`meta`** vs filename rule.
+
+Optional CLI overrides (normally use **`meta`** only): **`--lesson-id`**, **`--course-level`**, **`--catalog-title`**, **`--catalog-description`**, **`--sort-order`**.
+
+Bulk runs process files in numeric **`lessonId`** order (from filename).
+
+Zod: **`lessonFileSchema`** / **`parseLessonFileJson`** in **`@ai-spanish/logic`**.
 
 ## Workflow — push
 
@@ -65,11 +84,11 @@ npm run start --workspace=@ai-spanish/sync-transcripts
 npm run push:transcripts -- --help
 ```
 
-Each lesson logs **`Upserted lesson N (... phrases)`**. Existing **`lesson_id`** rows are replaced; new ids insert a row.
+Each lesson logs **`Upserted lesson_transcripts …`** and **`Upserted lesson_catalog …`**. Existing **`lesson_id`** transcript rows are replaced; catalog row **`UPSERT`**s on **`lesson_id`**. Fix **`UNIQUE (course_level_id, sort_order)`** conflicts if two lessons share a sort slot.
 
 ## Workflow — pull
 
-From the **monorepo root**, with **`.env.scripts`** (or your shell) providing Supabase credentials. Exported files are **`{base}/<lessonId>.json`**.
+From the **monorepo root**, with **`.env.scripts`** (or your shell) providing Supabase credentials. Exported files are **`{base}/<lessonId>.json`** with **`{ meta, phrases }`**. **`meta`** comes from **`lesson_catalog`** + **`course_levels`** when a catalog row exists; otherwise defaults (e.g. title **`Lesson 3`** for lesson **`3`**, **`courseLevelSlug`** **`beginner`**).
 
 **Pull every lesson** in **`lesson_transcripts`**:
 
