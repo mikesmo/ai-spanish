@@ -26,6 +26,7 @@ interface PillNavButtonProps {
   label: string;
   onClick: () => void;
   variant?: "primary" | "secondary";
+  disabled?: boolean;
 }
 
 /** Same shell as Continue / Next; no progress layer or timer. */
@@ -33,11 +34,13 @@ const PillNavButton = ({
   label,
   onClick,
   variant = "secondary",
+  disabled = false,
 }: PillNavButtonProps): JSX.Element => (
   <button
     type="button"
     onClick={onClick}
-    className={variant === "primary" ? pillPrimaryClassName : pillSecondaryClassName}
+    disabled={disabled}
+    className={`${variant === "primary" ? pillPrimaryClassName : pillSecondaryClassName} disabled:opacity-50`}
   >
     <span
       className={`relative z-10 text-[16px] font-medium ${
@@ -80,17 +83,15 @@ const AutoNextButton = ({ label, onPress, onTimeout }: AutoNextButtonProps): JSX
 
 interface ContinueAfterAudioButtonProps {
   isAudioPlaying: boolean;
-  isExplainAckPending: boolean;
   onNext: () => void;
 }
 
-/** Auto-advance + progress bar only after Spanish TTS and explain ack are done. */
+/** Auto-advance + progress bar only after Spanish TTS is idle. */
 const NextPhraseAfterAudioButton = ({
   isAudioPlaying,
-  isExplainAckPending,
   onNext,
 }: ContinueAfterAudioButtonProps): JSX.Element => {
-  if (isAudioPlaying || isExplainAckPending) {
+  if (isAudioPlaying) {
     return <PillNavButton label={NEXT_PHRASE_LABEL} onClick={onNext} />;
   }
 
@@ -220,18 +221,31 @@ export const UserFeedback = ({
   onReplay,
   onTryAgain,
   onNext,
-  isExplainAckPending = false,
+  isExplainAckOpen,
+  isExplainAckReplayPlaying,
+  handleExplainSayAgain,
 }: UserFeedbackProps): JSX.Element => {
   const diff = transcription.trim() ? diffWords(transcription, spanishPhrase) : null;
 
   return (
     <div className="flex-1 flex flex-col items-center min-h-0 w-full animate-screen-fade-in">
       {isCorrect ? (
-        <div className="flex flex-col items-center flex-1 justify-center">
+        <div className="flex flex-col items-center flex-1 justify-center gap-8 w-full">
           <p className="text-[18px] text-[#1D9E75] text-center leading-relaxed">{spanishPhrase}</p>
+          {isExplainAckOpen ? (
+            <div className="w-full shrink-0">
+              <PillNavButton
+                label="Explain that again"
+                onClick={() => {
+                  void handleExplainSayAgain();
+                }}
+                disabled={isAudioPlaying || isExplainAckReplayPlaying}
+              />
+            </div>
+          ) : null}
         </div>
       ) : (
-        <div className="flex flex-col items-center gap-8 flex-1 justify-center">
+        <div className="flex flex-col items-center gap-8 flex-1 justify-center w-full">
           <div className="flex flex-col items-center gap-2">
             <p className="text-[18px] text-center leading-relaxed">{renderSpokenWords(diff)}</p>
           </div>
@@ -251,16 +265,24 @@ export const UserFeedback = ({
             onSpeedChange={onSpeedChange}
             onReplay={onReplay}
           />
+
+          {isExplainAckOpen ? (
+            <div className="w-full shrink-0">
+              <PillNavButton
+                label="Explain that again"
+                onClick={() => {
+                  void handleExplainSayAgain();
+                }}
+                disabled={isAudioPlaying || isExplainAckReplayPlaying}
+              />
+            </div>
+          ) : null}
         </div>
       )}
 
-      <div className="mt-auto w-full pt-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
+      <div className="mt-auto flex w-full flex-col gap-4 pt-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
         {isCorrect ? (
-          <NextPhraseAfterAudioButton
-            isAudioPlaying={isAudioPlaying}
-            isExplainAckPending={isExplainAckPending}
-            onNext={onNext}
-          />
+          <NextPhraseAfterAudioButton isAudioPlaying={isAudioPlaying} onNext={onNext} />
         ) : (
           <div className="flex flex-col items-center gap-4">
             <PillNavButton label={NEXT_PHRASE_LABEL} onClick={onNext} variant="secondary" />

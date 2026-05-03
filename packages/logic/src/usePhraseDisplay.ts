@@ -244,13 +244,13 @@ export function usePhraseDisplay(
    */
   const successExplainAbortRef = useRef<AbortController | null>(null);
   /**
-   * Aborts the "Say that again" explain replay that may be in-flight while the
-   * acknowledgment dialog is open. Cleared on Okay and on all interrupts.
+   * Aborts the "Say that again" explain replay that may be in-flight during
+   * explain acknowledgment. Cleared on ack completion and on all interrupts.
    */
   const explainDialogReplayAbortRef = useRef<AbortController | null>(null);
   /**
-   * Thunk to run when the user taps "Okay" on the recording-screen path.
-   * Null on the feedback-screen path (Okay only closes the dialog there).
+   * Thunk to run when explain acknowledgment completes on the recording-screen path.
+   * Null on the feedback-screen path (ack only clears UI there).
    * Cleared after invocation or on phrase navigation.
    */
   const explainAckContinuationRef = useRef<(() => void) | null>(null);
@@ -502,8 +502,7 @@ export function usePhraseDisplay(
               { ...baseS3, signal: ac.signal, englishSegmentOverride: 'explain' },
             );
             if (!ac.signal.aborted && isMountedRef.current) {
-              // Open the acknowledgment dialog; continuation is null on this
-              // path — Okay just closes the dialog and lets the UI proceed.
+              // Open explain acknowledgment; continuation is null on this path.
               explainAckContinuationRef.current = null;
               setIsExplainAckOpen(true);
             }
@@ -858,7 +857,7 @@ export function usePhraseDisplay(
       answerAudioAbortRef.current?.abort();
       // Abort the success-path explain play (recording screen) if in-flight.
       successExplainAbortRef.current?.abort();
-      // Abort any in-flight "Say that again" replay and clear dialog state.
+      // Abort any in-flight "Say that again" replay and clear explain-ack state.
       explainDialogReplayAbortRef.current?.abort();
       explainDialogReplayAbortRef.current = null;
       explainAckContinuationRef.current = null;
@@ -1019,8 +1018,7 @@ export function usePhraseDisplay(
             if (explainAc.signal.aborted) return;
             if (!isMountedRef.current) return;
 
-            // Explain played on the recording screen → open acknowledgment
-            // dialog. Okay will run the continuation.
+            // Explain played on the recording screen → open acknowledgment; ack runs the continuation.
             explainAckContinuationRef.current =
               onSkipAnswerScreenAfterSuccessRef.current != null
                 ? () => { onSkipAnswerScreenAfterSuccessRef.current!(); }
@@ -1252,8 +1250,7 @@ export function usePhraseDisplay(
     isFirstSessionPresentationOfCurrentPhrase,
     lastScoreBreakdown,
     isExplainAckOpen,
-    isExplainAckOverlayVisible:
-      isExplainAckOpen && !isExplainAckReplayPlaying,
+    isExplainAckReplayPlaying,
     handleExplainAckOkay,
     handleExplainSayAgain,
   };

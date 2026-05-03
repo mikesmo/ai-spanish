@@ -114,16 +114,14 @@ const AutoNextButton = ({ label, onPress, onTimeout }: AutoNextButtonProps): JSX
 
 interface NextPhraseAfterAudioButtonProps {
   isAudioPlaying: boolean;
-  isExplainAckPending: boolean;
   onNext: () => void;
 }
 
 const NextPhraseAfterAudioButton = ({
   isAudioPlaying,
-  isExplainAckPending,
   onNext,
 }: NextPhraseAfterAudioButtonProps): JSX.Element => {
-  if (isAudioPlaying || isExplainAckPending) {
+  if (isAudioPlaying) {
     return <PillButton label={NEXT_PHRASE_LABEL} onPress={onNext} variant="secondary" />;
   }
   return <AutoNextButton label={NEXT_PHRASE_LABEL} onPress={onNext} onTimeout={onNext} />;
@@ -155,7 +153,9 @@ export const UserFeedback = ({
   onReplay,
   onTryAgain,
   onNext,
-  isExplainAckPending = false,
+  isExplainAckOpen,
+  isExplainAckReplayPlaying,
+  handleExplainSayAgain,
 }: UserFeedbackProps): JSX.Element => {
   const diff = transcription.trim() ? diffWords(transcription, spanishPhrase) : null;
 
@@ -165,6 +165,18 @@ export const UserFeedback = ({
         {isCorrect ? (
           <View style={styles.correctCenter}>
             <Text style={styles.correctPhrase}>{spanishPhrase}</Text>
+            {isExplainAckOpen ? (
+              <View style={styles.explainAckUnderAudio}>
+                <PillButton
+                  label="Explain that again"
+                  onPress={() => {
+                    void handleExplainSayAgain();
+                  }}
+                  variant="secondary"
+                  disabled={isAudioPlaying || isExplainAckReplayPlaying}
+                />
+              </View>
+            ) : null}
           </View>
         ) : (
           <View style={styles.incorrectCenter}>
@@ -209,17 +221,26 @@ export const UserFeedback = ({
               onSpeedChange={onSpeedChange}
               onReplay={onReplay}
             />
+
+            {isExplainAckOpen ? (
+              <View style={styles.explainAckUnderAudio}>
+                <PillButton
+                  label="Explain that again"
+                  onPress={() => {
+                    void handleExplainSayAgain();
+                  }}
+                  variant="secondary"
+                  disabled={isAudioPlaying || isExplainAckReplayPlaying}
+                />
+              </View>
+            ) : null}
           </View>
         )}
       </View>
 
       <View style={styles.footer}>
         {isCorrect ? (
-          <NextPhraseAfterAudioButton
-            isAudioPlaying={isAudioPlaying}
-            isExplainAckPending={isExplainAckPending}
-            onNext={onNext}
-          />
+          <NextPhraseAfterAudioButton isAudioPlaying={isAudioPlaying} onNext={onNext} />
         ) : (
           <View style={styles.buttonGroup}>
             <PillButton label={NEXT_PHRASE_LABEL} onPress={onNext} variant="secondary" />
@@ -247,6 +268,7 @@ const styles = StyleSheet.create({
     marginTop: "auto",
     paddingTop: 24,
     paddingBottom: 16,
+    gap: 16,
   },
   buttonGroup: {
     width: "100%",
@@ -270,7 +292,11 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    gap: 16,
+    gap: 24,
+    width: "100%",
+  },
+  explainAckUnderAudio: {
+    width: "100%",
   },
   correctPhrase: {
     fontSize: 18,

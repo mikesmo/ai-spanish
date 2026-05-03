@@ -1,3 +1,4 @@
+import { EXPLAIN_ACK_AUTO_ADVANCE_MS } from "@ai-spanish/logic";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -11,6 +12,7 @@ import { Feather } from "@expo/vector-icons";
 import { getPhraseHeroLayout } from "../heroLayout";
 import type { UserRecordingProps } from "../PhraseDisplay.types";
 import { PillButton } from "./PillButton";
+import { SayThatAgainAckButton } from "./SayThatAgainAckButton";
 
 type UserRecordingScreenMode = "pronunciationAttempt" | "userTest";
 
@@ -26,6 +28,7 @@ export const UserRecording = ({
   isCorrect,
   onShowAnswer,
   showMicChrome = true,
+  explainAck,
 }: UserRecordingProps): JSX.Element => {
   const [hero, setHero] = useState<ReturnType<typeof getPhraseHeroLayout>>(null);
   const onStageLayout = (e: LayoutChangeEvent) => {
@@ -128,7 +131,19 @@ export const UserRecording = ({
       ) : null}
 
       <View style={styles.bottomControls}>
-        <PillButton label="show answer" onPress={onShowAnswer} variant="secondary" />
+        {explainAck?.isOpen === true ? (
+          <SayThatAgainAckButton
+            isReplayPlaying={explainAck.isReplayPlaying}
+            label="Explain that again"
+            autoAdvanceMs={EXPLAIN_ACK_AUTO_ADVANCE_MS}
+            onSayAgain={() => {
+              void explainAck.onSayAgain();
+            }}
+            onAckOkay={explainAck.onAckOkay}
+          />
+        ) : (
+          <PillButton label="show answer" onPress={onShowAnswer} variant="secondary" />
+        )}
       </View>
     </View>
   );

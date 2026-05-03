@@ -4,16 +4,23 @@ export interface PillButtonProps {
   label: string;
   onPress: () => void;
   variant?: "primary" | "secondary";
+  disabled?: boolean;
 }
 
 export const PillButton = ({
   label,
   onPress,
   variant = "secondary",
+  disabled = false,
 }: PillButtonProps): JSX.Element => (
   <Pressable
     onPress={onPress}
-    style={[pillStyles.pill, variant === "primary" ? pillStyles.pillPrimary : pillStyles.pillSecondary]}
+    disabled={disabled}
+    style={[
+      pillStyles.pill,
+      variant === "primary" ? pillStyles.pillPrimary : pillStyles.pillSecondary,
+      disabled && pillStyles.pillDisabled,
+    ]}
   >
     <Text
       style={[
@@ -45,6 +52,9 @@ export const pillStyles = StyleSheet.create({
     backgroundColor: "#1d9e75",
     borderWidth: 1,
     borderColor: "#1d9e75",
+  },
+  pillDisabled: {
+    opacity: 0.5,
   },
   pillLabel: {
     fontSize: 16,

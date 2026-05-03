@@ -1,6 +1,8 @@
 "use client";
 
+import { EXPLAIN_ACK_AUTO_ADVANCE_MS } from "@ai-spanish/logic";
 import type { UserRecordingProps } from "../PhraseDisplay.types";
+import { SayThatAgainAckButton } from "./SayThatAgainAckButton";
 
 const showAnswerPillClassName =
   "relative w-full overflow-hidden rounded-full bg-white border border-gray-200 h-[54px] flex items-center justify-center shadow-sm";
@@ -20,6 +22,7 @@ export const UserRecording = ({
   isCorrect,
   onShowAnswer,
   showMicChrome = true,
+  explainAck,
 }: UserRecordingProps): JSX.Element => {
   const displaySpanishLine =
     showSpanishTranslation && spanishLine != null && String(spanishLine).trim() !== ""
@@ -156,9 +159,21 @@ export const UserRecording = ({
     </div>
 
     <div className="mt-auto flex w-full flex-col items-center pt-4">
-      <button type="button" onClick={onShowAnswer} className={showAnswerPillClassName}>
-        <span className="relative z-10 text-[16px] font-medium text-gray-900">show answer</span>
-      </button>
+      {explainAck?.isOpen === true ? (
+        <SayThatAgainAckButton
+          isReplayPlaying={explainAck.isReplayPlaying}
+          label="Explain that again"
+          autoAdvanceMs={EXPLAIN_ACK_AUTO_ADVANCE_MS}
+          onSayAgain={() => {
+            void explainAck.onSayAgain();
+          }}
+          onAckOkay={explainAck.onAckOkay}
+        />
+      ) : (
+        <button type="button" onClick={onShowAnswer} className={showAnswerPillClassName}>
+          <span className="relative z-10 text-[16px] font-medium text-gray-900">show answer</span>
+        </button>
+      )}
     </div>
   </div>
   );

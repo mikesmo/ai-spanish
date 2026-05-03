@@ -88,6 +88,13 @@ export type PhraseDisplayHostProps = {
   phrases: Phrase[];
 };
 
+export type UserRecordingExplainAckViewProps = {
+  isOpen: boolean;
+  isReplayPlaying: boolean;
+  onSayAgain: () => void;
+  onAckOkay: () => void;
+};
+
 export type UserRecordingViewProps = {
   englishText: string;
   spanishLine?: string | null;
@@ -100,6 +107,8 @@ export type UserRecordingViewProps = {
   onShowAnswer: () => void;
   /** When false, hide mic circle and recording affordances (e.g. recordingPriming). */
   showMicChrome?: boolean;
+  /** Inline explain acknowledgment on the recording screen (replaces show answer). */
+  explainAck?: UserRecordingExplainAckViewProps;
 };
 
 export type UserFeedbackViewProps = {
@@ -112,9 +121,7 @@ export type UserFeedbackViewProps = {
   onReplay: () => void;
   onTryAgain: () => void;
   onNext: () => void;
-  /**
-   * When true, the explain acknowledgment dialog is pending. Prevents the
-   * auto-advance timer from starting and disables nav controls.
-   */
-  isExplainAckPending?: boolean;
+  isExplainAckOpen: boolean;
+  isExplainAckReplayPlaying: boolean;
+  handleExplainSayAgain: () => void;
 };

@@ -242,24 +242,24 @@ export type PhraseDisplayAPI = {
    */
   lastScoreBreakdown: ScoreBreakdown | null;
   /**
-   * True after an `explain` clip finishes, while the acknowledgment dialog is
-   * visible. Cleared by `handleExplainAckOkay` (or on phrase navigation).
+   * True after an `explain` clip finishes, while the learner must acknowledge
+   * (Say that again / auto-advance). Cleared by `handleExplainAckOkay` (or on phrase navigation).
    */
   isExplainAckOpen: boolean;
   /**
-   * True when the acknowledgment modal should render. False during
-   * `handleExplainSayAgain` playback so the dialog hides until the replay ends.
+   * True while `handleExplainSayAgain` is replaying the explain TTS — UI should
+   * show a disabled Say that again control until replay completes.
    */
-  isExplainAckOverlayVisible: boolean;
+  isExplainAckReplayPlaying: boolean;
   /**
-   * User tapped "Okay" in the explain acknowledgment dialog — close the dialog
-   * and run any pending continuation (advance phrase on the recording path;
+   * Completes explain acknowledgment — clears ack state and runs any pending
+   * continuation (e.g. advance to answer audio on the recording path;
    * no-op on the feedback path beyond closing).
    */
   handleExplainAckOkay: () => void;
   /**
-   * User tapped "Say that again" — replay the `explain` clip; the overlay
-   * hides for the duration of the replay and returns anew when it completes.
+   * Replays the `explain` clip; disables the Say that again control until
+   * playback ends.
    */
   handleExplainSayAgain: () => void;
 };
