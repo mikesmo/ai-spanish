@@ -41,12 +41,44 @@
         white-space: pre-wrap;
         word-break: break-word;
       }
+      .preview-header-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+      .preview-header-row h2 {
+        margin: 0;
+        flex: 1;
+        font-size: 13px;
+        font-weight: 600;
+        color: #5f6368;
+      }
+      .mark-verified-btn {
+        flex-shrink: 0;
+        margin-top: 0;
+        padding: 4px 10px;
+        font-size: 14px;
+        line-height: 1.2;
+        min-width: 2rem;
+      }
       .preview-actions {
         margin-top: 6px;
         display: flex;
         flex-wrap: wrap;
         gap: 8px;
-        align-items: center;
+        align-items: flex-start;
+      }
+      .preview-update-progress {
+        flex: 1;
+        min-width: 120px;
+        font-size: 11px;
+        line-height: 1.35;
+        color: #5f6368;
+        white-space: pre-wrap;
+        word-break: break-word;
+        padding-top: 6px;
       }
       .preview-play,
       .preview-record {
@@ -178,17 +210,6 @@
         text-decoration: underline;
         text-underline-offset: 2px;
       }
-      .save-progress {
-        margin-top: 14px;
-        font-size: 12px;
-        line-height: 1.45;
-        color: #5f6368;
-        white-space: pre-wrap;
-        word-break: break-word;
-      }
-      .save-progress.save-progress--hidden {
-        display: none;
-      }
     </style>
   </head>
   <body>
@@ -199,7 +220,19 @@
       aria-live="polite"
       aria-atomic="true"
     >
-      <h2>Selected row</h2>
+      <div class="preview-header-row">
+        <h2>Selected row</h2>
+        <button
+          type="button"
+          id="markVerifiedBtn"
+          class="mark-verified-btn"
+          title="Set Verified to true for this row"
+          aria-label="Mark row verified"
+          disabled
+        >
+          ✓
+        </button>
+      </div>
       <div class="row-meta" id="previewRowMeta">Row —</div>
       <dl>
         <div class="preview-field">
@@ -230,6 +263,7 @@
             >
               Update
             </button>
+            <span class="preview-update-progress" aria-live="polite"></span>
           </div>
         </div>
         <div class="preview-field">
@@ -260,6 +294,7 @@
             >
               Update
             </button>
+            <span class="preview-update-progress" aria-live="polite"></span>
           </div>
         </div>
         <div class="preview-field">
@@ -290,6 +325,7 @@
             >
               Update
             </button>
+            <span class="preview-update-progress" aria-live="polite"></span>
           </div>
         </div>
         <div class="preview-field">
@@ -320,6 +356,7 @@
             >
               Update
             </button>
+            <span class="preview-update-progress" aria-live="polite"></span>
           </div>
         </div>
         <div class="preview-field">
@@ -350,6 +387,7 @@
             >
               Update
             </button>
+            <span class="preview-update-progress" aria-live="polite"></span>
           </div>
         </div>
         <div class="preview-field">
@@ -380,15 +418,10 @@
             >
               Update
             </button>
+            <span class="preview-update-progress" aria-live="polite"></span>
           </div>
         </div>
       </dl>
-      <div
-        id="saveProgressStatus"
-        class="save-progress save-progress--hidden"
-        aria-live="polite"
-        aria-atomic="true"
-      ></div>
     </section>
 
     <div id="authLoggedOutPanel">
@@ -439,6 +472,8 @@
 
       var verifyGeneration = 0;
       var verificationAnyPhraseFail = false;
+
+      var lessonReloadInFlight = false;
 
       var sessionAccessToken = null;
       var refreshToken = null;
@@ -699,7 +734,7 @@
           inPanel.style.display = "none";
           preview.style.display = "none";
         }
-        syncVerifyButtonEnabled();
+        syncAuthChromeButtons();
       }
 
       function setAccessExpiryFromSeconds(expiresIn) {
@@ -783,8 +818,9 @@
       }
 
       function setReloadLoading(isLoading) {
-        document.getElementById("reloadBtnSignedIn").disabled = isLoading;
-        syncVerifyButtonEnabled();
+        lessonReloadInFlight = !!isLoading;
+        document.getElementById("reloadBtnSignedIn").disabled = !!isLoading;
+        syncAuthChromeButtons();
       }
 
       function setVerifyLoading(isLoading) {
@@ -794,7 +830,54 @@
           vbtn.textContent = isLoading ? "Verifying…" : "Verify audio";
         }
         document.getElementById("reloadBtnSignedIn").disabled = isLoading;
-        if (!isLoading) {
+        syncAuthChromeButtons();
+      }
+
+      /**
+       * Load / verify / playback: disable auth + mark-verified while lesson reload,
+       * verification, or preview play/update is in progress.
+       */
+      function syncAuthChromeButtons() {
+        var reloadBtn = document.getElementById("reloadBtnSignedIn");
+        var verifyBtn = document.getElementById("verifyBtnSignedIn");
+        var logoutBtn = document.getElementById("logoutBtn");
+        var markBtn = document.getElementById("markVerifiedBtn");
+        if (!reloadBtn || !verifyBtn || !logoutBtn) {
+          return;
+        }
+
+        var verifying = verifyBtn.textContent === "Verifying…";
+        var previewBusy = playSessionBusy || recordSessionBusy;
+
+        if (!isLoggedIn()) {
+          if (markBtn) {
+            markBtn.disabled = true;
+          }
+          return;
+        }
+
+        if (previewBusy) {
+          reloadBtn.disabled = true;
+          verifyBtn.disabled = true;
+          logoutBtn.disabled = true;
+          if (markBtn) {
+            markBtn.disabled = true;
+          }
+          return;
+        }
+
+        var authBusy = lessonReloadInFlight || verifying;
+        logoutBtn.disabled = authBusy;
+        if (markBtn) {
+          markBtn.disabled =
+            authBusy || !lastPreviewData || lastPreviewData.row < 2;
+        }
+
+        if (authBusy) {
+          reloadBtn.disabled = true;
+          verifyBtn.disabled = true;
+        } else {
+          reloadBtn.disabled = false;
           syncVerifyButtonEnabled();
         }
       }
@@ -1006,6 +1089,7 @@
           recordBtns[i].textContent = RECORD_LABEL;
           recordBtns[i].removeAttribute("aria-busy");
         }
+        syncAuthChromeButtons();
       }
 
       function finishRecordSession() {
@@ -1015,12 +1099,11 @@
       }
 
       function hideSaveProgressPanel() {
-        var el = document.getElementById("saveProgressStatus");
-        if (!el) {
-          return;
+        var nodes = document.querySelectorAll(".preview-update-progress");
+        var i;
+        for (i = 0; i < nodes.length; i++) {
+          nodes[i].textContent = "";
         }
-        el.textContent = "";
-        el.classList.add("save-progress--hidden");
       }
 
       function setRecordButtonLoading(btn) {
@@ -1162,12 +1245,7 @@
         var phraseName = lastPreviewData.phraseName;
 
         playSessionBusy = true;
-
-        var all = document.querySelectorAll(".preview-play");
-        var k;
-        for (k = 0; k < all.length; k++) {
-          all[k].disabled = true;
-        }
+        syncPlayButtonsState();
         setPlayButtonLoading(btn);
 
         ensureAccessTokenFresh(function (ok) {
@@ -1186,13 +1264,8 @@
         "Saving transcript",
       ];
 
-      /** @param {number} activeStepIndex */
-      function setSaveProgressActive(activeStepIndex) {
-        var el = document.getElementById("saveProgressStatus");
-        if (!el) {
-          return;
-        }
-        el.classList.remove("save-progress--hidden");
+      /** @param {number} activeStepIndex @param {Element | null} progressHost */
+      function setSaveProgressActive(activeStepIndex, progressHost) {
         var lines = ["Updating…"];
         var i;
         for (i = 0; i < SAVE_PROGRESS_STEPS.length; i++) {
@@ -1204,7 +1277,17 @@
             lines.push("  " + SAVE_PROGRESS_STEPS[i]);
           }
         }
-        el.textContent = lines.join("\n");
+        var text = lines.join("\n");
+        var nodes = document.querySelectorAll(".preview-update-progress");
+        if (progressHost && progressHost.nodeType === 1) {
+          for (i = 0; i < nodes.length; i++) {
+            nodes[i].textContent = nodes[i] === progressHost ? text : "";
+          }
+          return;
+        }
+        for (i = 0; i < nodes.length; i++) {
+          nodes[i].textContent = i === 0 ? text : "";
+        }
       }
 
       function segmentTextBodyForSave(segment, fi, si, an) {
@@ -1287,9 +1370,19 @@
         var textBody = segmentTextBodyForSave(segment, fi, si, an);
         var nameTrim =
           typeof phraseName === "string" ? phraseName.trim() : "";
+        /** @type {Element | null} */
+        var progressEl = null;
+        if (
+          btn &&
+          btn.nextElementSibling &&
+          btn.nextElementSibling.classList &&
+          btn.nextElementSibling.classList.contains("preview-update-progress")
+        ) {
+          progressEl = btn.nextElementSibling;
+        }
 
         if (phase === "focus") {
-          setSaveProgressActive(0);
+          setSaveProgressActive(0, progressEl);
           google.script.run
             .withSuccessHandler(function () {
               runSaveChain(
@@ -1314,7 +1407,7 @@
         }
 
         if (phase === "preflight") {
-          setSaveProgressActive(0);
+          setSaveProgressActive(0, progressEl);
           google.script.run
             .withSuccessHandler(function (res) {
               if (
@@ -1364,7 +1457,7 @@
         }
 
         if (phase === "synth") {
-          setSaveProgressActive(1);
+          setSaveProgressActive(1, progressEl);
           google.script.run
             .withSuccessHandler(function (res) {
               if (
@@ -1431,7 +1524,7 @@
         }
 
         if (phase === "merge") {
-          setSaveProgressActive(2);
+          setSaveProgressActive(2, progressEl);
           var clipsHint =
             clipsForMergeFailure instanceof Array ? clipsForMergeFailure : [];
           google.script.run
@@ -1507,15 +1600,7 @@
         saveChainExplain = lastPreviewData ? lastPreviewData.explain : "";
 
         recordSessionBusy = true;
-        var pb = document.querySelectorAll(".preview-play");
-        var rb = document.querySelectorAll(".preview-record");
-        var k;
-        for (k = 0; k < pb.length; k++) {
-          pb[k].disabled = true;
-        }
-        for (k = 0; k < rb.length; k++) {
-          rb[k].disabled = true;
-        }
+        syncPlayButtonsState();
         setRecordButtonLoading(btn);
 
         ensureAccessTokenFresh(function (tokOk) {
@@ -1653,8 +1738,8 @@
                 }
                 setStatus(result.message || "Done.", "ok");
                 clearVerificationHeardHints();
+                setStatus(result.message || "Done.", "ok");
                 syncPlayButtonsState();
-                syncVerifyButtonEnabled();
                 return;
               }
               if (
@@ -1883,6 +1968,32 @@
             return;
           }
           runLessonVerifyWhole(0);
+        });
+
+      document
+        .getElementById("markVerifiedBtn")
+        .addEventListener("click", function () {
+          if (!lastPreviewData || lastPreviewData.row < 2) {
+            setStatus("Select a lesson row first.", "err");
+            return;
+          }
+          var markBtn = document.getElementById("markVerifiedBtn");
+          markBtn.disabled = true;
+          google.script.run
+            .withSuccessHandler(function (res) {
+              syncAuthChromeButtons();
+              if (res && res.ok) {
+                setStatus(res.message || "Row marked verified.", "ok");
+                refreshRowPreview();
+              } else {
+                setStatus((res && res.message) || "Could not update sheet.", "err");
+              }
+            })
+            .withFailureHandler(function (err) {
+              syncAuthChromeButtons();
+              setStatus(err.message || String(err), "err");
+            })
+            .markActiveRowVerifiedInSheet();
         });
 
       applyAuthUiState();

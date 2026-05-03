@@ -264,6 +264,37 @@ function getActiveRowPhrasePreview() {
 }
 
 /**
+ * Sidebar: set the Verified checkbox true for the sheet row containing the active cell.
+ * Clears verify-fail row highlight to match a passing verification row.
+ * @returns {{ ok: boolean, message?: string }}
+ */
+function markActiveRowVerifiedInSheet() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var range = sheet.getActiveRange();
+  if (!range) {
+    return { ok: false, message: "No selection." };
+  }
+  var row = range.getRow();
+  if (row < 2) {
+    return {
+      ok: false,
+      message: "Select a lesson data row (not the header).",
+    };
+  }
+  var lastCol = sheet.getLastColumn();
+  if (lastCol < COL_VERIFIED) {
+    return {
+      ok: false,
+      message: "Sheet is missing the Verified column; reload lesson layout.",
+    };
+  }
+  sheet.getRange(row, COL_VERIFIED).setValue(true);
+  var targetCols = LESSON_COLUMNS.length;
+  sheet.getRange(row, 1, 1, targetCols).setBackground(null);
+  return { ok: true, message: "Row marked verified." };
+}
+
+/**
  * @returns {{ webOrigin: string, supabaseUrl: string, anonKey: string } | { ok: false, message: string }}
  */
 function readTranscriptConfig() {
