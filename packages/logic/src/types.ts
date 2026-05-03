@@ -29,6 +29,8 @@ export interface Phrase {
     'first-intro': string;
     'second-intro': string;
     question: string;
+    /** Instruction shown after the English question (lesson editor / sheets). */
+    'follow-up': string;
   };
   Spanish: {
     grammar: string;

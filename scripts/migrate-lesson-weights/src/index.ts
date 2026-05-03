@@ -47,6 +47,7 @@ type LegacyPhrase = {
     'first-intro'?: string;
     'second-intro': string;
     question: string;
+    'follow-up'?: string;
   };
   Spanish: {
     grammar: string;

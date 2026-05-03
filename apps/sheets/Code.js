@@ -25,6 +25,7 @@ var LESSON_COLUMNS = [
   "First intro",
   "Second intro",
   "Question",
+  "Follow-up",
   "Answer",
   "New words",
   "New grammar",
@@ -47,6 +48,8 @@ var COL_NAME = LESSON_COLUMNS.indexOf("Name") + 1;
 var COL_TYPE = LESSON_COLUMNS.indexOf("Type") + 1;
 var COL_FIRST_INTRO = LESSON_COLUMNS.indexOf("First intro") + 1;
 var COL_SECOND_INTRO = LESSON_COLUMNS.indexOf("Second intro") + 1;
+var COL_QUESTION = LESSON_COLUMNS.indexOf("Question") + 1;
+var COL_FOLLOW_UP = LESSON_COLUMNS.indexOf("Follow-up") + 1;
 var COL_ANSWER = LESSON_COLUMNS.indexOf("Answer") + 1;
 var COL_VERIFIED = LESSON_COLUMNS.indexOf("Verified") + 1;
 var COL_FIRST_INTRO_MAX_VOLUME =
@@ -1853,6 +1856,7 @@ function phraseRow(phrase, loopIndex) {
     en["first-intro"] ?? "",
     en["second-intro"] ?? "",
     en.question ?? "",
+    en["follow-up"] ?? "",
     es.answer ?? "",
     es["newGrammar"] ?? "",
     es["newWords"] ?? "",
@@ -1925,10 +1929,23 @@ function applyLessonSheetLayout(sheet, rowCount) {
     COL_FIRST_INTRO,
     SHEET_COL_WIDTH_SECOND_INTRO * 3,
   );
+  sheet.setColumnWidth(COL_QUESTION, SHEET_COL_WIDTH_SECOND_INTRO);
+  sheet.setColumnWidth(COL_FOLLOW_UP, SHEET_COL_WIDTH_SECOND_INTRO);
   if (rowCount >= 1 && COL_FIRST_INTRO >= 1 && COL_SECOND_INTRO >= 1) {
     var introCols = COL_SECOND_INTRO - COL_FIRST_INTRO + 1;
     sheet
       .getRange(1, COL_FIRST_INTRO, rowCount, introCols)
+      .setWrap(true);
+  }
+  if (
+    rowCount >= 1 &&
+    COL_QUESTION >= 1 &&
+    COL_FOLLOW_UP >= 1 &&
+    COL_FOLLOW_UP >= COL_QUESTION
+  ) {
+    var questionFollowCols = COL_FOLLOW_UP - COL_QUESTION + 1;
+    sheet
+      .getRange(1, COL_QUESTION, rowCount, questionFollowCols)
       .setWrap(true);
   }
 }

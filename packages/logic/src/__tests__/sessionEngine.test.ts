@@ -21,7 +21,12 @@ const NOW = 1_700_000_000_000;
 const phrase = (name: string, index = 0): Phrase => ({
   name,
   index,
-  English: { 'first-intro': '', 'second-intro': '', question: name },
+  English: {
+    'first-intro': '',
+    'second-intro': '',
+    question: name,
+    'follow-up': '',
+  },
   Spanish: {
     grammar: '',
     answer: name,
