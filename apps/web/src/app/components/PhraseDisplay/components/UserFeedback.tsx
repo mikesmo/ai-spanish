@@ -15,6 +15,10 @@ interface AutoNextButtonProps {
 }
 
 const NEXT_PHRASE_LABEL = "Next phrase";
+const QUESTION_PLACEHOLDER_LABEL = "I have a question";
+
+/** Placeholder until question flow is wired. */
+const noopQuestionPress = (): void => {};
 
 const pillShellClassName =
   "relative w-full overflow-hidden rounded-full h-[54px] flex items-center justify-center shadow-sm";
@@ -227,60 +231,65 @@ export const UserFeedback = ({
 }: UserFeedbackProps): JSX.Element => {
   const diff = transcription.trim() ? diffWords(transcription, spanishPhrase) : null;
 
+  const explainAckDisabled = isAudioPlaying || isExplainAckReplayPlaying;
+
+  const explainAckActions = isExplainAckOpen ? (
+    <div className="flex w-full flex-col gap-4">
+      <PillNavButton
+        label={QUESTION_PLACEHOLDER_LABEL}
+        onClick={noopQuestionPress}
+        variant="secondary"
+      />
+      <PillNavButton
+        label="Explain that again"
+        onClick={() => {
+          void handleExplainSayAgain();
+        }}
+        disabled={explainAckDisabled}
+      />
+    </div>
+  ) : null;
+
   return (
     <div className="flex-1 flex flex-col items-center min-h-0 w-full animate-screen-fade-in">
-      {isCorrect ? (
-        <div className="flex flex-col items-center flex-1 justify-center gap-8 w-full">
-          <p className="text-[18px] text-[#1D9E75] text-center leading-relaxed">{spanishPhrase}</p>
-          {isExplainAckOpen ? (
-            <div className="w-full shrink-0">
-              <PillNavButton
-                label="Explain that again"
-                onClick={() => {
-                  void handleExplainSayAgain();
-                }}
-                disabled={isAudioPlaying || isExplainAckReplayPlaying}
-              />
-            </div>
-          ) : null}
-        </div>
-      ) : (
-        <div className="flex flex-col items-center gap-8 flex-1 justify-center w-full">
-          <div className="flex flex-col items-center gap-2">
-            <p className="text-[18px] text-center leading-relaxed">{renderSpokenWords(diff)}</p>
+      <div className="flex flex-1 min-h-0 w-full flex-col items-center justify-center">
+        {isCorrect ? (
+          <div className="flex flex-col items-center gap-8 w-full">
+            <p className="text-[18px] text-[#1D9E75] text-center leading-relaxed">{spanishPhrase}</p>
+            {explainAckActions}
           </div>
-
-          <div className="w-[40px] h-[1px] bg-gray-300" />
-
-          <div className="flex flex-col items-center gap-2">
-            <p className="text-[11px] text-gray-400 uppercase tracking-wide">Correct</p>
-            <p className="text-[18px] text-gray-800 text-center leading-relaxed">
-              {renderCorrectWords(diff, spanishPhrase)}
-            </p>
-          </div>
-
-          <AudioControls
-            isAudioPlaying={isAudioPlaying}
-            speed={speed}
-            onSpeedChange={onSpeedChange}
-            onReplay={onReplay}
-          />
-
-          {isExplainAckOpen ? (
-            <div className="w-full shrink-0">
-              <PillNavButton
-                label="Explain that again"
-                onClick={() => {
-                  void handleExplainSayAgain();
-                }}
-                disabled={isAudioPlaying || isExplainAckReplayPlaying}
-              />
+        ) : (
+          <div className="flex flex-col items-center gap-8 w-full">
+            <div className="flex flex-col items-center gap-2">
+              <p className="text-[18px] text-center leading-relaxed">{renderSpokenWords(diff)}</p>
             </div>
-          ) : null}
-        </div>
-      )}
 
-      <div className="mt-auto flex w-full flex-col gap-4 pt-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
+            <div className="w-[40px] h-[1px] bg-gray-300" />
+
+            <div className="flex flex-col items-center gap-2">
+              <p className="text-[11px] text-gray-400 uppercase tracking-wide">Correct</p>
+              <p className="text-[18px] text-gray-800 text-center leading-relaxed">
+                {renderCorrectWords(diff, spanishPhrase)}
+              </p>
+            </div>
+
+            <AudioControls
+              isAudioPlaying={isAudioPlaying}
+              speed={speed}
+              onSpeedChange={onSpeedChange}
+              onReplay={onReplay}
+            />
+
+            {explainAckActions}
+          </div>
+        )}
+      </div>
+
+      <div
+        className={`mt-auto flex w-full flex-col gap-4 pb-[max(1rem,env(safe-area-inset-bottom))] ${
+          isExplainAckOpen ? "pt-12" : "pt-6"
+        }`}
+      >
         {isCorrect ? (
           <NextPhraseAfterAudioButton isAudioPlaying={isAudioPlaying} onNext={onNext} />
         ) : (

@@ -14,6 +14,10 @@ import type { UserFeedbackProps } from "../PhraseDisplay.types";
 import { PillButton, pillStyles } from "./PillButton";
 
 const NEXT_PHRASE_LABEL = "Next phrase";
+const QUESTION_PLACEHOLDER_LABEL = "I have a question";
+
+/** Placeholder until question flow is wired. */
+const noopQuestionPress = (): void => {};
 
 interface AudioControlsProps {
   isAudioPlaying: boolean;
@@ -158,87 +162,87 @@ export const UserFeedback = ({
   handleExplainSayAgain,
 }: UserFeedbackProps): JSX.Element => {
   const diff = transcription.trim() ? diffWords(transcription, spanishPhrase) : null;
+  const explainAckDisabled = isAudioPlaying || isExplainAckReplayPlaying;
+
+  const explainAckActions =
+    isExplainAckOpen ? (
+      <View style={styles.explainAckActions}>
+        <PillButton
+          label={QUESTION_PLACEHOLDER_LABEL}
+          onPress={noopQuestionPress}
+          variant="secondary"
+        />
+        <PillButton
+          label="Explain that again"
+          onPress={() => {
+            void handleExplainSayAgain();
+          }}
+          variant="secondary"
+          disabled={explainAckDisabled}
+        />
+      </View>
+    ) : null;
 
   return (
     <View style={styles.container}>
       <View style={styles.main}>
-        {isCorrect ? (
-          <View style={styles.correctCenter}>
-            <Text style={styles.correctPhrase}>{spanishPhrase}</Text>
-            {isExplainAckOpen ? (
-              <View style={styles.explainAckUnderAudio}>
-                <PillButton
-                  label="Explain that again"
-                  onPress={() => {
-                    void handleExplainSayAgain();
-                  }}
-                  variant="secondary"
-                  disabled={isAudioPlaying || isExplainAckReplayPlaying}
-                />
-              </View>
-            ) : null}
-          </View>
-        ) : (
-          <View style={styles.incorrectCenter}>
-            <View style={styles.diffBlock}>
-              <Text style={styles.diffLabel}>YOU SAID</Text>
-              <Text style={styles.diffText}>
-                {diff ? (
-                  renderDiffWords(
-                    diff.filter(({ type }) => type !== "missing").map(({ word, type }) => ({ word, type })),
-                    (type) => (type === "wrong" ? styles.wrongWord : styles.correctWord),
-                  )
-                ) : (
-                  <Text style={styles.noAnswer}>No answer recorded</Text>
-                )}
-              </Text>
+        <View style={styles.feedbackStage}>
+          {isCorrect ? (
+            <View style={styles.correctStageColumn}>
+              <Text style={styles.correctPhrase}>{spanishPhrase}</Text>
+              {explainAckActions}
             </View>
-
-            <View style={styles.divider} />
-
-            <View style={styles.diffBlock}>
-              <Text style={styles.diffLabel}>CORRECT</Text>
-              <Text style={styles.diffText}>
-                {diff ? (
-                  renderDiffWords(
-                    diff
-                      .filter(({ type }) => type !== "wrong")
-                      .map(({ spanishWord, type }) => ({
-                        word: spanishWord ?? "",
-                        type,
-                      })),
-                    (type) => (type === "missing" ? styles.missingWord : styles.normalWord),
-                  )
-                ) : (
-                  <Text style={styles.normalWord}>{spanishPhrase}</Text>
-                )}
-              </Text>
-            </View>
-
-            <AudioControls
-              isAudioPlaying={isAudioPlaying}
-              speed={speed}
-              onSpeedChange={onSpeedChange}
-              onReplay={onReplay}
-            />
-
-            {isExplainAckOpen ? (
-              <View style={styles.explainAckUnderAudio}>
-                <PillButton
-                  label="Explain that again"
-                  onPress={() => {
-                    void handleExplainSayAgain();
-                  }}
-                  variant="secondary"
-                  disabled={isAudioPlaying || isExplainAckReplayPlaying}
-                />
+          ) : (
+            <View style={styles.incorrectStageColumn}>
+              <View style={styles.diffBlock}>
+                <Text style={styles.diffLabel}>YOU SAID</Text>
+                <Text style={styles.diffText}>
+                  {diff ? (
+                    renderDiffWords(
+                      diff.filter(({ type }) => type !== "missing").map(({ word, type }) => ({ word, type })),
+                      (type) => (type === "wrong" ? styles.wrongWord : styles.correctWord),
+                    )
+                  ) : (
+                    <Text style={styles.noAnswer}>No answer recorded</Text>
+                  )}
+                </Text>
               </View>
-            ) : null}
-          </View>
-        )}
+
+              <View style={styles.divider} />
+
+              <View style={styles.diffBlock}>
+                <Text style={styles.diffLabel}>CORRECT</Text>
+                <Text style={styles.diffText}>
+                  {diff ? (
+                    renderDiffWords(
+                      diff
+                        .filter(({ type }) => type !== "wrong")
+                        .map(({ spanishWord, type }) => ({
+                          word: spanishWord ?? "",
+                          type,
+                        })),
+                      (type) => (type === "missing" ? styles.missingWord : styles.normalWord),
+                    )
+                  ) : (
+                    <Text style={styles.normalWord}>{spanishPhrase}</Text>
+                  )}
+                </Text>
+              </View>
+
+              <AudioControls
+                isAudioPlaying={isAudioPlaying}
+                speed={speed}
+                onSpeedChange={onSpeedChange}
+                onReplay={onReplay}
+              />
+
+              {explainAckActions}
+            </View>
+          )}
+        </View>
       </View>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, isExplainAckOpen && styles.footerWithExplainAckAbove]}>
         {isCorrect ? (
           <NextPhraseAfterAudioButton isAudioPlaying={isAudioPlaying} onNext={onNext} />
         ) : (
@@ -263,12 +267,37 @@ const styles = StyleSheet.create({
     width: "100%",
     minHeight: 0,
   },
+  feedbackStage: {
+    flex: 1,
+    minHeight: 0,
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  correctStageColumn: {
+    width: "100%",
+    alignItems: "center",
+    gap: 24,
+  },
+  incorrectStageColumn: {
+    width: "100%",
+    alignItems: "center",
+    gap: 24,
+  },
+  explainAckActions: {
+    width: "100%",
+    flexDirection: "column",
+    gap: 16,
+  },
   footer: {
     width: "100%",
     marginTop: "auto",
     paddingTop: 24,
     paddingBottom: 16,
     gap: 16,
+  },
+  footerWithExplainAckAbove: {
+    paddingTop: 40,
   },
   buttonGroup: {
     width: "100%",
@@ -288,28 +317,11 @@ const styles = StyleSheet.create({
   pillLabelOnProgress: {
     zIndex: 1,
   },
-  correctCenter: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 24,
-    width: "100%",
-  },
-  explainAckUnderAudio: {
-    width: "100%",
-  },
   correctPhrase: {
     fontSize: 18,
     color: "#1D9E75",
     textAlign: "center",
     lineHeight: 26,
-  },
-  incorrectCenter: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 24,
-    width: "100%",
   },
   diffBlock: {
     alignItems: "center",
