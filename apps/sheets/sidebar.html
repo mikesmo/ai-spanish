@@ -134,13 +134,9 @@
         white-space: pre-wrap;
         word-break: break-word;
       }
-      .preview-diff-spoken-line {
-        line-height: 1.45;
-      }
-      /* Expected phrase — matches web correct-feedback green (#1D9E75) vs spoken line gray/orange */
       .preview-diff-correct-line {
         line-height: 1.45;
-        color: #1d9e75;
+        color: #202124;
       }
       .preview-diff-divider {
         width: 40px;
@@ -150,32 +146,37 @@
       }
       .preview-diff-correct-label {
         font-size: 11px;
-        color: #1d9e75;
+        color: #9ca3af;
         text-transform: uppercase;
         letter-spacing: 0.05em;
         margin-bottom: 4px;
       }
-      .preview-diff-token--wrong {
-        color: #d85a30;
+      .preview-diff-heard-label {
+        font-size: 11px;
+        color: #9ca3af;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 4px;
       }
-      .preview-diff-token--spoken-ok {
-        color: #1f2937;
+      .preview-diff-heard-line {
+        line-height: 1.45;
+        color: #c5221f;
+      }
+      .preview-diff-token--heard-match {
+        color: #c5221f;
+      }
+      .preview-diff-token--heard-extra {
+        color: #1a73e8;
+        text-decoration: underline;
+        text-underline-offset: 2px;
       }
       .preview-diff-placeholder {
         color: #c5221f;
       }
-      .preview-diff-missing-wrap {
-        position: relative;
-        display: inline-block;
-        padding-bottom: 3px;
-      }
-      .preview-diff-missing-line {
-        position: absolute;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        height: 2px;
-        background: #0f7a56;
+      .preview-diff-token--missing {
+        color: #1d9e75;
+        text-decoration: underline;
+        text-underline-offset: 2px;
       }
       .save-progress {
         margin-top: 14px;
@@ -224,10 +225,10 @@
               type="button"
               class="preview-record"
               data-segment="first-intro"
-              aria-label="Save First intro audio from cell text"
+              aria-label="Update First intro audio from cell text"
               disabled
             >
-              Save
+              Update
             </button>
           </div>
         </div>
@@ -254,10 +255,10 @@
               type="button"
               class="preview-record"
               data-segment="second-intro"
-              aria-label="Save Second intro audio from cell text"
+              aria-label="Update Second intro audio from cell text"
               disabled
             >
-              Save
+              Update
             </button>
           </div>
         </div>
@@ -284,10 +285,10 @@
               type="button"
               class="preview-record"
               data-segment="answer"
-              aria-label="Save Answer audio from cell text"
+              aria-label="Update Answer audio from cell text"
               disabled
             >
-              Save
+              Update
             </button>
           </div>
         </div>
@@ -359,7 +360,7 @@
       var playSessionBusy = false;
       var recordSessionBusy = false;
       var PLAY_LABEL = "Play";
-      var RECORD_LABEL = "Save";
+      var RECORD_LABEL = "Update";
       var silentRefreshPending = false;
       var NO_AUDIO_HEARD = "No audio";
       var ROW_PLAYSAVE_BLOCKED_MSG =
@@ -461,8 +462,8 @@
           span.textContent = entry.word;
           span.className =
             entry.type === "wrong"
-              ? "preview-diff-token preview-diff-token--wrong"
-              : "preview-diff-token preview-diff-token--spoken-ok";
+              ? "preview-diff-token preview-diff-token--heard-extra"
+              : "preview-diff-token preview-diff-token--heard-match";
           container.appendChild(span);
         }
       }
@@ -486,17 +487,11 @@
           first = false;
           var sw = entry.spanishWord != null ? entry.spanishWord : "";
           if (entry.type === "missing") {
-            var wrap = document.createElement("span");
-            wrap.className = "preview-diff-missing-wrap";
             var wordSpan = document.createElement("span");
             wordSpan.textContent = sw;
-            wordSpan.className = "preview-diff-token";
-            wrap.appendChild(wordSpan);
-            var line = document.createElement("span");
-            line.className = "preview-diff-missing-line";
-            line.setAttribute("aria-hidden", "true");
-            wrap.appendChild(line);
-            container.appendChild(wrap);
+            wordSpan.className =
+              "preview-diff-token preview-diff-token--missing";
+            container.appendChild(wordSpan);
           } else {
             var plain = document.createElement("span");
             plain.textContent = sw;
@@ -536,13 +531,17 @@
         if (isNoAudio) {
           dd.style.display = "";
           wrap.style.display = "block";
-          var spokenOnly = document.createElement("div");
-          spokenOnly.className = "preview-diff-spoken-line";
+          var heardLabNa = document.createElement("div");
+          heardLabNa.className = "preview-diff-heard-label";
+          heardLabNa.textContent = "Heard";
+          wrap.appendChild(heardLabNa);
+          var heardLineNa = document.createElement("div");
+          heardLineNa.className = "preview-diff-heard-line";
           var ph = document.createElement("span");
           ph.className = "preview-diff-placeholder";
           ph.textContent = NO_AUDIO_HEARD;
-          spokenOnly.appendChild(ph);
-          wrap.appendChild(spokenOnly);
+          heardLineNa.appendChild(ph);
+          wrap.appendChild(heardLineNa);
           return;
         }
 
@@ -550,15 +549,6 @@
         wrap.style.display = "block";
 
         var diff = diffWords(heard, expected);
-
-        var spokenLine = document.createElement("div");
-        spokenLine.className = "preview-diff-spoken-line";
-        appendSpokenLine(spokenLine, diff);
-        wrap.appendChild(spokenLine);
-
-        var divider = document.createElement("div");
-        divider.className = "preview-diff-divider";
-        wrap.appendChild(divider);
 
         var lab = document.createElement("div");
         lab.className = "preview-diff-correct-label";
@@ -571,6 +561,20 @@
           expected.length > 0 ? expected : ddTextAsExpected(dd) || "—";
         appendCorrectLine(correctLine, diff, fallbackCorrect);
         wrap.appendChild(correctLine);
+
+        var divider = document.createElement("div");
+        divider.className = "preview-diff-divider";
+        wrap.appendChild(divider);
+
+        var heardLab = document.createElement("div");
+        heardLab.className = "preview-diff-heard-label";
+        heardLab.textContent = "Heard";
+        wrap.appendChild(heardLab);
+
+        var heardLine = document.createElement("div");
+        heardLine.className = "preview-diff-heard-line";
+        appendSpokenLine(heardLine, diff);
+        wrap.appendChild(heardLine);
       }
 
       function isLoggedIn() {
@@ -884,7 +888,7 @@
       }
 
       function setRecordButtonLoading(btn) {
-        btn.textContent = "Saving…";
+        btn.textContent = "Updating…";
         btn.setAttribute("aria-busy", "true");
       }
 
@@ -1044,7 +1048,7 @@
         "Name check",
         "Synthesize & upload",
         "Loudness and transcribe check",
-        "Saving",
+        "Updating",
       ];
 
       /** @param {number} activeStepIndex */
@@ -1054,7 +1058,7 @@
           return;
         }
         el.classList.remove("save-progress--hidden");
-        var lines = ["Saving…"];
+        var lines = ["Updating…"];
         var i;
         for (i = 0; i < SAVE_PROGRESS_STEPS.length; i++) {
           if (i < activeStepIndex) {
