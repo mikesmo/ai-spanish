@@ -40,6 +40,11 @@ export interface Phrase {
     newGrammar?: string;
     /** New vocabulary chunk from newer transcript JSON (optional). */
     newWords?: string;
+    /**
+     * Hints for Deepgram live STT keyword biasing (e.g. expected Spanish tokens).
+     * When non-empty after trim, used instead of deriving keywords from `answer`.
+     */
+    recognitionHints?: string;
     answer: string;
     words: WordMeta[];
   };

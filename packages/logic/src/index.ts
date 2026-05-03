@@ -31,6 +31,7 @@ export type { S3PathConfig } from './s3-keys';
 export {
   DEEPGRAM_KEYWORD_LIVE_BOOST,
   DEEPGRAM_KEYWORD_MAX,
+  deepgramLiveKeywordTokensForPhrase,
   toDeepgramLiveKeywordParams,
   tokenizeForDeepgramKeywords,
 } from './deepgramKeywords';

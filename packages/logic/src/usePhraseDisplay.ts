@@ -27,7 +27,7 @@ import {
 } from './learningPipelineDebug';
 import { computeMastery, fluencyForMastery } from './mastery';
 import { POST_SUCCESS_EXTRA_PAUSE_MS } from './phraseDisplayTiming';
-import { tokenizeForDeepgramKeywords } from './deepgramKeywords';
+import { deepgramLiveKeywordTokensForPhrase } from './deepgramKeywords';
 import type {
   Attempt,
   PhraseEvent,
@@ -112,12 +112,6 @@ export type UsePhraseDisplayOptions = {
 
 const splitWords = (s: string): string[] =>
   s.trim().split(/\s+/).filter(Boolean);
-
-/** True when lesson `Spanish.words` has 1 or 2 entries (Deepgram keyword biasing). */
-const shouldBiasDeepgramKeywords = (phrase: Phrase): boolean => {
-  const n = phrase.Spanish.words.length;
-  return n === 1 || n === 2;
-};
 
 /** Caption for scoring on Show Answer: prefer live caption, else join STT words. */
 function captionAndGradableFromStt(
@@ -728,9 +722,7 @@ export function usePhraseDisplay(
 
         sttRef.current.clearTranscription();
         sttRef.current.start({
-          keywords: shouldBiasDeepgramKeywords(currentPhrase)
-            ? tokenizeForDeepgramKeywords(currentPhrase.Spanish.answer)
-            : [],
+          keywords: deepgramLiveKeywordTokensForPhrase(currentPhrase),
           signal: bootstrapSignal,
         });
       } catch (error) {
@@ -951,9 +943,7 @@ export function usePhraseDisplay(
     attemptEmittedRef.current = false;
     setStatus('tryAgain');
     sttRef.current.start({
-      keywords: shouldBiasDeepgramKeywords(currentPhrase)
-        ? tokenizeForDeepgramKeywords(currentPhrase.Spanish.answer)
-        : [],
+      keywords: deepgramLiveKeywordTokensForPhrase(currentPhrase),
     });
   };
 

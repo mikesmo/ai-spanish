@@ -55,6 +55,7 @@ type LegacyPhrase = {
     answer: string;
     newGrammar?: string;
     newWords?: string;
+    recognitionHints?: string;
     words: LegacyWord[];
   };
 };

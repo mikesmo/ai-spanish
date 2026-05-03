@@ -52,6 +52,8 @@ export const phraseSchema = z.object({
     grammar: z.string(),
     newGrammar: z.string().optional(),
     newWords: z.string().optional(),
+    /** Space- or comma-separated text for Deepgram STT keyword biasing (optional in JSON). */
+    recognitionHints: z.string().default(''),
     answer: z.string(),
     words: z.array(wordMetaSchema).min(1),
   }),

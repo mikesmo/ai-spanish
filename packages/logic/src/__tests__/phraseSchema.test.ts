@@ -25,6 +25,19 @@ describe('phraseSchema', () => {
     expect(r.English.explain).toBe('');
   });
 
+  it("defaults Spanish recognitionHints to '' when omitted", () => {
+    const r = phraseSchema.parse(minimalPhrase);
+    expect(r.Spanish.recognitionHints).toBe('');
+  });
+
+  it('preserves recognitionHints when set', () => {
+    const r = phraseSchema.parse({
+      ...minimalPhrase,
+      Spanish: { ...minimalPhrase.Spanish, recognitionHints: 'foo bar' },
+    });
+    expect(r.Spanish.recognitionHints).toBe('foo bar');
+  });
+
   it('accepts type new and composite', () => {
     expect(phraseSchema.parse({ ...minimalPhrase, type: 'new' as const }).type).toBe(
       'new',
