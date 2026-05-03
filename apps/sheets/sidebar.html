@@ -299,7 +299,7 @@
     <div id="authLoggedOutPanel">
       <div class="help">
         Sign in with the same <strong>email and password</strong> as the AI Spanish web app.
-        This loads lesson 1 into the sheet and enables audio in the sidebar after sign-in.
+        Signing in does not change the sheet. After you are signed in, use <strong>Load lesson from web</strong> to fetch and populate the lesson.
       </div>
       <form id="loadForm" action="javascript:void(0)">
         <label for="email">Email</label>
@@ -318,12 +318,13 @@
           autocomplete="current-password"
           required
         />
-        <button type="submit" id="loadBtn">Sign in & load lesson</button>
+        <button type="submit" id="loadBtn">Sign in</button>
       </form>
     </div>
 
     <div id="authLoggedInPanel" style="display: none">
       <div class="help">
+        Click <strong>Load lesson from web</strong> to sync transcript rows when needed.
         Use <strong>Verify audio</strong> to check clips against web audio (needs local Next + tunnel; see README).
       </div>
       <div class="auth-actions">
@@ -1691,14 +1692,17 @@
           setStatus("Enter your email.", "err");
           return;
         }
-        setStatus("Loading…");
+        setStatus("Signing in…");
         setSignInLoading(true);
         google.script.run
           .withSuccessHandler(function (result) {
             setSignInLoading(false);
             if (result && result.ok) {
               setSessionFromPasswordResult(result);
-              setStatus(result.message || "Done.", "ok");
+              setStatus(
+                "Signed in. Load lesson from web when ready.",
+                "ok"
+              );
               refreshRowPreview();
             } else {
               setStatus((result && result.message) || "Something went wrong.", "err");
@@ -1708,7 +1712,7 @@
             setSignInLoading(false);
             setStatus(err.message || String(err), "err");
           })
-          .populateLessonFromJson(email, password);
+          .signInOnlyForSidebar(email, password);
       });
 
       document.getElementById("logoutBtn").addEventListener("click", function () {

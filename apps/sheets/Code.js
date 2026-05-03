@@ -1664,13 +1664,12 @@ function reloadLessonWithAccessToken(accessToken) {
 }
 
 /**
- * Signs in with Supabase (email + password), imports lesson 1 transcript into the sheet.
- * Returns tokens + phraseDirectory for the sidebar.
+ * Supabase sign-in only (no transcript fetch / sheet write). Sidebar loads lesson via reloadLessonWithAccessToken.
  * @param {string} email
  * @param {string} password
  * @returns {Object}
  */
-function populateLessonFromJson(email, password) {
+function signInOnlyForSidebar(email, password) {
   try {
     var trimmedEmail = typeof email === "string" ? email.trim() : "";
     var pwd = typeof password === "string" ? password : "";
@@ -1683,7 +1682,38 @@ function populateLessonFromJson(email, password) {
       return { ok: false, message: tokenResult.message };
     }
 
-    var importResult = importLessonTranscriptWithToken(tokenResult.access_token);
+    return {
+      ok: true,
+      message: "Signed in.",
+      access_token: tokenResult.access_token,
+      refresh_token: tokenResult.refresh_token,
+      expires_in: tokenResult.expires_in,
+      phraseDirectory: [],
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      message:
+        typeof e.message === "string" ? e.message : String(e),
+    };
+  }
+}
+
+/**
+ * Signs in with Supabase (email + password), imports lesson 1 transcript into the sheet.
+ * Returns tokens + phraseDirectory for the sidebar.
+ * @param {string} email
+ * @param {string} password
+ * @returns {Object}
+ */
+function populateLessonFromJson(email, password) {
+  try {
+    var signResult = signInOnlyForSidebar(email, password);
+    if (!signResult.ok) {
+      return signResult;
+    }
+
+    var importResult = importLessonTranscriptWithToken(signResult.access_token);
     if (!importResult.ok) {
       return {
         ok: false,
@@ -1695,9 +1725,9 @@ function populateLessonFromJson(email, password) {
     return {
       ok: true,
       message: importResult.message,
-      access_token: tokenResult.access_token,
-      refresh_token: tokenResult.refresh_token,
-      expires_in: tokenResult.expires_in,
+      access_token: signResult.access_token,
+      refresh_token: signResult.refresh_token,
+      expires_in: signResult.expires_in,
       phraseDirectory: importResult.phraseDirectory,
       transcriptLessonId: importResult.transcriptLessonId,
     };
