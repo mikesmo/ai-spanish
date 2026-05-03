@@ -31,6 +31,8 @@ export interface Phrase {
     question: string;
     /** Instruction shown after the English question (lesson editor / sheets). */
     'follow-up': string;
+    /** Extra teaching note for editors / sheets (optional in JSON). */
+    explain: string;
   };
   Spanish: {
     grammar: string;

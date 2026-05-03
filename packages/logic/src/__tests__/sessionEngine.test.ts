@@ -26,6 +26,7 @@ const phrase = (name: string, index = 0): Phrase => ({
     'second-intro': '',
     question: name,
     'follow-up': '',
+    explain: '',
   },
   Spanish: {
     grammar: '',

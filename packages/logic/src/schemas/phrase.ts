@@ -46,6 +46,7 @@ export const phraseSchema = z.object({
     'second-intro': z.string(),
     question: z.string(),
     'follow-up': z.string().default(''),
+    explain: z.string().default(''),
   }),
   Spanish: z.object({
     grammar: z.string(),

@@ -304,7 +304,7 @@
     <div id="authLoggedOutPanel">
       <div class="help">
         Sign in with the same <strong>email and password</strong> as the AI Spanish web app.
-        Signing in does not change the sheet. After you are signed in, use <strong>Load lesson from web</strong> to fetch and populate the lesson.
+        Signing in does not change the sheet. After you are signed in, click <strong>Load</strong> to fetch and populate the lesson.
       </div>
       <form id="loadForm" action="javascript:void(0)">
         <label for="email">Email</label>
@@ -329,11 +329,11 @@
 
     <div id="authLoggedInPanel" style="display: none">
       <div class="help">
-        Click <strong>Load lesson from web</strong> to sync transcript rows when needed.
+        Click <strong>Load</strong> to sync transcript rows when needed.
         Use <strong>Verify audio</strong> to check clips against web audio (needs local Next + tunnel; see README).
       </div>
       <div class="auth-actions">
-        <button type="button" id="reloadBtnSignedIn">Load lesson from web</button>
+        <button type="button" id="reloadBtnSignedIn">Load</button>
         <button type="button" id="verifyBtnSignedIn">Verify audio</button>
         <button type="button" id="logoutBtn">Log out</button>
       </div>
@@ -364,7 +364,7 @@
       var silentRefreshPending = false;
       var NO_AUDIO_HEARD = "No audio";
       var ROW_PLAYSAVE_BLOCKED_MSG =
-        "This row needs a valid Name (lowercase slug: letters, digits, hyphens), a numeric Index column, or click Load lesson from web.";
+        "This row needs a valid Name (lowercase slug: letters, digits, hyphens), a numeric Index column, or click Load.";
 
       /**
        * Port of packages/logic/src/comparison.ts — keep algorithm identical when updating.
@@ -800,7 +800,7 @@
         return /^[a-z0-9-]+$/.test(t);
       }
 
-      /** Prefer phraseDirectory (after Load lesson); else sheet Index column from last preview poll. */
+      /** Prefer phraseDirectory (after Load); else sheet Index column from last preview poll. */
       function resolvePhraseIndex(name) {
         var fromDir = findPhraseIndex(name);
         if (fromDir !== null) {
@@ -1754,7 +1754,7 @@
             if (result && result.ok) {
               setSessionFromPasswordResult(result);
               setStatus(
-                "Signed in. Load lesson from web when ready.",
+                "Signed in. Click Load when ready.",
                 "ok"
               );
               refreshRowPreview();

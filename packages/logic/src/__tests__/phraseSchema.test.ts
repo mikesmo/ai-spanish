@@ -19,9 +19,10 @@ describe('phraseSchema', () => {
     expect(r.type).toBeUndefined();
   });
 
-  it("defaults English follow-up to '' when omitted", () => {
+  it("defaults English follow-up and explain to '' when omitted", () => {
     const r = phraseSchema.parse(minimalPhrase);
     expect(r.English['follow-up']).toBe('');
+    expect(r.English.explain).toBe('');
   });
 
   it('accepts type new and composite', () => {
