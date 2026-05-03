@@ -130,7 +130,7 @@ function parsePhraseIndexCell(row, displayValue) {
 
 /**
  * Values from the active row for the phrase columns shown in the sidebar.
- * @returns {{ row: number, phraseName: string, phraseIndex: number | null, firstIntro: string, secondIntro: string, answer: string, firstIntroHeard: string, secondIntroHeard: string, answerHeard: string }}
+ * @returns {{ row: number, phraseName: string, phraseIndex: number | null, verified: boolean, firstIntro: string, secondIntro: string, answer: string, firstIntroHeard: string, secondIntroHeard: string, answerHeard: string }}
  */
 function getActiveRowPhrasePreview() {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
@@ -140,6 +140,7 @@ function getActiveRowPhrasePreview() {
       row: 0,
       phraseName: "",
       phraseIndex: null,
+      verified: false,
       firstIntro: "",
       secondIntro: "",
       answer: "",
@@ -156,6 +157,7 @@ function getActiveRowPhrasePreview() {
       row: row,
       phraseName: "",
       phraseIndex: null,
+      verified: false,
       firstIntro: "",
       secondIntro: "",
       answer: "",
@@ -168,6 +170,15 @@ function getActiveRowPhrasePreview() {
   var phraseIndexCell =
     lastCol >= COL_INDEX ? sheet.getRange(row, COL_INDEX).getDisplayValue() : "";
   var phraseIndex = parsePhraseIndexCell(row, phraseIndexCell);
+
+  var verifiedCell =
+    row >= 2 && lastCol >= COL_VERIFIED
+      ? sheet.getRange(row, COL_VERIFIED).getValue()
+      : false;
+  var verified =
+    verifiedCell === true ||
+    (typeof verifiedCell === "string" &&
+      String(verifiedCell).trim().toUpperCase() === "TRUE");
 
   var phraseNameCell =
     lastCol >= COL_NAME ? sheet.getRange(row, COL_NAME).getDisplayValue() : "";
@@ -198,6 +209,7 @@ function getActiveRowPhrasePreview() {
     row: row,
     phraseName: phraseName,
     phraseIndex: phraseIndex,
+    verified: verified === true,
     firstIntro: firstIntro != null ? String(firstIntro) : "",
     secondIntro: secondIntro != null ? String(secondIntro) : "",
     answer: answer != null ? String(answer) : "",
@@ -1595,6 +1607,52 @@ function showSidebar() {
   const html = HtmlService.createHtmlOutputFromFile("sidebar")
     .setTitle("AI Spanish");
   SpreadsheetApp.getUi().showSidebar(html);
+}
+
+/**
+ * When the user toggles **Verified**, sync row background with verification styling:
+ * checked → white (clear); unchecked → yellow (`VERIFY_ROW_FAIL_BG`).
+ * Simple trigger runs on user edits only (not when Apps Script writes cells).
+ * @param {GoogleAppsScript.Events.SheetsOnEdit} e
+ */
+function onEdit(e) {
+  try {
+    if (!e || !e.range || !e.source) {
+      return;
+    }
+    var range = e.range;
+    var sheet = range.getSheet();
+    var startRow = range.getRow();
+    var endRow = range.getLastRow();
+    var startCol = range.getColumn();
+    var endCol = range.getLastColumn();
+
+    if (endRow < 2) {
+      return;
+    }
+    if (endCol < COL_VERIFIED || startCol > COL_VERIFIED) {
+      return;
+    }
+
+    var headerOk =
+      String(sheet.getRange(1, COL_VERIFIED).getDisplayValue() || "").trim() ===
+      "Verified";
+    if (!headerOk) {
+      return;
+    }
+
+    var targetCols = LESSON_COLUMNS.length;
+    var r;
+    for (r = Math.max(startRow, 2); r <= endRow; r++) {
+      var val = sheet.getRange(r, COL_VERIFIED).getValue();
+      var isOn =
+        val === true ||
+        (typeof val === "string" &&
+          String(val).trim().toUpperCase() === "TRUE");
+      var bg = isOn ? null : VERIFY_ROW_FAIL_BG;
+      sheet.getRange(r, 1, 1, targetCols).setBackground(bg);
+    }
+  } catch (ignoreEdit) {}
 }
 
 /**

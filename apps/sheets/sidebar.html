@@ -162,7 +162,7 @@
         color: #1f2937;
       }
       .preview-diff-placeholder {
-        color: #9ca3af;
+        color: #c5221f;
       }
       .preview-diff-missing-wrap {
         position: relative;
@@ -1624,6 +1624,10 @@
         if (!data) return;
         if (!isLoggedIn()) return;
 
+        var prevRow = lastPreviewData != null ? lastPreviewData.row : -1;
+        var prevVerified =
+          lastPreviewData != null && lastPreviewData.verified === true;
+
         var key =
           data.row +
           "\0" +
@@ -1632,6 +1636,8 @@
           (data.phraseIndex !== undefined && data.phraseIndex !== null
             ? String(data.phraseIndex)
             : "") +
+          "\0" +
+          (data.verified === true ? "1" : "0") +
           "\0" +
           data.firstIntro +
           "\0" +
@@ -1650,6 +1656,14 @@
         lastPreviewKey = key;
 
         lastPreviewData = data;
+
+        var nowVerified = data.verified === true;
+        if (prevRow !== data.row || prevVerified !== nowVerified) {
+          var stEl = document.getElementById("status");
+          if (stEl && stEl.className === "err") {
+            setStatus("", "");
+          }
+        }
 
         var rowEl = document.getElementById("previewRowMeta");
         if (data.row > 0) {
