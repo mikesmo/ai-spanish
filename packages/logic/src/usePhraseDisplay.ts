@@ -122,7 +122,9 @@ function captionAndGradableFromStt(
 //   pronunciationExample — only for `Phrase.type === 'new'` on the first
 //     in-session presentation of that phrase id; then Spanish TTS.
 //   recordingPriming — optional clip before mic when the phrase JSON has a
-//     non-empty `English['follow-up']` field; plays the S3 follow-up clip.
+//     non-empty `English['follow-up']` field; plays the S3 follow-up clip on the
+//     first in-session presentation only (skipped on repeat visits; Try Again
+//     does not re-bootstrap so follow-up is not replayed there).
 //   recording — STT is active; learner speaks the answer.
 //   tryAgain — same card after “Try again”; still records PracticeAttempt.
 //   answer — feedback, replay, next.
@@ -480,11 +482,17 @@ export function usePhraseDisplay(
         );
         if (!ac.signal.aborted && isMountedRef.current) {
           const explainText = currentPhrase.English.explain.trim();
+          const allowLessonPedagogy =
+            isFirstSessionPresentationOfCurrentPhrase &&
+            !hasUsedTryAgainOnCurrentCard;
           // `new` + correct: explain already played on the recording screen
           // (success useEffect). Skip here to avoid a second playback.
           // All other cases (new + wrong/reveal, composite + any): play here.
+          // Repeat presentation / Try Again: no explain clips.
           const shouldPlayExplainOnFeedback =
-            explainText !== '' && !(currentPhrase.type === 'new' && isCorrect);
+            allowLessonPedagogy &&
+            explainText !== '' &&
+            !(currentPhrase.type === 'new' && isCorrect);
           if (shouldPlayExplainOnFeedback) {
             await ttsRef.current.play(
               explainText,
@@ -516,7 +524,14 @@ export function usePhraseDisplay(
       }
       answerAudioInFlightRef.current = false;
     }
-  }, [spanishText, currentPhrase, isCorrect, options?.s3LessonSegment]);
+  }, [
+    spanishText,
+    currentPhrase,
+    isCorrect,
+    options?.s3LessonSegment,
+    isFirstSessionPresentationOfCurrentPhrase,
+    hasUsedTryAgainOnCurrentCard,
+  ]);
 
   /**
    * User clicked "Show Answer". If nothing was scored yet for this pass:
@@ -702,7 +717,7 @@ export function usePhraseDisplay(
             hintedName,
             s3 as TtsAdapterOptions,
           ),
-          followUpTextForPrefetch !== ''
+          isFirstSessionPresentation && followUpTextForPrefetch !== ''
             ? ttsRef.current.prefetch(
                 followUpTextForPrefetch,
                 'en',
@@ -710,7 +725,7 @@ export function usePhraseDisplay(
                 { ...s3, englishSegmentOverride: 'follow-up' } as TtsAdapterOptions,
               )
             : Promise.resolve(),
-          explainTextForPrefetch !== ''
+          isFirstSessionPresentation && explainTextForPrefetch !== ''
             ? ttsRef.current.prefetch(
                 explainTextForPrefetch,
                 'en',
@@ -764,7 +779,7 @@ export function usePhraseDisplay(
         if (!isMountedRef.current) return;
 
         const followUpText = currentPhrase.English['follow-up'].trim();
-        if (followUpText !== '') {
+        if (isFirstSessionPresentation && followUpText !== '') {
           setStatus('recordingPriming');
           setIsAudioPlaying(true);
           try {
@@ -948,7 +963,12 @@ export function usePhraseDisplay(
           // `ac`, because setStatus('recordingPriming') triggers the success
           // effect's cleanup (ac.abort()) before the play finishes.
           const explainText = currentPhrase.English.explain.trim();
-          if (currentPhrase.type === 'new' && explainText !== '') {
+          if (
+            currentPhrase.type === 'new' &&
+            explainText !== '' &&
+            isFirstSessionPresentationOfCurrentPhrase &&
+            !hasUsedTryAgainOnCurrentCard
+          ) {
             const s3Opts: TtsAdapterOptions =
               options?.s3LessonSegment != null && options.s3LessonSegment !== ''
                 ? { s3LessonSegment: options.s3LessonSegment }
