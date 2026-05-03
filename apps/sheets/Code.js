@@ -28,6 +28,7 @@ var LESSON_COLUMNS = [
   "Follow-up",
   "Explain",
   "Answer",
+  "Recognition hints",
   "New words",
   "New grammar",
   "Grammar",
@@ -55,6 +56,7 @@ var COL_QUESTION = LESSON_COLUMNS.indexOf("Question") + 1;
 var COL_FOLLOW_UP = LESSON_COLUMNS.indexOf("Follow-up") + 1;
 var COL_EXPLAIN = LESSON_COLUMNS.indexOf("Explain") + 1;
 var COL_ANSWER = LESSON_COLUMNS.indexOf("Answer") + 1;
+var COL_RECOGNITION_HINTS = LESSON_COLUMNS.indexOf("Recognition hints") + 1;
 var COL_VERIFIED = LESSON_COLUMNS.indexOf("Verified") + 1;
 var COL_FIRST_INTRO_MAX_VOLUME =
   LESSON_COLUMNS.indexOf("First intro max volume") + 1;
@@ -1952,8 +1954,13 @@ function phraseRow(phrase, loopIndex) {
     en["follow-up"] ?? "",
     en.explain ?? "",
     es.answer ?? "",
-    es["newGrammar"] ?? "",
+    (es.recognitionHints != null && es.recognitionHints !== undefined
+      ? String(es.recognitionHints)
+      : es["recognitionHints"] != null && es["recognitionHints"] !== undefined
+        ? String(es["recognitionHints"])
+        : ""),
     es["newWords"] ?? "",
+    es["newGrammar"] ?? "",
     es.grammar ?? "",
     false,
     "",
@@ -2029,6 +2036,8 @@ function applyLessonSheetLayout(sheet, rowCount) {
   sheet.setColumnWidth(COL_QUESTION, SHEET_COL_WIDTH_SECOND_INTRO);
   sheet.setColumnWidth(COL_FOLLOW_UP, SHEET_COL_WIDTH_SECOND_INTRO);
   sheet.setColumnWidth(COL_EXPLAIN, SHEET_COL_WIDTH_SECOND_INTRO);
+  sheet.setColumnWidth(COL_ANSWER, SHEET_COL_WIDTH_SECOND_INTRO);
+  sheet.setColumnWidth(COL_RECOGNITION_HINTS, SHEET_COL_WIDTH_SECOND_INTRO);
   if (rowCount >= 1 && COL_FIRST_INTRO >= 1 && COL_SECOND_INTRO >= 1) {
     var introCols = COL_SECOND_INTRO - COL_FIRST_INTRO + 1;
     sheet
@@ -2044,6 +2053,11 @@ function applyLessonSheetLayout(sheet, rowCount) {
     var questionThroughExplainCols = COL_EXPLAIN - COL_QUESTION + 1;
     sheet
       .getRange(1, COL_QUESTION, rowCount, questionThroughExplainCols)
+      .setWrap(true);
+  }
+  if (rowCount >= 1 && COL_RECOGNITION_HINTS >= 1) {
+    sheet
+      .getRange(1, COL_RECOGNITION_HINTS, rowCount, 1)
       .setWrap(true);
   }
 }
