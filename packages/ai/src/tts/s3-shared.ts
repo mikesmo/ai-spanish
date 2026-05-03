@@ -44,16 +44,24 @@ export async function fetchPresignedUrl(
   phraseName: string,
   segment: string,
   signal?: AbortSignal,
-  s3LessonSegment?: string
+  s3LessonSegment?: string,
+  authHeaders?: Record<string, string>
 ): Promise<string | null> {
   const params = new URLSearchParams({ phrase: phraseName, segment });
   if (s3LessonSegment != null && s3LessonSegment !== '') {
     params.set('lesson', s3LessonSegment);
   }
+  const trimmed = baseUrl.replace(/\/$/, '');
   try {
-    const response = await fetch(`${baseUrl}/api/audio?${params.toString()}`, {
-      signal,
-    });
+    const response = await fetch(
+      `${trimmed}/api/audio?${params.toString()}`,
+      {
+        signal,
+        ...(Object.keys(authHeaders ?? {}).length > 0
+          ? { headers: authHeaders }
+          : {}),
+      },
+    );
     if (!response.ok) return null;
     const data = (await response.json()) as AudioUrlResponse;
     return data.url ?? null;

@@ -80,6 +80,34 @@ npm run start --workspace=@ai-spanish/mobile
 
 If port **8081** is already taken, stop the other Metro process (Ctrl+C in that terminal, or free the port) or accept another port when Expo prompts you.
 
+## USB debugging and device connection
+
+**Android over USB uses ADB** (Android Debug Bridge), not “ARM”—ARM is a CPU architecture. Install [Android platform-tools](https://developer.android.com/tools/releases/platform-tools) so `adb` is on your `PATH`.
+
+### Android (ADB)
+
+1. On the phone: **Settings → Developer options** → enable **USB debugging**.
+2. Connect USB and approve **Allow USB debugging?** when prompted (you can check “Always allow” for your computer).
+3. Confirm the machine sees the device:
+
+   ```bash
+   adb devices
+   ```
+
+   The device should appear as **`device`** (not `unauthorized`). If nothing shows up, try another cable/USB port or re-authorize debugging on the phone.
+
+4. Optional—if a **physical Android** struggles to reach Metro on USB, forward the bundler port (default **8081**; match whatever Metro prints if different):
+
+   ```bash
+   adb reverse tcp:8081 tcp:8081
+   ```
+
+Then start Metro as usual (`npx expo start` from `apps/mobile`, or `npm run start --workspace=@ai-spanish/mobile`) and open your **development build** on the device.
+
+### iOS (USB)
+
+There is no ADB equivalent. Install/run the development build from **Xcode** (select the device, Run) to attach the native debugger, or use **Safari → Develop** for Web Inspector-style JS debugging after enabling Safari Web Inspector on the device.
+
 ## Environment Variables
 
 | Variable | Description |

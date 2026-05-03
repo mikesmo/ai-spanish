@@ -1,10 +1,21 @@
 import type { JSX } from "react";
 import type { Session } from "@supabase/supabase-js";
+import { registerNativeS3PresignAuthHeaders } from "@ai-spanish/ai";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import AppInner from "./AppInner";
 import LoginScreen from "./screens/LoginScreen";
 import { supabase } from "./src/lib/supabase";
+
+registerNativeS3PresignAuthHeaders(async () => {
+  if (!supabase) return undefined;
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const token = session?.access_token;
+  if (!token) return undefined;
+  return { Authorization: `Bearer ${token}` };
+});
 
 export default function App(): JSX.Element {
   const [session, setSession] = useState<Session | null>(null);

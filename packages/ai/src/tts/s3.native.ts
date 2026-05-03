@@ -10,6 +10,20 @@ import {
 
 type PresignedEntry = { url: string; fetchedAt: number };
 
+/**
+ * Resolved per presign request (runs after {@link registerNativeS3PresignAuthHeaders}).
+ * Mobile must register so `/api/audio` receives `Authorization: Bearer` like other web APIs.
+ */
+let resolveNativeS3PresignAuthHeaders:
+  | (() => Promise<Record<string, string> | undefined>)
+  | undefined;
+
+export function registerNativeS3PresignAuthHeaders(
+  resolver: NonNullable<typeof resolveNativeS3PresignAuthHeaders>,
+): void {
+  resolveNativeS3PresignAuthHeaders = resolver;
+}
+
 function getWebOrigin(): string {
   return (process.env.EXPO_PUBLIC_WEB_ORIGIN ?? '').replace(/\/$/, '');
 }
@@ -30,12 +44,17 @@ function fetchPresignedUrl(
   }
   return (async () => {
     if (signal?.aborted) return null;
+    const authHeaders =
+      typeof resolveNativeS3PresignAuthHeaders === 'function'
+        ? (await resolveNativeS3PresignAuthHeaders()) ?? undefined
+        : undefined;
     const url = await _fetchPresignedUrl(
       origin,
       phraseName,
       segment,
       signal,
-      s3LessonSegment
+      s3LessonSegment,
+      authHeaders && Object.keys(authHeaders).length > 0 ? authHeaders : undefined,
     );
     if (url) presignedByKey.set(cacheKey, { url, fetchedAt: Date.now() });
     return url;
