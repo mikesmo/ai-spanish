@@ -104,6 +104,8 @@ const NextPhraseAfterAudioButton = ({
 
 interface AudioControlsProps {
   isAudioPlaying: boolean;
+  /** When true, TTS is the explain-ack replay — speaker stays visually idle. */
+  isExplainAckReplayPlaying?: boolean;
   speed: "1x" | "slow";
   onSpeedChange: (speed: "1x" | "slow") => void;
   onReplay: () => void;
@@ -111,20 +113,29 @@ interface AudioControlsProps {
 
 const AudioControls = ({
   isAudioPlaying,
+  isExplainAckReplayPlaying = false,
   speed,
   onSpeedChange,
   onReplay,
-}: AudioControlsProps): JSX.Element => (
+}: AudioControlsProps): JSX.Element => {
+  const isSpeakerActive = isAudioPlaying && !isExplainAckReplayPlaying;
+  const playTitle = isSpeakerActive
+    ? "Playing..."
+    : isAudioPlaying && isExplainAckReplayPlaying
+      ? "Explanation playing"
+      : "Play pronunciation";
+
+  return (
   <div className="flex items-center gap-3">
     <button
       onClick={onReplay}
       disabled={isAudioPlaying}
       className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
-        isAudioPlaying
+        isSpeakerActive
           ? "border border-[#1D9E75] bg-[#E1F5EE]"
           : "border-[0.5px] border-gray-300 hover:border-[#1D9E75]"
       }`}
-      title={isAudioPlaying ? "Playing..." : "Play pronunciation"}
+      title={playTitle}
     >
       <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -132,7 +143,7 @@ const AudioControls = ({
         height="16"
         viewBox="0 0 24 24"
         fill="none"
-        stroke={isAudioPlaying ? "#1D9E75" : "#6b7280"}
+        stroke={isSpeakerActive ? "#1D9E75" : "#6b7280"}
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -163,7 +174,8 @@ const AudioControls = ({
       </button>
     </div>
   </div>
-);
+  );
+};
 
 const renderSpokenWords = (diff: DiffEntry[] | null): JSX.Element => {
   if (!diff) {
@@ -252,7 +264,7 @@ export const UserFeedback = ({
 
   return (
     <div className="flex-1 flex flex-col items-center min-h-0 w-full animate-screen-fade-in">
-      <div className="flex flex-1 min-h-0 w-full flex-col items-center justify-center">
+      <div className="flex flex-1 min-h-0 w-full flex-col items-center justify-start pt-6">
         {isCorrect ? (
           <div className="flex flex-col items-center gap-8 w-full">
             <p className="text-[18px] text-[#1D9E75] text-center leading-relaxed">{spanishPhrase}</p>
@@ -275,6 +287,7 @@ export const UserFeedback = ({
 
             <AudioControls
               isAudioPlaying={isAudioPlaying}
+              isExplainAckReplayPlaying={isExplainAckReplayPlaying}
               speed={speed}
               onSpeedChange={onSpeedChange}
               onReplay={onReplay}

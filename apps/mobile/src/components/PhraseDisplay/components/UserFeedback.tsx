@@ -21,6 +21,8 @@ const noopQuestionPress = (): void => {};
 
 interface AudioControlsProps {
   isAudioPlaying: boolean;
+  /** When true, TTS is the explain-ack replay — speaker stays visually idle. */
+  isExplainAckReplayPlaying?: boolean;
   speed: "1x" | "slow";
   onSpeedChange: (speed: "1x" | "slow") => void;
   onReplay: () => void;
@@ -28,20 +30,24 @@ interface AudioControlsProps {
 
 const AudioControls = ({
   isAudioPlaying,
+  isExplainAckReplayPlaying = false,
   speed,
   onSpeedChange,
   onReplay,
-}: AudioControlsProps): JSX.Element => (
+}: AudioControlsProps): JSX.Element => {
+  const isSpeakerActive = isAudioPlaying && !isExplainAckReplayPlaying;
+
+  return (
   <View style={styles.audioControls}>
     <Pressable
       onPress={onReplay}
       disabled={isAudioPlaying}
-      style={[styles.playButton, isAudioPlaying && styles.playButtonActive]}
+      style={[styles.playButton, isSpeakerActive && styles.playButtonActive]}
     >
       <Feather
         name="volume-2"
         size={16}
-        color={isAudioPlaying ? "#1D9E75" : "#6b7280"}
+        color={isSpeakerActive ? "#1D9E75" : "#6b7280"}
       />
     </Pressable>
 
@@ -63,7 +69,8 @@ const AudioControls = ({
       </Pressable>
     </View>
   </View>
-);
+  );
+};
 
 interface AutoNextButtonProps {
   label: string;
@@ -231,6 +238,7 @@ export const UserFeedback = ({
 
               <AudioControls
                 isAudioPlaying={isAudioPlaying}
+                isExplainAckReplayPlaying={isExplainAckReplayPlaying}
                 speed={speed}
                 onSpeedChange={onSpeedChange}
                 onReplay={onReplay}
@@ -272,7 +280,8 @@ const styles = StyleSheet.create({
     minHeight: 0,
     width: "100%",
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "flex-start",
+    paddingTop: 60,
   },
   correctStageColumn: {
     width: "100%",
