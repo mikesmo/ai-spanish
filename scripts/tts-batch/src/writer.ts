@@ -41,15 +41,26 @@ export function s3ManifestObjectKey(config: S3PathConfig): string {
 const AUDIO_PP_VERSION = 'audio-pp-v1:fade50ms+trim5ms';
 
 /**
- * Deterministic hash for cache invalidation: same text + voice → same hash.
+ * Deterministic hash for cache invalidation: same text + voice + speaking rate → same hash.
  * Pass `noAudioPos: true` when post-processing is skipped so raw and processed
  * outputs never share a cache entry.
  */
-export function computeJobHash(text: string, voice: string, noAudioPos = false): string {
+export function computeJobHash(
+  text: string,
+  voice: string,
+  noAudioPos = false,
+  speakingRate = 1,
+): string {
   const h = createHash('sha256');
   h.update(text, 'utf8');
   h.update('|', 'utf8');
   h.update(voice, 'utf8');
+  h.update('|', 'utf8');
+  const rate =
+    typeof speakingRate === 'number' && Number.isFinite(speakingRate)
+      ? speakingRate
+      : 1;
+  h.update(`rate:${rate}`, 'utf8');
   h.update('|', 'utf8');
   h.update(noAudioPos ? 'raw' : AUDIO_PP_VERSION, 'utf8');
   return `sha256:${h.digest('hex')}`;
@@ -139,6 +150,10 @@ export function buildManifestEntry(
     hash,
     createdAt,
   };
+  const sr = job.speakingRate;
+  if (typeof sr === 'number' && Number.isFinite(sr) && sr !== 1) {
+    entry.speakingRate = sr;
+  }
   if (includeS3Key) {
     if (!s3Path) {
       throw new Error('s3Path is required when includeS3Key is true');
@@ -251,6 +266,10 @@ export async function readManifest(outDir: string): Promise<{
       hash,
       createdAt,
     };
+    const srRaw = o.speakingRate;
+    if (typeof srRaw === 'number' && Number.isFinite(srRaw) && srRaw !== 1) {
+      entry.speakingRate = srRaw;
+    }
     if (s3Key !== undefined) {
       if (typeof s3Key !== 'string' || s3Key.trim() === '') {
         throw new Error(`${label}: invalid optional "s3Key"`);

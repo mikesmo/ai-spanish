@@ -7,15 +7,17 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { fetchTTSAudio } from '@ai-spanish/ai/tts/deepgram';
 import { getVoiceForLanguage } from '@ai-spanish/ai/tts/voices';
 import { postProcessMp3 } from '@ai-spanish/audio-verify';
+import type { PhraseSynthSegment } from '@ai-spanish/logic';
 import {
+  PHRASE_ANSWER_SLOW_CLIP_SUFFIX,
   buildS3AudioKey,
   findDuplicatePhraseNames,
+  isPhraseSynthSegment,
   languageForPhraseAudioSegment,
   normalizeAudioContentPrefix,
   normalizeLessonSegment,
   phraseClipJobId,
   s3LessonFolderForTranscriptLessonId,
-  isPhraseSynthSegment,
 } from '@ai-spanish/logic';
 import { assertApiUser } from '@/lib/auth/assert-api-user';
 
@@ -75,17 +77,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  if (!isPhraseSynthSegment(segmentRaw)) {
+  const isAnswerSlow = segmentRaw === 'answer-slow';
+  if (!isPhraseSynthSegment(segmentRaw) && !isAnswerSlow) {
     return NextResponse.json(
       {
         ok: false,
-        message: 'Invalid segment: must be first-intro, second-intro, or answer',
+        message:
+          'Invalid segment: must be first-intro, second-intro, follow-up, explain, answer, or answer-slow',
       },
       { status: 400 },
     );
   }
-
-  const segment = segmentRaw;
 
   if (text.trim().length === 0) {
     return NextResponse.json(
@@ -145,9 +147,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const canonicalLessonId = resolveLessonIdForFiles(lessonRaw ?? '');
   const prefix = normalizeAudioContentPrefix(process.env.AUDIO_CONTENT_PREFIX);
   const lessonSeg = normalizeLessonSegment(s3LessonFolderForTranscriptLessonId(canonicalLessonId));
-  const jobId = phraseClipJobId(phraseRaw, segment);
+
+  let jobId: string;
+  let lang: 'en' | 'es';
+  let speakSpeed: number;
+  if (isAnswerSlow) {
+    jobId = `${phraseRaw}-${PHRASE_ANSWER_SLOW_CLIP_SUFFIX}`;
+    lang = 'es';
+    speakSpeed = 0.9;
+  } else {
+    const phrSeg = segmentRaw as PhraseSynthSegment;
+    jobId = phraseClipJobId(phraseRaw, phrSeg);
+    lang = languageForPhraseAudioSegment(phrSeg);
+    speakSpeed = 1;
+  }
+
   const key = buildS3AudioKey(prefix, lessonSeg, jobId);
-  const lang = languageForPhraseAudioSegment(segment);
 
   const region = process.env.AWS_REGION?.trim() || 'us-east-1';
   const client = new S3Client({ region });
@@ -155,7 +170,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const tmpDir = await mkdtemp(join(tmpdir(), 'ais-synth-'));
   const rawMp3 = join(tmpDir, 'clip.mp3');
   try {
-    const arrayBuf = await fetchTTSAudio(text, lang, apiKey, getVoiceForLanguage(lang));
+    const arrayBuf = await fetchTTSAudio(
+      text,
+      lang,
+      apiKey,
+      getVoiceForLanguage(lang),
+      undefined,
+      speakSpeed === 1 ? undefined : speakSpeed,
+    );
     await writeFile(rawMp3, Buffer.from(arrayBuf));
     await postProcessMp3(rawMp3);
     const finalBuf = await readFile(rawMp3);
@@ -174,7 +196,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         ok: true,
         lesson: canonicalLessonId,
         phrase: phraseRaw,
-        segment,
+        segment: segmentRaw,
         jobId,
         s3Key: key,
       },

@@ -292,6 +292,96 @@
             </button>
           </div>
         </div>
+        <div class="preview-field">
+          <dt>Follow-up</dt>
+          <dd id="previewFollowUp">—</dd>
+          <div
+            class="preview-diff-wrap"
+            id="previewDiffFollowUp"
+            style="display: none"
+            aria-live="polite"
+          ></div>
+          <div class="preview-actions">
+            <button
+              type="button"
+              class="preview-play"
+              data-segment="follow-up"
+              aria-label="Play Follow-up audio"
+              disabled
+            >
+              Play
+            </button>
+            <button
+              type="button"
+              class="preview-record"
+              data-segment="follow-up"
+              aria-label="Update Follow-up audio from cell text"
+              disabled
+            >
+              Update
+            </button>
+          </div>
+        </div>
+        <div class="preview-field">
+          <dt>Explain</dt>
+          <dd id="previewExplain">—</dd>
+          <div
+            class="preview-diff-wrap"
+            id="previewDiffExplain"
+            style="display: none"
+            aria-live="polite"
+          ></div>
+          <div class="preview-actions">
+            <button
+              type="button"
+              class="preview-play"
+              data-segment="explain"
+              aria-label="Play Explain audio"
+              disabled
+            >
+              Play
+            </button>
+            <button
+              type="button"
+              class="preview-record"
+              data-segment="explain"
+              aria-label="Update Explain audio from cell text"
+              disabled
+            >
+              Update
+            </button>
+          </div>
+        </div>
+        <div class="preview-field">
+          <dt>Answer (slow)</dt>
+          <dd id="previewAnswerSlow">—</dd>
+          <div
+            class="preview-diff-wrap"
+            id="previewDiffAnswerSlow"
+            style="display: none"
+            aria-live="polite"
+          ></div>
+          <div class="preview-actions">
+            <button
+              type="button"
+              class="preview-play"
+              data-segment="answer-slow"
+              aria-label="Play slow Answer audio"
+              disabled
+            >
+              Play
+            </button>
+            <button
+              type="button"
+              class="preview-record"
+              data-segment="answer-slow"
+              aria-label="Update slow Answer audio from cell text (0.9×)"
+              disabled
+            >
+              Update
+            </button>
+          </div>
+        </div>
       </dl>
       <div
         id="saveProgressStatus"
@@ -363,6 +453,9 @@
       var RECORD_LABEL = "Update";
       var silentRefreshPending = false;
       var NO_AUDIO_HEARD = "No audio";
+      /** Set in recordSegment before runSaveChain; used by segmentTextBodyForSave for follow-up / explain. */
+      var saveChainFollowUp = "";
+      var saveChainExplain = "";
       var ROW_PLAYSAVE_BLOCKED_MSG =
         "This row needs a valid Name (lowercase slug: letters, digits, hyphens), a numeric Index column, or click Load.";
 
@@ -721,19 +814,29 @@
       }
 
       function clearVerificationHeardHints() {
-        ["previewDiffFirstIntro", "previewDiffSecondIntro", "previewDiffAnswer"].forEach(
-          function (id) {
-            var wrap = document.getElementById(id);
-            if (!wrap) return;
-            while (wrap.firstChild) {
-              wrap.removeChild(wrap.firstChild);
-            }
-            wrap.style.display = "none";
+        [
+          "previewDiffFirstIntro",
+          "previewDiffSecondIntro",
+          "previewDiffAnswer",
+          "previewDiffFollowUp",
+          "previewDiffExplain",
+          "previewDiffAnswerSlow",
+        ].forEach(function (id) {
+          var wrap = document.getElementById(id);
+          if (!wrap) return;
+          while (wrap.firstChild) {
+            wrap.removeChild(wrap.firstChild);
           }
-        );
-        ["previewFirstIntro", "previewSecondIntro", "previewAnswer"].forEach(function (
-          did
-        ) {
+          wrap.style.display = "none";
+        });
+        [
+          "previewFirstIntro",
+          "previewSecondIntro",
+          "previewAnswer",
+          "previewFollowUp",
+          "previewExplain",
+          "previewAnswerSlow",
+        ].forEach(function (did) {
           var ddEl = document.getElementById(did);
           if (ddEl) ddEl.style.display = "";
         });
@@ -753,6 +856,21 @@
             suffix: "-second-intro",
             ddId: "previewSecondIntro",
             wrapId: "previewDiffSecondIntro",
+          },
+          {
+            suffix: "-follow-up",
+            ddId: "previewFollowUp",
+            wrapId: "previewDiffFollowUp",
+          },
+          {
+            suffix: "-explain",
+            ddId: "previewExplain",
+            wrapId: "previewDiffExplain",
+          },
+          {
+            suffix: "-answer-slow",
+            ddId: "previewAnswerSlow",
+            wrapId: "previewDiffAnswerSlow",
           },
           {
             suffix: "-answer",
@@ -837,9 +955,13 @@
             ? lastPreviewData.firstIntro
             : segment === "second-intro"
               ? lastPreviewData.secondIntro
-              : segment === "answer"
+              : segment === "answer" || segment === "answer-slow"
                 ? lastPreviewData.answer
-                : "";
+                : segment === "follow-up"
+                  ? lastPreviewData.followUp
+                  : segment === "explain"
+                    ? lastPreviewData.explain
+                    : "";
         return String(s || "").trim().length > 0;
       }
 
@@ -860,7 +982,21 @@
 
         var canPlay = canPlayCurrentRow();
         for (i = 0; i < playBtns.length; i++) {
-          playBtns[i].disabled = !canPlay;
+          var segPlay = playBtns[i].getAttribute("data-segment");
+          var playOk = canPlay;
+          if (playOk && lastPreviewData && segPlay === "follow-up") {
+            playOk =
+              String(lastPreviewData.followUp || "").trim().length > 0;
+          }
+          if (playOk && lastPreviewData && segPlay === "explain") {
+            playOk =
+              String(lastPreviewData.explain || "").trim().length > 0;
+          }
+          if (playOk && lastPreviewData && segPlay === "answer-slow") {
+            playOk =
+              String(lastPreviewData.answer || "").trim().length > 0;
+          }
+          playBtns[i].disabled = !playOk;
           playBtns[i].innerHTML = PLAY_LABEL;
           playBtns[i].removeAttribute("aria-busy");
         }
@@ -1076,11 +1212,20 @@
         var f = fi != null ? String(fi) : "";
         var s = si != null ? String(si) : "";
         var a = an != null ? String(an) : "";
+        var fu =
+          saveChainFollowUp != null ? String(saveChainFollowUp) : "";
+        var ex = saveChainExplain != null ? String(saveChainExplain) : "";
         if (segment === "second-intro") {
           return s;
         }
-        if (segment === "answer") {
+        if (segment === "answer" || segment === "answer-slow") {
           return a;
+        }
+        if (segment === "follow-up") {
+          return fu;
+        }
+        if (segment === "explain") {
+          return ex;
         }
         return f;
       }
@@ -1441,6 +1586,8 @@
         var fi = lastPreviewData ? lastPreviewData.firstIntro : "";
         var si = lastPreviewData ? lastPreviewData.secondIntro : "";
         var an = lastPreviewData ? lastPreviewData.answer : "";
+        saveChainFollowUp = lastPreviewData ? lastPreviewData.followUp : "";
+        saveChainExplain = lastPreviewData ? lastPreviewData.explain : "";
 
         recordSessionBusy = true;
         var pb = document.querySelectorAll(".preview-play");
@@ -1649,11 +1796,19 @@
           "\0" +
           data.answer +
           "\0" +
+          (data.followUp != null ? String(data.followUp) : "") +
+          "\0" +
+          (data.explain != null ? String(data.explain) : "") +
+          "\0" +
           (data.firstIntroHeard != null ? String(data.firstIntroHeard) : "") +
           "\0" +
           (data.secondIntroHeard != null ? String(data.secondIntroHeard) : "") +
           "\0" +
-          (data.answerHeard != null ? String(data.answerHeard) : "");
+          (data.answerHeard != null ? String(data.answerHeard) : "") +
+          "\0" +
+          (data.followUpHeard != null ? String(data.followUpHeard) : "") +
+          "\0" +
+          (data.explainHeard != null ? String(data.explainHeard) : "");
         if (key === lastPreviewKey) {
           return;
         }
@@ -1687,6 +1842,15 @@
           data.secondIntro
         );
         document.getElementById("previewAnswer").textContent = orDash(data.answer);
+        document.getElementById("previewFollowUp").textContent = orDash(
+          data.followUp
+        );
+        document.getElementById("previewExplain").textContent = orDash(
+          data.explain
+        );
+        document.getElementById("previewAnswerSlow").textContent = orDash(
+          data.answer
+        );
 
         renderSegmentDiff(
           "previewFirstIntro",
@@ -1705,6 +1869,18 @@
           "previewDiffAnswer",
           data.answer != null ? String(data.answer) : "",
           data.answerHeard !== undefined ? data.answerHeard : ""
+        );
+        renderSegmentDiff(
+          "previewFollowUp",
+          "previewDiffFollowUp",
+          data.followUp != null ? String(data.followUp) : "",
+          data.followUpHeard !== undefined ? data.followUpHeard : ""
+        );
+        renderSegmentDiff(
+          "previewExplain",
+          "previewDiffExplain",
+          data.explain != null ? String(data.explain) : "",
+          data.explainHeard !== undefined ? data.explainHeard : ""
         );
 
         syncPlayButtonsState();

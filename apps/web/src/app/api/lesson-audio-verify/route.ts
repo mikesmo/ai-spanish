@@ -13,9 +13,9 @@ import {
   isPhraseSynthSegment,
   normalizeAudioContentPrefix,
   normalizeLessonSegment,
+  PHRASE_ANSWER_SLOW_CLIP_SUFFIX,
   phraseSynthSegmentFromClipId,
   s3LessonFolderForTranscriptLessonId,
-  type PhraseSynthSegment,
 } from '@ai-spanish/logic';
 import {
   analyzeLoudnessFile,
@@ -113,7 +113,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   let lessonParam: string | undefined;
   let phraseIndexFilter: number | undefined;
   let clipExpectedTextOverrides: Record<string, string> | undefined;
-  let segmentsFilter: PhraseSynthSegment[] | undefined;
+  let segmentsFilter: string[] | undefined;
   if (
     bodyJson !== null &&
     typeof bodyJson === 'object' &&
@@ -153,14 +153,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           { status: 400 },
         );
       }
-      const parsed: PhraseSynthSegment[] = [];
+      const parsed: string[] = [];
       for (const item of rawSeg) {
         const s = typeof item === 'string' ? item.trim() : '';
-        if (!isPhraseSynthSegment(s)) {
+        const isSlowSuffix = s === 'answer-slow';
+        if (!isPhraseSynthSegment(s) && !isSlowSuffix) {
           return NextResponse.json(
             {
               ok: false,
-              message: `Invalid segment in segments: ${String(item)} (expected first-intro, second-intro, or answer)`,
+              message: `Invalid segment in segments: ${String(item)} (expected first-intro, second-intro, follow-up, explain, answer, or answer-slow)`,
             },
             { status: 400 },
           );
@@ -382,8 +383,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     phraseIndexFilter !== undefined ? specs.filter((s) => s.phraseIndex === phraseIndexFilter) : specs;
   if (segmentsFilter !== undefined && segmentsFilter.length > 0) {
     const allowed = new Set(segmentsFilter);
+    const slowSuffix = `-${PHRASE_ANSWER_SLOW_CLIP_SUFFIX}`;
     specsToVerify = specsToVerify.filter((s) => {
-      const seg = phraseSynthSegmentFromClipId(s.id);
+      const id = s.id;
+      if (allowed.has('answer-slow') && id.endsWith(slowSuffix)) {
+        return true;
+      }
+      const seg = phraseSynthSegmentFromClipId(id);
       return seg !== null && allowed.has(seg);
     });
   }

@@ -74,7 +74,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   if (!isPhraseSynthSegment(segmentRaw)) {
     return NextResponse.json(
-      { error: 'segment must be first-intro, second-intro, or answer' },
+      {
+        error:
+          'segment must be first-intro, second-intro, follow-up, explain, or answer',
+      },
       { status: 400 },
     );
   }

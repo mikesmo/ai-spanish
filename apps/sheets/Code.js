@@ -41,6 +41,8 @@ var LESSON_COLUMNS = [
   "First intro heard",
   "Second intro heard",
   "Answer heard",
+  "Follow-up heard",
+  "Explain heard",
 ];
 
 /** 1-based column indexes; must stay aligned with LESSON_COLUMNS. */
@@ -67,6 +69,8 @@ var COL_ANSWER_AVG_VOLUME = LESSON_COLUMNS.indexOf("Answer avg volume") + 1;
 var COL_FIRST_INTRO_HEARD = LESSON_COLUMNS.indexOf("First intro heard") + 1;
 var COL_SECOND_INTRO_HEARD = LESSON_COLUMNS.indexOf("Second intro heard") + 1;
 var COL_ANSWER_HEARD = LESSON_COLUMNS.indexOf("Answer heard") + 1;
+var COL_FOLLOW_UP_HEARD = LESSON_COLUMNS.indexOf("Follow-up heard") + 1;
+var COL_EXPLAIN_HEARD = LESSON_COLUMNS.indexOf("Explain heard") + 1;
 
 /** Light yellow background for rows that fail audio verification. */
 var VERIFY_ROW_FAIL_BG = "#fff9c4";
@@ -82,8 +86,11 @@ var SHEET_COL_WIDTH_SECOND_INTRO = 132;
 var ALLOWED_AUDIO_SEGMENTS = [
   "first-intro",
   "second-intro",
+  "follow-up",
+  "explain",
   "question",
   "answer",
+  "answer-slow",
 ];
 
 /**
@@ -149,9 +156,13 @@ function getActiveRowPhrasePreview() {
       firstIntro: "",
       secondIntro: "",
       answer: "",
+      followUp: "",
+      explain: "",
       firstIntroHeard: "",
       secondIntroHeard: "",
       answerHeard: "",
+      followUpHeard: "",
+      explainHeard: "",
     };
   }
 
@@ -166,9 +177,13 @@ function getActiveRowPhrasePreview() {
       firstIntro: "",
       secondIntro: "",
       answer: "",
+      followUp: "",
+      explain: "",
       firstIntroHeard: "",
       secondIntroHeard: "",
       answerHeard: "",
+      followUpHeard: "",
+      explainHeard: "",
     };
   }
 
@@ -192,11 +207,21 @@ function getActiveRowPhrasePreview() {
 
   var firstIntro = sheet.getRange(row, COL_FIRST_INTRO).getDisplayValue();
   var secondIntro = sheet.getRange(row, COL_SECOND_INTRO).getDisplayValue();
+  var followUp =
+    lastCol >= COL_FOLLOW_UP
+      ? sheet.getRange(row, COL_FOLLOW_UP).getDisplayValue()
+      : "";
+  var explain =
+    lastCol >= COL_EXPLAIN
+      ? sheet.getRange(row, COL_EXPLAIN).getDisplayValue()
+      : "";
   var answer = sheet.getRange(row, COL_ANSWER).getDisplayValue();
 
   var firstIntroHeard = "";
   var secondIntroHeard = "";
   var answerHeard = "";
+  var followUpHeard = "";
+  var explainHeard = "";
   if (lastCol >= COL_FIRST_INTRO_HEARD) {
     var fh = sheet.getRange(row, COL_FIRST_INTRO_HEARD).getDisplayValue();
     firstIntroHeard = fh != null ? String(fh) : "";
@@ -209,6 +234,14 @@ function getActiveRowPhrasePreview() {
     var ah = sheet.getRange(row, COL_ANSWER_HEARD).getDisplayValue();
     answerHeard = ah != null ? String(ah) : "";
   }
+  if (lastCol >= COL_FOLLOW_UP_HEARD) {
+    var fuh = sheet.getRange(row, COL_FOLLOW_UP_HEARD).getDisplayValue();
+    followUpHeard = fuh != null ? String(fuh) : "";
+  }
+  if (lastCol >= COL_EXPLAIN_HEARD) {
+    var exh = sheet.getRange(row, COL_EXPLAIN_HEARD).getDisplayValue();
+    explainHeard = exh != null ? String(exh) : "";
+  }
 
   return {
     row: row,
@@ -218,9 +251,13 @@ function getActiveRowPhrasePreview() {
     firstIntro: firstIntro != null ? String(firstIntro) : "",
     secondIntro: secondIntro != null ? String(secondIntro) : "",
     answer: answer != null ? String(answer) : "",
+    followUp: followUp != null ? String(followUp) : "",
+    explain: explain != null ? String(explain) : "",
     firstIntroHeard: firstIntroHeard,
     secondIntroHeard: secondIntroHeard,
     answerHeard: answerHeard,
+    followUpHeard: followUpHeard,
+    explainHeard: explainHeard,
   };
 }
 
@@ -624,6 +661,37 @@ function clipsFromPhrasePayload(onePhrase) {
 }
 
 /**
+ * Spanish answer clips: canonical speed and slower variant share sheet Answer columns.
+ * @param {string} id clip id from verification payload
+ * @returns {boolean}
+ */
+function clipIdEndsWithAnswerBucket(id) {
+  return id.endsWith("-answer-slow") || id.endsWith("-answer");
+}
+
+/**
+ * @param {unknown} prev
+ * @param {unknown} next
+ * @returns {unknown}
+ */
+function mergeNumericMax(prev, next) {
+  if (next === "") return prev;
+  if (prev === "") return next;
+  return Math.max(Number(prev), Number(next));
+}
+
+/**
+ * @param {unknown} prev
+ * @param {unknown} next
+ * @returns {unknown}
+ */
+function mergeNumericMean(prev, next) {
+  if (next === "") return prev;
+  if (prev === "") return next;
+  return (Number(prev) + Number(next)) / 2;
+}
+
+/**
  * Per-clip STT mismatch text for Heard columns ([first, second, answer]).
  * @param {unknown} clips phrases[n].clips from lesson-audio-verify
  * @returns {[string, string, string]}
@@ -632,8 +700,10 @@ function heardSttTextsFromPhraseClips(clips) {
   var first = "";
   var second = "";
   var ans = "";
+  var fu = "";
+  var ex = "";
   if (!clips || !(clips instanceof Array)) {
-    return [first, second, ans];
+    return [first, second, ans, fu, ex];
   }
   var j;
   for (j = 0; j < clips.length; j++) {
@@ -652,11 +722,15 @@ function heardSttTextsFromPhraseClips(clips) {
       first = heardCell;
     } else if (id.endsWith("-second-intro")) {
       second = heardCell;
-    } else if (id.endsWith("-answer")) {
+    } else if (clipIdEndsWithAnswerBucket(id)) {
       ans = heardCell;
+    } else if (id.endsWith("-follow-up")) {
+      fu = heardCell;
+    } else if (id.endsWith("-explain")) {
+      ex = heardCell;
     }
   }
-  return [first, second, ans];
+  return [first, second, ans, fu, ex];
 }
 
 /**
@@ -693,9 +767,9 @@ function volumeSixPackFromPhraseClips(clips) {
     } else if (id.endsWith("-second-intro")) {
       siMax = maxVal;
       siAvg = meanVal;
-    } else if (id.endsWith("-answer")) {
-      ansMax = maxVal;
-      ansAvg = meanVal;
+    } else if (clipIdEndsWithAnswerBucket(id)) {
+      ansMax = mergeNumericMax(ansMax, maxVal);
+      ansAvg = mergeNumericMean(ansAvg, meanVal);
     }
   }
   return [fiMax, fiAvg, siMax, siAvg, ansMax, ansAvg];
@@ -741,10 +815,12 @@ function applyLessonVerificationToSheet(phrasesPayload, phraseDirectory) {
     sheet.getRange(row, COL_SECOND_INTRO_AVG_VOLUME).setValue(volSix[3]);
     sheet.getRange(row, COL_ANSWER_MAX_VOLUME).setValue(volSix[4]);
     sheet.getRange(row, COL_ANSWER_AVG_VOLUME).setValue(volSix[5]);
-    var heardTriple = heardSttTextsFromPhraseClips(clipsArr);
-    sheet.getRange(row, COL_FIRST_INTRO_HEARD).setValue(heardTriple[0]);
-    sheet.getRange(row, COL_SECOND_INTRO_HEARD).setValue(heardTriple[1]);
-    sheet.getRange(row, COL_ANSWER_HEARD).setValue(heardTriple[2]);
+    var heardFive = heardSttTextsFromPhraseClips(clipsArr);
+    sheet.getRange(row, COL_FIRST_INTRO_HEARD).setValue(heardFive[0]);
+    sheet.getRange(row, COL_SECOND_INTRO_HEARD).setValue(heardFive[1]);
+    sheet.getRange(row, COL_ANSWER_HEARD).setValue(heardFive[2]);
+    sheet.getRange(row, COL_FOLLOW_UP_HEARD).setValue(heardFive[3]);
+    sheet.getRange(row, COL_EXPLAIN_HEARD).setValue(heardFive[4]);
     sheet.getRange(row, COL_VERIFIED).setValue(verified === true);
     var bg = verified === true ? null : VERIFY_ROW_FAIL_BG;
     // getRange(r,c,numRows,numColumns) — count form, not (r1,c1,r2,c2).
@@ -782,10 +858,14 @@ function applySingleClipVerificationToSheetCells(sheet, rowNum, clip) {
     sheet.getRange(rowNum, COL_SECOND_INTRO_MAX_VOLUME).setValue(maxVal);
     sheet.getRange(rowNum, COL_SECOND_INTRO_AVG_VOLUME).setValue(meanVal);
     sheet.getRange(rowNum, COL_SECOND_INTRO_HEARD).setValue(heard);
-  } else if (id.endsWith("-answer")) {
+  } else if (clipIdEndsWithAnswerBucket(id)) {
     sheet.getRange(rowNum, COL_ANSWER_MAX_VOLUME).setValue(maxVal);
     sheet.getRange(rowNum, COL_ANSWER_AVG_VOLUME).setValue(meanVal);
     sheet.getRange(rowNum, COL_ANSWER_HEARD).setValue(heard);
+  } else if (id.endsWith("-follow-up")) {
+    sheet.getRange(rowNum, COL_FOLLOW_UP_HEARD).setValue(heard);
+  } else if (id.endsWith("-explain")) {
+    sheet.getRange(rowNum, COL_EXPLAIN_HEARD).setValue(heard);
   }
 }
 
@@ -847,10 +927,12 @@ function applySinglePhraseVerificationToSheet(onePhrase, phraseDirectory, partia
   sheet.getRange(rowNum, COL_SECOND_INTRO_AVG_VOLUME).setValue(volSix[3]);
   sheet.getRange(rowNum, COL_ANSWER_MAX_VOLUME).setValue(volSix[4]);
   sheet.getRange(rowNum, COL_ANSWER_AVG_VOLUME).setValue(volSix[5]);
-  var heardTriple = heardSttTextsFromPhraseClips(clipsArr);
-  sheet.getRange(rowNum, COL_FIRST_INTRO_HEARD).setValue(heardTriple[0]);
-  sheet.getRange(rowNum, COL_SECOND_INTRO_HEARD).setValue(heardTriple[1]);
-  sheet.getRange(rowNum, COL_ANSWER_HEARD).setValue(heardTriple[2]);
+  var heardFive = heardSttTextsFromPhraseClips(clipsArr);
+  sheet.getRange(rowNum, COL_FIRST_INTRO_HEARD).setValue(heardFive[0]);
+  sheet.getRange(rowNum, COL_SECOND_INTRO_HEARD).setValue(heardFive[1]);
+  sheet.getRange(rowNum, COL_ANSWER_HEARD).setValue(heardFive[2]);
+  sheet.getRange(rowNum, COL_FOLLOW_UP_HEARD).setValue(heardFive[3]);
+  sheet.getRange(rowNum, COL_EXPLAIN_HEARD).setValue(heardFive[4]);
   sheet.getRange(rowNum, COL_VERIFIED).setValue(verified === true);
   var bg = verified === true ? null : VERIFY_ROW_FAIL_BG;
   sheet.getRange(rowNum, 1, 1, targetCols).setBackground(bg);
@@ -1036,6 +1118,10 @@ function lessonAudioSynthesize(accessToken, transcriptLessonId, phraseName, segm
  */
 function mergeTranscriptSegment(accessToken, transcriptLessonId, phraseIndex, segment, text) {
   try {
+    var segTrim = typeof segment === "string" ? segment.trim() : "";
+    if (segTrim === "answer-slow") {
+      return { ok: true, message: "" };
+    }
     var token = typeof accessToken === "string" ? accessToken.trim() : "";
     if (!token) {
       return { ok: false, message: "Not signed in." };
@@ -1215,7 +1301,12 @@ function recordPhraseSegment(
     }
     var name = typeof phraseName === "string" ? phraseName.trim() : "";
     var seg = typeof segment === "string" ? segment.trim() : "";
-    if (seg !== "first-intro" && seg !== "second-intro" && seg !== "answer") {
+    if (
+      seg !== "first-intro" &&
+      seg !== "second-intro" &&
+      seg !== "answer" &&
+      seg !== "answer-slow"
+    ) {
       return { ok: false, message: "Invalid segment for save." };
     }
     var fi = firstIntro != null ? String(firstIntro) : "";
@@ -1225,7 +1316,7 @@ function recordPhraseSegment(
     if (seg === "second-intro") {
       textBody = si;
     }
-    if (seg === "answer") {
+    if (seg === "answer" || seg === "answer-slow") {
       textBody = ans;
     }
     if (String(textBody).trim().length === 0) {
@@ -1865,6 +1956,9 @@ function phraseRow(phrase, loopIndex) {
     es["newWords"] ?? "",
     es.grammar ?? "",
     false,
+    "",
+    "",
+    "",
     "",
     "",
     "",

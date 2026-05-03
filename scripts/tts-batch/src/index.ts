@@ -440,8 +440,15 @@ async function runOnlyPhraseBatch(
         return { job, entry: prev, didGenerate: false };
       }
 
-      const hash = computeJobHash(job.text, job.voice, opts.noAudioPos);
-      const buffer = await withRetry(() => synthesizeToBuffer(job.text, job.language, apiKey));
+      const hash = computeJobHash(
+        job.text,
+        job.voice,
+        opts.noAudioPos,
+        job.speakingRate ?? 1,
+      );
+      const buffer = await withRetry(() =>
+        synthesizeToBuffer(job.text, job.language, apiKey, job.speakingRate),
+      );
       const rel = await writeAudioFile(opts.outDir, job, buffer, opts.noAudioPos);
       const createdAt = new Date().toISOString();
       recordLog(position, `  OK index=${job.index} ${job.id}`);
@@ -545,7 +552,12 @@ async function main(): Promise<void> {
 
   const tasks = jobs.map((job, position) =>
     limit(async (): Promise<{ job: TtsJob; entry: ManifestEntry; didGenerate: boolean }> => {
-      const hash = computeJobHash(job.text, job.voice, opts.noAudioPos);
+      const hash = computeJobHash(
+        job.text,
+        job.voice,
+        opts.noAudioPos,
+        job.speakingRate ?? 1,
+      );
       const skip = await shouldSkipJob(job, hash, opts.force, cache, opts.outDir);
       if (skip) {
         const createdAt = new Date().toISOString();
@@ -565,7 +577,7 @@ async function main(): Promise<void> {
       }
 
       const buffer = await withRetry(() =>
-        synthesizeToBuffer(job.text, job.language, apiKey)
+        synthesizeToBuffer(job.text, job.language, apiKey, job.speakingRate),
       );
       const rel = await writeAudioFile(opts.outDir, job, buffer, opts.noAudioPos);
       const createdAt = new Date().toISOString();

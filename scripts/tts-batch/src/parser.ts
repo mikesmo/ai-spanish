@@ -24,6 +24,7 @@ export function buildTtsJobs(phrases: Phrase[]): TtsJob[] {
       language: spec.language,
       text: spec.text,
       voice: getVoiceForLanguage(spec.language),
+      speakingRate: spec.speakingRate,
     };
   });
 }

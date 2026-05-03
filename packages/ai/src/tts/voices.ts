@@ -1,7 +1,7 @@
 import type { Language } from '@ai-spanish/logic';
 
 const DEFAULT_VOICE_EN = 'aura-2-amalthea-en';
-const DEFAULT_VOICE_ES = 'aura-2-agustina-es';
+const DEFAULT_VOICE_ES = 'aura-2-diana-es';
 
 function voiceFromEnv(varName: string, fallback: string): string {
   const v = process.env[varName]?.trim();

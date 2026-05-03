@@ -87,6 +87,8 @@ Use the same `--lesson` and prefix you intend for production so keys stay consis
 | Variable | When |
 |----------|------|
 | `DEEPGRAM_API_KEY` | Required for TTS and for `--verify-stt` (omit with `--upload-only` or for `--verify-loudness` alone) |
+| `TTS_DEEPGRAM_VOICE_EN` | Optional; Deepgram Aura English `model` id (default **`aura-2-amalthea-en`**) |
+| `TTS_DEEPGRAM_VOICE_ES` | Optional; Deepgram Aura Spanish `model` id (default **`aura-2-diana-es`**) |
 | `TTS_VERIFY_LOUDNESS_MIN_MAX_DB` | Optional; for `--verify-loudness` / combined STT check: **max** (peak) volume in dB must be **≥** this value (default **-30**; louder peaks are less negative) |
 | `TTS_VERIFY_LOUDNESS_MIN_MEAN_DB` | Optional; **mean** volume in dB must be **≥** this value (default **-40**; louder means are less negative) |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | Required when uploading to S3 (not needed for `--local-only`) |
@@ -113,7 +115,7 @@ Secrets belong in repo-root **`.env.scripts`** (gitignored). Never commit real k
 | `--force` | Regenerate all clips; ignore hash cache |
 | `--local-only` | Write `output/` only; no S3, no AWS keys required |
 | `--upload-only` | Upload existing `output/` to S3; no Deepgram calls |
-| `--only-phrase` | Transcript `"index"` field (0-based, matches lesson JSON). Regenerates every clip for that phrase (`{name}-first-intro`, etc.), merges into existing `manifest.json` and hash cache; other clips unchanged. **Requires** a previous full `tts:batch` so every other id already exists in the manifest. Incompatible with `--verify-stt` and `--upload-only`. |
+| `--only-phrase` | Transcript `"index"` field (0-based, matches lesson JSON). Regenerates every clip for that phrase (all jobs from `buildPhraseAudioClipSpecs`, including `follow-up`, `explain`, `answer`, `answer-slow` when applicable), merges into existing `manifest.json` and hash cache; other clips unchanged. **Requires** a previous full `tts:batch` so every other id already exists in the manifest. Incompatible with `--verify-stt` and `--upload-only`. |
 | `--verify-stt` | Runs **`--verify-loudness` first**, then Deepgram STT on each `manifest.json` MP3. STT: optional `keywords` from expected `text` (tokenize via `tokenizeForDeepgramKeywords` in `@ai-spanish/logic`, `word:1` if **3+** tokens). **strict** normalized text compare. Exit 1 if loudness **or** STT fails. Requires `DEEPGRAM_API_KEY` and **ffmpeg** on `PATH` |
 | `--verify-loudness` | **ffmpeg** `volumedetect`: `max_volume` must be **≥** `TTS_VERIFY_LOUDNESS_MIN_MAX_DB` and `mean_volume` **≥** `TTS_VERIFY_LOUDNESS_MIN_MEAN_DB`. Use alone (no API key) or with `--verify-stt` (STT run already includes loudness). Incompatible with `--upload-only` and `--only-phrase` |
 | `--no-audio-pos` | Skip ffmpeg post-processing; write raw Deepgram output (no ffmpeg required) |
@@ -151,7 +153,9 @@ output/
     hashes.json
 ```
 
-Transcript rows are flattened to jobs such as `{name}-first-intro`, `{name}-second-intro`, `{name}-answer` (empty strings skipped), where `{name}` is the phrase's stable slug **`name`** field (e.g. `perdona`). Each phrase also has a numeric **`index`** (0-based) used internally and an optional **`type`** (`new` | `composite`). Language is implied by the segment (`first-intro`/`second-intro` are English, `answer` is Spanish).
+Transcript rows are flattened to jobs such as `{name}-first-intro`, `{name}-second-intro`, optional `{name}-follow-up` and `{name}-explain` when those English strings are non-empty, `{name}-answer` (Spanish at Deepgram speed **1**) and **`{name}-answer-slow`** (same text at speed **0.9**); empty strings are skipped. `{name}` is the phrase slug. Each phrase also has a numeric **`index`** (0-based) and optional **`type`** (`new` | `composite`). English clips use the English Aura voice; Spanish clips use the Spanish Aura voice (see `TTS_DEEPGRAM_VOICE_ES`).
+
+**Runtime / presigned audio:** [`GET /api/audio`](../../apps/web/src/app/api/audio/route.ts) allows `segment` values that match these file suffixes (plus `question` for ad-hoc presigns). The learning app currently plays **`answer`** by default; **`answer-slow`** is extra inventory for future UX.
 
 **Note:** Saved session history that embeds full phrase snapshots uses the same transcript shape. After changing these field names, older exported history entries may not parse until cleared or migrated.
 

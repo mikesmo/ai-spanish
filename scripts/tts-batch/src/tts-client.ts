@@ -10,7 +10,9 @@ export { getVoiceForLanguage } from '@ai-spanish/ai/tts/voices';
 export async function synthesizeToBuffer(
   text: string,
   language: Language,
-  apiKey: string
+  apiKey: string,
+  speakingRate?: number,
 ): Promise<ArrayBuffer> {
-  return fetchTTSAudio(text, language, apiKey, getVoiceForLanguage(language));
+  const voice = getVoiceForLanguage(language);
+  return fetchTTSAudio(text, language, apiKey, voice, undefined, speakingRate);
 }

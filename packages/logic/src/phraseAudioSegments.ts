@@ -1,7 +1,13 @@
 import type { Language, Phrase } from './types';
 
 /** Segments backed by TTS batch + Sheet Record (same ids as `PhraseAudioClipSpec.id` suffix). */
-export const PHRASE_SYNTH_SEGMENTS = ['first-intro', 'second-intro', 'answer'] as const;
+export const PHRASE_SYNTH_SEGMENTS = [
+  'first-intro',
+  'second-intro',
+  'follow-up',
+  'explain',
+  'answer',
+] as const;
 
 export type PhraseSynthSegment = (typeof PHRASE_SYNTH_SEGMENTS)[number];
 
@@ -22,11 +28,15 @@ export function phraseClipJobId(phraseName: string, segment: PhraseSynthSegment)
 }
 
 /**
- * Parses clip id suffix into a synth segment (`second-intro` before `first-intro`).
+ * Parses clip id suffix into a merge/STT segment (`answer-slow` before `answer`).
+ * Question-only clips (no batch job id pattern here) return null.
  */
 export function phraseSynthSegmentFromClipId(id: string): PhraseSynthSegment | null {
   if (id.endsWith('-second-intro')) return 'second-intro';
   if (id.endsWith('-first-intro')) return 'first-intro';
+  if (id.endsWith('-follow-up')) return 'follow-up';
+  if (id.endsWith('-explain')) return 'explain';
+  if (id.endsWith('-answer-slow')) return 'answer';
   if (id.endsWith('-answer')) return 'answer';
   return null;
 }
@@ -74,6 +84,10 @@ export function mergePhraseSegmentText(
   }
   if (segment === 'first-intro' || segment === 'second-intro') {
     row.English = { ...row.English, [segment]: text };
+  } else if (segment === 'follow-up') {
+    row.English = { ...row.English, 'follow-up': text };
+  } else if (segment === 'explain') {
+    row.English = { ...row.English, explain: text };
   } else {
     row.Spanish = { ...row.Spanish, answer: text };
   }

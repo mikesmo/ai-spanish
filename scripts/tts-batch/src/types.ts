@@ -14,6 +14,8 @@ export interface TtsJob {
   text: string;
   /** Deepgram voice model id (e.g. aura-2-amalthea-en). */
   voice: string;
+  /** Deepgram speaking rate (omit or 1 = default). */
+  speakingRate?: number;
 }
 
 /** One row in output/manifest.json */
@@ -24,6 +26,8 @@ export interface ManifestEntry {
   language: Language;
   text: string;
   voice: string;
+  /** Deepgram speaking rate when not default (e.g. 0.9 for answer-slow). */
+  speakingRate?: number;
   /** Relative path from output dir, e.g. audio/perdona-first-intro.mp3 */
   localFile: string;
   /** S3 object key when uploaded; omitted in --local-only runs. */
