@@ -41,8 +41,8 @@ export interface Phrase {
     /** New vocabulary chunk from newer transcript JSON (optional). */
     newWords?: string;
     /**
-     * Hints for Deepgram live STT keyword biasing (e.g. expected Spanish tokens).
-     * When non-empty after trim, used instead of deriving keywords from `answer`.
+     * Space- or comma-separated tokens for Deepgram live STT keyword biasing.
+     * Trimmed; if empty, no keywords are sent for this phrase.
      */
     recognitionHints?: string;
     answer: string;
@@ -158,10 +158,10 @@ export type TTSAdapter = {
 export type SttStartOptions = {
   /**
    * Target words to bias the ASR toward for this attempt. The learning pipeline
-   * supplies this when the phrase's `Spanish.words` has one or two entries
-   * (from lesson JSON). Web and native adapters map non-empty arrays to
-   * Deepgram's live `keywords` (Nova-2) using `toDeepgramLiveKeywordParams`
-   * from `./deepgramKeywords`.
+   * supplies this from `Spanish.recognitionHints` when that field is non-empty
+   * after trim (`deepgramLiveKeywordTokensForPhrase`). Web and native adapters
+   * map non-empty arrays to Deepgram’s live `keywords` (Nova-2) using
+   * `toDeepgramLiveKeywordParams` from `./deepgramKeywords`.
    */
   keywords?: string[];
   /**

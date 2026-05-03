@@ -44,26 +44,13 @@ export function tokenizeForDeepgramKeywords(s: string): string[] {
 }
 
 /**
- * True when lesson `Spanish.words` has 1 or 2 entries (legacy short-phrase keyword biasing).
- */
-function shouldBiasDeepgramKeywordsFromWordCount(phrase: Phrase): boolean {
-  const n = phrase.Spanish.words.length;
-  return n === 1 || n === 2;
-}
-
-/**
  * Keyword tokens for Deepgram live listen (`keywords` → {@link toDeepgramLiveKeywordParams}).
- * If `Spanish.recognitionHints` is non-empty, tokenizes that string; otherwise uses
- * `Spanish.answer` only when {@link shouldBiasDeepgramKeywordsFromWordCount} is true
- * (backward-compatible short-phrase behavior).
+ * Only `Spanish.recognitionHints` (trimmed) is used; empty or missing hints yield no keywords.
  */
 export function deepgramLiveKeywordTokensForPhrase(phrase: Phrase): string[] {
   const hints = (phrase.Spanish.recognitionHints ?? '').trim();
-  if (hints.length > 0) {
-    return tokenizeForDeepgramKeywords(hints);
+  if (hints.length === 0) {
+    return [];
   }
-  if (shouldBiasDeepgramKeywordsFromWordCount(phrase)) {
-    return tokenizeForDeepgramKeywords(phrase.Spanish.answer);
-  }
-  return [];
+  return tokenizeForDeepgramKeywords(hints);
 }

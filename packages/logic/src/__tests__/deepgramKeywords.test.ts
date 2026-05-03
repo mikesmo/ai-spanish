@@ -33,7 +33,7 @@ describe('deepgramLiveKeywordTokensForPhrase', () => {
     expect(deepgramLiveKeywordTokensForPhrase(p)).toEqual(['perdón', 'señor']);
   });
 
-  it('falls back to answer tokenization when hints empty and 1–2 words', () => {
+  it('returns no keywords when hints empty even for short answers (1–2 words)', () => {
     const p = phraseBase({
       answer: 'Hola adiós',
       words: [
@@ -41,7 +41,7 @@ describe('deepgramLiveKeywordTokensForPhrase', () => {
         { word: 'adiós', type: 'noun', weight: POS_WEIGHTS.noun },
       ],
     });
-    expect(deepgramLiveKeywordTokensForPhrase(p)).toEqual(['hola', 'adiós']);
+    expect(deepgramLiveKeywordTokensForPhrase(p)).toEqual([]);
   });
 
   it('returns no keywords when hints empty and 3+ words', () => {
@@ -56,7 +56,7 @@ describe('deepgramLiveKeywordTokensForPhrase', () => {
     expect(deepgramLiveKeywordTokensForPhrase(p)).toEqual([]);
   });
 
-  it('treats whitespace-only hints as empty (legacy path)', () => {
+  it('treats whitespace-only hints as empty (no answer fallback)', () => {
     const p = phraseBase({
       answer: 'hola adiós',
       recognitionHints: '   ',
@@ -65,6 +65,6 @@ describe('deepgramLiveKeywordTokensForPhrase', () => {
         { word: 'adiós', type: 'noun', weight: POS_WEIGHTS.noun },
       ],
     });
-    expect(deepgramLiveKeywordTokensForPhrase(p)).toEqual(['hola', 'adiós']);
+    expect(deepgramLiveKeywordTokensForPhrase(p)).toEqual([]);
   });
 });
