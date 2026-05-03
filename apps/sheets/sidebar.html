@@ -1183,8 +1183,7 @@
       var SAVE_PROGRESS_STEPS = [
         "Name check",
         "Synthesize & upload",
-        "Loudness and transcribe check",
-        "Updating",
+        "Saving transcript",
       ];
 
       /** @param {number} activeStepIndex */
@@ -1270,7 +1269,7 @@
       }
 
       /**
-       * @param {string} phase focus | preflight | synth | verify | merge
+       * @param {string} phase focus | preflight | synth | merge
        * @param {unknown[]=} clipsForMergeFailure
        */
       function runSaveChain(
@@ -1410,11 +1409,11 @@
                 phraseName,
                 phraseIdx,
                 authRound,
-                "verify",
+                "merge",
                 fi,
                 si,
                 an,
-                clipsForMergeFailure
+                []
               );
             })
             .withFailureHandler(function (err) {
@@ -1431,91 +1430,8 @@
           return;
         }
 
-        if (phase === "verify") {
-          setSaveProgressActive(2);
-          /** @type {Record<string, string>} */
-          var overrides = {};
-          overrides[nameTrim + "-" + segment] = textBody;
-          google.script.run
-            .withSuccessHandler(function (res) {
-              if (
-                saveFlowMaybeRefreshAuth(res, authRound, function () {
-                  runSaveChain(
-                    btn,
-                    segment,
-                    phraseName,
-                    phraseIdx,
-                    1,
-                    "verify",
-                    fi,
-                    si,
-                    an,
-                    clipsForMergeFailure
-                  );
-                })
-              ) {
-                return;
-              }
-              if (res && res.verifyDisabled) {
-                finishRecordSession();
-                clearVerificationHeardHints();
-                setStatus(
-                  res.message ||
-                    "Verification not enabled on server (ENABLE_LESSON_AUDIO_VERIFY).",
-                  "err"
-                );
-                refreshPreviewAfterSave();
-                return;
-              }
-              if (!res || res.ok !== true) {
-                finishRecordSession();
-                clearVerificationHeardHints();
-                setStatus((res && res.message) || "Verification failed.", "err");
-                refreshPreviewAfterSave();
-                return;
-              }
-              /** @type {{ verified?: unknown, clips?: unknown[], message?: string }} */
-              var vr = res;
-              if (vr.verified === true) {
-                runSaveChain(
-                  btn,
-                  segment,
-                  phraseName,
-                  phraseIdx,
-                  authRound,
-                  "merge",
-                  fi,
-                  si,
-                  an,
-                  vr.clips || []
-                );
-                return;
-              }
-              finishRecordSession();
-              applyVerificationHeardHints(vr.clips || []);
-              setStatus(
-                vr.message || "Saved; clip failed verification.",
-                "err"
-              );
-              refreshPreviewAfterSave();
-            })
-            .withFailureHandler(function (err) {
-              finishRecordSession();
-              setStatus(err.message || String(err), "err");
-            })
-            .verifyLessonAudioPhrase(
-              sessionAccessToken,
-              transcriptLessonId,
-              phraseDirectory,
-              phraseIdx,
-              overrides,
-              [segment]
-            );
-          return;
-        }
-
         if (phase === "merge") {
-          setSaveProgressActive(3);
+          setSaveProgressActive(2);
           var clipsHint =
             clipsForMergeFailure instanceof Array ? clipsForMergeFailure : [];
           google.script.run
@@ -1542,14 +1458,15 @@
               if (!res || res.ok !== true) {
                 applyVerificationHeardHints(clipsHint);
                 setStatus(
-                  (res && res.message) || "Verified but transcript merge failed.",
+                  (res && res.message) ||
+                    "Audio uploaded but transcript save failed.",
                   "err"
                 );
                 refreshPreviewAfterSave();
                 return;
               }
               applyVerificationHeardHints([]);
-              setStatus("Saved, verified, and transcript saved.", "ok");
+              setStatus("Audio saved and transcript updated.", "ok");
               refreshPreviewAfterSave();
             })
             .withFailureHandler(function (err) {
