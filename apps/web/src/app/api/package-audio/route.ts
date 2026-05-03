@@ -5,7 +5,6 @@ import path from 'path';
 import { assertApiUser } from '@/lib/auth/assert-api-user';
 
 const ALLOWED_PACKAGE_AUDIO = {
-  'no-you-try': 'no-you-try.mp3',
   success: 'success.mp3',
   success1: 'success1.mp3',
 } as const;

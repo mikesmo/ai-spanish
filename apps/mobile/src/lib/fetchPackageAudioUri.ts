@@ -1,7 +1,7 @@
 import * as FileSystem from "expo-file-system";
 import { supabase } from "./supabase";
 
-export type PackageAudioFileKey = "no-you-try" | "success" | "success1";
+export type PackageAudioFileKey = "success" | "success1";
 
 /**
  * Downloads UX audio from the web app's authenticated package-audio API into cache.

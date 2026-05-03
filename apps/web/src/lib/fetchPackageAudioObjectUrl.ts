@@ -1,4 +1,4 @@
-export type PackageAudioFileKey = 'no-you-try' | 'success' | 'success1';
+export type PackageAudioFileKey = 'success' | 'success1';
 
 /**
  * Loads UX audio from the authenticated package-audio API and returns a blob URL for HTML Audio.

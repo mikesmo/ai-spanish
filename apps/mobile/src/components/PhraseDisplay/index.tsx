@@ -11,7 +11,6 @@ import {
   usePhraseDisplayWithDeck,
 } from "@ai-spanish/logic";
 import { useSTT, useS3TTS } from "@ai-spanish/ai";
-import { playRecordingPrimingAudio } from "../../lib/playRecordingPrimingAudio";
 import { playSuccessChime } from "../../lib/playSuccessChime";
 import { postSessionHistoryEntry } from "../../services/sessionHistory.service";
 import type { PhraseDisplayProps } from "./PhraseDisplay.types";
@@ -31,7 +30,6 @@ export const PhraseDisplay = ({
 
   const { display } = usePhraseDisplayWithDeck(phrases, session, stt, tts, {
     playSuccessChime,
-    playRecordingPrimingAudio,
     s3LessonSegment: s3LessonFolderForTranscriptLessonId(lessonId),
   });
 

@@ -49,19 +49,9 @@ const PLAYBACK_RATES: Record<'1x' | 'slow', number> = { '1x': 1.0, slow: 0.5 };
 
 const noopSuccessChime = async (_signal: AbortSignal): Promise<void> => {};
 
-/** First N logical deck positions (0-based) get recording priming audio before the mic. */
-const RECORDING_PRIMING_PHRASE_COUNT = 3;
-
 export type UsePhraseDisplayOptions = {
   /** Web: play a short success sound; must resolve when finished or reject on abort. */
   playSuccessChime?: (signal: AbortSignal) => Promise<void>;
-  /**
-   * First three phrases in the deck (by `ttsPhraseIndex ?? currentIndex`,
-   * indices 0–2), only on the **first** in-session presentation of that phrase
-   * id (skipped on revisits). Play after bootstrap TTS and before `stt.start`.
-   * Must resolve when finished or reject on abort.
-   */
-  playRecordingPrimingAudio?: (signal: AbortSignal) => Promise<void>;
   /**
    * Called once per attempt / practice-attempt / reveal. Host apps wire this
    * up to a ProgressStore + SessionEngine to drive mastery and SRS.
@@ -131,8 +121,8 @@ function captionAndGradableFromStt(
 //   idle — brief pre-mic; often skipped perceptually.
 //   pronunciationExample — only for `Phrase.type === 'new'` on the first
 //     in-session presentation of that phrase id; then Spanish TTS.
-//   recordingPriming — optional clip before mic for the first three phrases,
-//     first presentation only (skipped on session revisits; host callback).
+//   recordingPriming — optional clip before mic when the phrase JSON has a
+//     non-empty `English['follow-up']` field; plays the S3 follow-up clip.
 //   recording — STT is active; learner speaks the answer.
 //   tryAgain — same card after “Try again”; still records PracticeAttempt.
 //   answer — feedback, replay, next.
@@ -170,10 +160,10 @@ export function usePhraseDisplay(
   } | null>(null);
 
   /**
-   * Deck position used for `RECORDING_PRIMING_PHRASE_COUNT` and the per-phrase
-   * `countStableKey`. Falls back to `currentIndex` when the host does not
-   * override — preserves linear-navigation behavior. Required for queue-driven
-   * hosts where the `phrases` prop is a 1-element array (see
+   * Deck position used for the per-phrase `countStableKey`. Falls back to
+   * `currentIndex` when the host does not override — preserves
+   * linear-navigation behavior. Required for queue-driven hosts where the
+   * `phrases` prop is a 1-element array (see
    * `UsePhraseDisplayOptions.ttsPhraseIndex`).
    * Kept in a ref so async flows (playAnswerAudio, handleReplay, bootstrap
    * init) always read the freshest value without forcing extra dep-array
@@ -186,10 +176,6 @@ export function usePhraseDisplay(
   const playSuccessChime = options?.playSuccessChime ?? noopSuccessChime;
   const playSuccessChimeRef = useRef(playSuccessChime);
   playSuccessChimeRef.current = playSuccessChime;
-
-  const playRecordingPrimingAudio = options?.playRecordingPrimingAudio;
-  const playRecordingPrimingAudioRef = useRef(playRecordingPrimingAudio);
-  playRecordingPrimingAudioRef.current = playRecordingPrimingAudio;
 
   const onPhraseEventRef = useRef(options?.onPhraseEvent);
   onPhraseEventRef.current = options?.onPhraseEvent;
@@ -238,6 +224,20 @@ export function usePhraseDisplay(
   const firstIsFinalAtRef = useRef<number | null>(null);
   /** Suppress overlapping calls when e.g. Show Answer and speech-final both fire. */
   const answerAudioInFlightRef = useRef(false);
+  /**
+   * Aborts the in-flight answer audio chain (Spanish answer + optional explain).
+   * Replaced on every `playAnswerAudio` entry and aborted by user actions
+   * (Try Again, Next, Replay, phrase change/unmount) to stop the explain clip.
+   */
+  const answerAudioAbortRef = useRef<AbortController | null>(null);
+  /**
+   * Aborts the explain clip played on the recording screen after a correct
+   * answer (success path, `new` phrase type). Uses its own controller because
+   * the success effect's `ac` gets aborted by the status-dep cleanup when
+   * `setStatus('recordingPriming')` is called, which would otherwise cancel
+   * the explain play before the advance call runs.
+   */
+  const successExplainAbortRef = useRef<AbortController | null>(null);
   const prevIndexRef = useRef<number | null>(null);
   /**
    * Suppress duplicate `onPresentationStart` when React Strict Mode (or any
@@ -420,8 +420,9 @@ export function usePhraseDisplay(
     onPhraseEventRef.current?.(reveal);
   }, [currentPhrase]);
 
-  /** Plays the Spanish answer audio and transitions to the `answer` status.
-   * Used both for auto-advance after an attempt and for user-initiated reveal. */
+  /** Plays the Spanish answer audio (and optional explain clip) and transitions
+   * to the `answer` status. Used both for auto-advance after an attempt and for
+   * user-initiated reveal. */
   const playAnswerAudio = useCallback(async () => {
     // Second entry while a reveal is still awaiting TTS (e.g. double tap, or
     // show answer after a race). Without this we no-op and the UI can stay on
@@ -435,6 +436,11 @@ export function usePhraseDisplay(
       return;
     }
     answerAudioInFlightRef.current = true;
+    // Abort any previous answer chain (shouldn't normally be in-flight here,
+    // but guards against edge-case double calls racing the in-flight check).
+    answerAudioAbortRef.current?.abort();
+    const ac = new AbortController();
+    answerAudioAbortRef.current = ac;
     try {
       sttRef.current.stop();
       if (isMountedRef.current) {
@@ -444,28 +450,50 @@ export function usePhraseDisplay(
         if (isMountedRef.current) {
           setIsAudioPlaying(true);
         }
-        const s3Opts: TtsAdapterOptions | undefined =
+        const baseS3: TtsAdapterOptions =
           options?.s3LessonSegment != null && options.s3LessonSegment !== ''
             ? { s3LessonSegment: options.s3LessonSegment }
-            : undefined;
+            : {};
         await ttsRef.current.play(
           spanishText,
           'es',
           undefined,
           phraseNameRef.current,
-          s3Opts,
+          { ...baseS3, signal: ac.signal },
         );
+        if (!ac.signal.aborted && isMountedRef.current) {
+          const explainText = currentPhrase.English.explain.trim();
+          // `new` + correct: explain already played on the recording screen
+          // (success useEffect). Skip here to avoid a second playback.
+          // All other cases (new + wrong/reveal, composite + any): play here.
+          const shouldPlayExplainOnFeedback =
+            explainText !== '' && !(currentPhrase.type === 'new' && isCorrect);
+          if (shouldPlayExplainOnFeedback) {
+            await ttsRef.current.play(
+              explainText,
+              'en',
+              undefined,
+              phraseNameRef.current,
+              { ...baseS3, signal: ac.signal, englishSegmentOverride: 'explain' },
+            );
+          }
+        }
       } catch (error) {
-        console.error('[usePhraseDisplay] Error playing Spanish:', error);
+        if (!ac.signal.aborted) {
+          console.error('[usePhraseDisplay] Error playing answer chain:', error);
+        }
       } finally {
         if (isMountedRef.current) {
           setIsAudioPlaying(false);
         }
       }
     } finally {
+      if (answerAudioAbortRef.current === ac) {
+        answerAudioAbortRef.current = null;
+      }
       answerAudioInFlightRef.current = false;
     }
-  }, [spanishText, options?.s3LessonSegment]);
+  }, [spanishText, currentPhrase, isCorrect, options?.s3LessonSegment]);
 
   /**
    * User clicked "Show Answer". If nothing was scored yet for this pass:
@@ -638,6 +666,8 @@ export function usePhraseDisplay(
     const init = async () => {
       try {
         const hintedName = phraseNameRef.current;
+        const followUpTextForPrefetch = currentPhrase.English['follow-up'].trim();
+        const explainTextForPrefetch = currentPhrase.English.explain.trim();
         await Promise.all([
           ttsRef.current.prefetch(englishText, 'en', hintedName, enOpts),
           ttsRef.current.prefetch(
@@ -646,6 +676,22 @@ export function usePhraseDisplay(
             hintedName,
             s3 as TtsAdapterOptions,
           ),
+          followUpTextForPrefetch !== ''
+            ? ttsRef.current.prefetch(
+                followUpTextForPrefetch,
+                'en',
+                hintedName,
+                { ...s3, englishSegmentOverride: 'follow-up' } as TtsAdapterOptions,
+              )
+            : Promise.resolve(),
+          explainTextForPrefetch !== ''
+            ? ttsRef.current.prefetch(
+                explainTextForPrefetch,
+                'en',
+                hintedName,
+                { ...s3, englishSegmentOverride: 'explain' } as TtsAdapterOptions,
+              )
+            : Promise.resolve(),
         ]);
         if (bootstrapSignal.aborted) return;
         if (!isMountedRef.current) return;
@@ -691,15 +737,18 @@ export function usePhraseDisplay(
         if (bootstrapSignal.aborted) return;
         if (!isMountedRef.current) return;
 
-        const playPrime = playRecordingPrimingAudioRef.current;
-        if (
-          ttsPhraseIndexRef.current < RECORDING_PRIMING_PHRASE_COUNT &&
-          isFirstSessionPresentation &&
-          playPrime
-        ) {
+        const followUpText = currentPhrase.English['follow-up'].trim();
+        if (followUpText !== '') {
           setStatus('recordingPriming');
+          setIsAudioPlaying(true);
           try {
-            await playPrime(bootstrapSignal);
+            await ttsRef.current.play(
+              followUpText,
+              'en',
+              undefined,
+              phraseNameRef.current,
+              { ...s3, signal: bootstrapSignal, englishSegmentOverride: 'follow-up' },
+            );
           } catch (primError: unknown) {
             const aborted =
               bootstrapSignal.aborted ||
@@ -708,9 +757,13 @@ export function usePhraseDisplay(
               (primError instanceof Error && primError.name === 'AbortError');
             if (aborted) return;
             console.error(
-              '[usePhraseDisplay] Recording priming audio:',
+              '[usePhraseDisplay] follow-up audio:',
               primError,
             );
+          } finally {
+            if (!bootstrapSignal.aborted && isMountedRef.current) {
+              setIsAudioPlaying(false);
+            }
           }
           if (bootstrapSignal.aborted) return;
           if (!isMountedRef.current) return;
@@ -745,6 +798,11 @@ export function usePhraseDisplay(
       // next `init` still `await stt.stop()` and coalesces on the same promise.
       void Promise.resolve(sttRef.current.stop()).catch(() => {});
       bootstrapAbort.abort();
+      // Abort the answer chain so the chained explain clip does not start after
+      // the Spanish answer resolves early due to the epoch bump from tts.stop().
+      answerAudioAbortRef.current?.abort();
+      // Abort the success-path explain play (recording screen) if in-flight.
+      successExplainAbortRef.current?.abort();
       ttsRef.current.stop();
     };
     // Re-run on currentIndex change (linear navigation) AND on
@@ -844,17 +902,76 @@ export function usePhraseDisplay(
             });
           }
         }
+        // Evaluate synchronously before any status change — the predicate reads
+        // statusRef.current === 'recording', which must still be true at this point.
         const skipAnswerScreen =
           currentPhrase.type === 'new' &&
           isFirstSessionPresentationOfCurrentPhrase &&
           !hasUsedTryAgainOnCurrentCard &&
           statusRef.current === 'recording' &&
           onSkipAnswerScreenAfterSuccessRef.current != null;
-        if (skipAnswerScreen) {
-          onSkipAnswerScreenAfterSuccessRef.current?.();
-        } else {
-          void playAnswerAudio();
-        }
+
+        void (async () => {
+          // For `new` phrases that answered correctly, play `explain` on the
+          // recording screen (status=recordingPriming) before advancing.
+          // Uses its own AbortController (successExplainAbortRef) rather than
+          // `ac`, because setStatus('recordingPriming') triggers the success
+          // effect's cleanup (ac.abort()) before the play finishes.
+          const explainText = currentPhrase.English.explain.trim();
+          if (currentPhrase.type === 'new' && explainText !== '') {
+            const s3Opts: TtsAdapterOptions =
+              options?.s3LessonSegment != null && options.s3LessonSegment !== ''
+                ? { s3LessonSegment: options.s3LessonSegment }
+                : {};
+            // Use a separate AbortController so the success effect's ac.abort()
+            // (triggered by setStatus('recordingPriming') changing the status
+            // dep) does NOT cancel this play. successExplainAbortRef is aborted
+            // by bootstrap cleanup, handleTryAgain, handleNext, handleReplay.
+            successExplainAbortRef.current?.abort();
+            const explainAc = new AbortController();
+            successExplainAbortRef.current = explainAc;
+            if (isMountedRef.current) {
+              setStatus('recordingPriming');
+              setIsAudioPlaying(true);
+            }
+            try {
+              await ttsRef.current.play(
+                explainText,
+                'en',
+                undefined,
+                phraseNameRef.current,
+                { ...s3Opts, signal: explainAc.signal, englishSegmentOverride: 'explain' },
+              );
+            } catch {
+              if (explainAc.signal.aborted) return;
+            } finally {
+              if (successExplainAbortRef.current === explainAc) {
+                successExplainAbortRef.current = null;
+              }
+              if (!explainAc.signal.aborted && isMountedRef.current) {
+                setIsAudioPlaying(false);
+              }
+            }
+            if (explainAc.signal.aborted) return;
+            if (!isMountedRef.current) return;
+
+            // Explain played on the recording screen → always advance to the
+            // next phrase. Do not show the feedback/answer screen.
+            if (onSkipAnswerScreenAfterSuccessRef.current != null) {
+              onSkipAnswerScreenAfterSuccessRef.current();
+            } else {
+              void playAnswerAudio();
+            }
+            return;
+          }
+
+          // No explain to play: use the original skip-answer-screen logic.
+          if (skipAnswerScreen) {
+            onSkipAnswerScreenAfterSuccessRef.current?.();
+          } else {
+            void playAnswerAudio();
+          }
+        })();
       }, POST_SUCCESS_EXTRA_PAUSE_MS);
     })();
 
@@ -872,6 +989,7 @@ export function usePhraseDisplay(
     currentPhrase,
     isFirstSessionPresentationOfCurrentPhrase,
     hasUsedTryAgainOnCurrentCard,
+    options?.s3LessonSegment,
   ]);
 
   // Final wrong transcript: score synchronously the moment Deepgram closes
@@ -933,6 +1051,8 @@ export function usePhraseDisplay(
   const handleTryAgain = () => {
     setHasUsedTryAgainOnCurrentCard(true);
     englishFirstPassOnCardRef.current = false;
+    successExplainAbortRef.current?.abort();
+    answerAudioAbortRef.current?.abort();
     ttsRef.current.stop();
     sttRef.current.clearTranscription();
     // Try Again starts a new practice session for this phrase — we do NOT
@@ -948,6 +1068,8 @@ export function usePhraseDisplay(
   };
 
   const handleNext = (options?: { exitToLoading?: boolean }) => {
+    successExplainAbortRef.current?.abort();
+    answerAudioAbortRef.current?.abort();
     sttRef.current.clearTranscription();
     if (options?.exitToLoading) {
       setStatus('loading');
@@ -956,6 +1078,8 @@ export function usePhraseDisplay(
   };
 
   const handleReplay = async () => {
+    successExplainAbortRef.current?.abort();
+    answerAudioAbortRef.current?.abort();
     const s3Opts: TtsAdapterOptions | undefined =
       options?.s3LessonSegment != null && options.s3LessonSegment !== ''
         ? { s3LessonSegment: options.s3LessonSegment }

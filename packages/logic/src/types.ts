@@ -112,6 +112,13 @@ export type TtsAdapterOptions = {
    */
   englishAppendQuestion?: boolean;
   /**
+   * When set, overrides normal English segment selection (`first-intro` /
+   * `second-intro` / `question`) and requests exactly this one segment.
+   * Used by `usePhraseDisplay` to play `follow-up` before the mic opens and
+   * `explain` after the Spanish answer. Ignored by on-the-fly TTS adapters.
+   */
+  englishSegmentOverride?: 'follow-up' | 'explain';
+  /**
    * When aborted, in-flight S3/playback work should no-op. Used by
    * `usePhraseDisplay` during phrase bootstrap to cancel obsolete audio.
    */

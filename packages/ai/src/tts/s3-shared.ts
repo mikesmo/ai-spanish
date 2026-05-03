@@ -9,6 +9,9 @@ export function segmentsForLanguage(
   options?: TtsAdapterOptions
 ): string[] {
   if (lang === 'en') {
+    if (options?.englishSegmentOverride) {
+      return [options.englishSegmentOverride];
+    }
     const segs = options?.englishUseFirstIntro
       ? ['first-intro']
       : ['second-intro'];
