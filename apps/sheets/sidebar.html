@@ -98,6 +98,24 @@
         cursor: not-allowed;
         opacity: 0.65;
       }
+      .preview-clear-segment {
+        margin-top: 0;
+        padding: 4px 8px;
+        font-size: 14px;
+        line-height: 1;
+        min-width: 28px;
+        min-height: 28px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        box-sizing: border-box;
+        font-weight: 600;
+      }
+      .preview-clear-segment:disabled {
+        cursor: not-allowed;
+        opacity: 0.65;
+      }
       .preview-play .play-spin {
         display: inline-block;
         width: 12px;
@@ -356,6 +374,15 @@
             >
               Update
             </button>
+            <button
+              type="button"
+              class="preview-clear-segment"
+              data-segment="follow-up"
+              aria-label="Clear Follow-up text and audio"
+              disabled
+            >
+              ×
+            </button>
             <span class="preview-update-progress" aria-live="polite"></span>
           </div>
         </div>
@@ -386,6 +413,15 @@
               disabled
             >
               Update
+            </button>
+            <button
+              type="button"
+              class="preview-clear-segment"
+              data-segment="explain"
+              aria-label="Clear Explain text and audio"
+              disabled
+            >
+              ×
             </button>
             <span class="preview-update-progress" aria-live="polite"></span>
           </div>
@@ -1060,6 +1096,10 @@
           for (i = 0; i < recordBtns.length; i++) {
             recordBtns[i].disabled = true;
           }
+          var clearBusy = document.querySelectorAll(".preview-clear-segment");
+          for (i = 0; i < clearBusy.length; i++) {
+            clearBusy[i].disabled = true;
+          }
           return;
         }
 
@@ -1088,6 +1128,15 @@
           recordBtns[i].disabled = !canPlay || !seg || !canRecordSegment(seg);
           recordBtns[i].textContent = RECORD_LABEL;
           recordBtns[i].removeAttribute("aria-busy");
+        }
+        var clearBtns = document.querySelectorAll(".preview-clear-segment");
+        for (i = 0; i < clearBtns.length; i++) {
+          var segC = clearBtns[i].getAttribute("data-segment");
+          var clearOk =
+            canPlay &&
+            (segC === "follow-up" || segC === "explain") &&
+            canRecordSegment(segC);
+          clearBtns[i].disabled = !clearOk;
         }
         syncAuthChromeButtons();
       }
@@ -1372,13 +1421,11 @@
           typeof phraseName === "string" ? phraseName.trim() : "";
         /** @type {Element | null} */
         var progressEl = null;
-        if (
-          btn &&
-          btn.nextElementSibling &&
-          btn.nextElementSibling.classList &&
-          btn.nextElementSibling.classList.contains("preview-update-progress")
-        ) {
-          progressEl = btn.nextElementSibling;
+        if (btn) {
+          var act = btn.closest(".preview-actions");
+          if (act) {
+            progressEl = act.querySelector(".preview-update-progress");
+          }
         }
 
         if (phase === "focus") {
@@ -1610,6 +1657,96 @@
             return;
           }
           runSaveChain(btn, segment, phraseName, phraseIdx, 0, "focus", fi, si, an, []);
+        });
+      }
+
+      /**
+       * @param {string} segment
+       * @param {number} authRound
+       */
+      function clearFollowUpOrExplain(segment, authRound) {
+        if (!lastPreviewData || !isLoggedIn()) {
+          finishRecordSession();
+          return;
+        }
+        var phraseIdx = resolvePhraseIndex(lastPreviewData.phraseName);
+        if (
+          !phraseSlugValid(lastPreviewData.phraseName) ||
+          phraseIdx === null
+        ) {
+          finishRecordSession();
+          setStatus(ROW_PLAYSAVE_BLOCKED_MSG, "err");
+          return;
+        }
+        if (segment !== "follow-up" && segment !== "explain") {
+          finishRecordSession();
+          return;
+        }
+        if (!canRecordSegment(segment)) {
+          finishRecordSession();
+          setStatus("Nothing to clear.", "err");
+          return;
+        }
+        google.script.run
+          .withSuccessHandler(function (res) {
+            if (
+              saveFlowMaybeRefreshAuth(res, authRound, function () {
+                clearFollowUpOrExplain(segment, 1);
+              })
+            ) {
+              return;
+            }
+            finishRecordSession();
+            if (!res || res.ok !== true) {
+              setStatus((res && res.message) || "Clear failed.", "err");
+              refreshPreviewAfterSave();
+              return;
+            }
+            setStatus("Field cleared and saved.", "ok");
+            refreshPreviewAfterSave();
+          })
+          .withFailureHandler(function (err) {
+            finishRecordSession();
+            setStatus(err.message || String(err), "err");
+          })
+          .clearFollowUpOrExplainSegment(
+            sessionAccessToken,
+            transcriptLessonId,
+            phraseDirectory,
+            phraseIdx,
+            segment
+          );
+      }
+
+      function runClearFollowUpOrExplain(segment) {
+        if (!lastPreviewData || !isLoggedIn()) {
+          return;
+        }
+        var phraseIdx = resolvePhraseIndex(lastPreviewData.phraseName);
+        if (
+          !phraseSlugValid(lastPreviewData.phraseName) ||
+          phraseIdx === null
+        ) {
+          setStatus(ROW_PLAYSAVE_BLOCKED_MSG, "err");
+          return;
+        }
+        if (segment !== "follow-up" && segment !== "explain") {
+          return;
+        }
+        if (!canRecordSegment(segment)) {
+          setStatus("Nothing to clear.", "err");
+          return;
+        }
+        recordSessionBusy = true;
+        syncPlayButtonsState();
+        setStatus("Clearing…", "");
+        ensureAccessTokenFresh(function (tokOk) {
+          if (!tokOk) {
+            clearSession("Session expired. Sign in again.");
+            finishRecordSession();
+            return;
+          }
+          clearFollowUpOrExplain(segment, 0);
         });
       }
 
@@ -1913,6 +2050,14 @@
         recordButtons[j].addEventListener("click", function (ev) {
           var segR = ev.currentTarget.getAttribute("data-segment");
           if (segR) recordSegment(segR, ev.currentTarget);
+        });
+      }
+
+      var clearSegButtons = document.querySelectorAll(".preview-clear-segment");
+      for (j = 0; j < clearSegButtons.length; j++) {
+        clearSegButtons[j].addEventListener("click", function (ev) {
+          var segCl = ev.currentTarget.getAttribute("data-segment");
+          if (segCl) runClearFollowUpOrExplain(segCl);
         });
       }
 

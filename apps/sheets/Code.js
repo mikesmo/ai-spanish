@@ -6,7 +6,7 @@
  *
  * Flow: Supabase password or refresh grant → GET /api/transcript, GET /api/audio,
  * POST /api/lesson-audio-synthesize, POST /api/lesson-audio-verify,
- * POST /api/transcript/merge-segment with Bearer token;
+ * POST /api/transcript/merge-segment, POST /api/lesson-audio/clear-segment with Bearer token;
  * sidebar stores access + refresh in memory and refreshes before expiry.
  */
 
@@ -647,6 +647,56 @@ function findLessonRowNumForPhraseIndex(phraseDirectory, phraseIndex) {
   return null;
 }
 
+/**
+ * First sheet row whose Index column matches transcript phrase index, or null.
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet
+ * @param {number} phraseIndex
+ * @returns {number | null}
+ */
+function findLessonRowByIndexColumn(sheet, phraseIndex) {
+  try {
+    if (!sheet) {
+      return null;
+    }
+    var lastRow = sheet.getLastRow();
+    if (lastRow < 2) {
+      return null;
+    }
+    var lastCol = sheet.getLastColumn();
+    if (lastCol < COL_INDEX) {
+      return null;
+    }
+    var r;
+    for (r = 2; r <= lastRow; r++) {
+      var cellVal = sheet.getRange(r, COL_INDEX).getDisplayValue();
+      var parsed = parsePhraseIndexCell(r, cellVal);
+      if (parsed !== null && parsed === phraseIndex) {
+        return r;
+      }
+    }
+  } catch (ignoreScan) {}
+  return null;
+}
+
+/**
+ * Row for phrase index using in-memory directory (after Load), else scan sheet Index column.
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet
+ * @param {{ index: number }[]} phraseDirectory
+ * @param {number} phraseIndex
+ * @returns {number | null}
+ */
+function findLessonRowNumForPhraseIndexWithFallback(
+  sheet,
+  phraseDirectory,
+  phraseIndex
+) {
+  var fromDir = findLessonRowNumForPhraseIndex(phraseDirectory, phraseIndex);
+  if (fromDir !== null) {
+    return fromDir;
+  }
+  return findLessonRowByIndexColumn(sheet, phraseIndex);
+}
+
 /** Move sheet selection so the sidebar preview polls the verified phrase row. */
 function activatePhraseLessonRow(rowNum) {
   if (
@@ -1227,15 +1277,158 @@ function mergeTranscriptSegment(accessToken, transcriptLessonId, phraseIndex, se
 }
 
 /**
+ * POST /api/lesson-audio/clear-segment — empty follow-up/explain in DB, delete S3 MP3, trim manifest.
+ * @param {string} accessToken
+ * @param {string} transcriptLessonId
+ * @param {{ index: number }[]} phraseDirectory
+ * @param {number} phraseIndex
+ * @param {string} segment follow-up | explain
+ * @returns {{ ok: boolean, message?: string, unauthorized?: boolean }}
+ */
+function clearFollowUpOrExplainSegment(
+  accessToken,
+  transcriptLessonId,
+  phraseDirectory,
+  phraseIndex,
+  segment
+) {
+  try {
+    var segTrim = typeof segment === "string" ? segment.trim() : "";
+    if (segTrim !== "follow-up" && segTrim !== "explain") {
+      return { ok: false, message: "Only follow-up and explain can be cleared." };
+    }
+    var token = typeof accessToken === "string" ? accessToken.trim() : "";
+    if (!token) {
+      return { ok: false, message: "Not signed in." };
+    }
+    var cfg = readTranscriptConfig();
+    if (cfg.ok === false) {
+      return { ok: false, message: cfg.message };
+    }
+    var lessonId =
+      typeof transcriptLessonId === "string" && transcriptLessonId
+        ? transcriptLessonId
+        : DEFAULT_TRANSCRIPT_LESSON_ID;
+    var pi =
+      typeof phraseIndex === "number" && !isNaN(phraseIndex)
+        ? Math.floor(phraseIndex)
+        : parseInt(String(phraseIndex), 10);
+    if (isNaN(pi)) {
+      return { ok: false, message: "Invalid phrase index." };
+    }
+
+    var pre = recordPhraseSavePreflight(token, lessonId);
+    if (!pre || pre.ok !== true) {
+      /** @type {{ ok?: boolean, message?: string, unauthorized?: boolean }} */
+      var badPre = pre || { ok: false };
+      return {
+        ok: false,
+        message:
+          typeof badPre.message === "string"
+            ? badPre.message
+            : "Could not load transcript.",
+        unauthorized: badPre.unauthorized === true,
+      };
+    }
+
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    var rowNum = findLessonRowNumForPhraseIndexWithFallback(
+      sheet,
+      phraseDirectory,
+      pi
+    );
+    if (rowNum === null || rowNum < 2) {
+      return { ok: false, message: "Could not find sheet row for this phrase index." };
+    }
+    var phraseSlug = sheet.getRange(rowNum, COL_NAME).getDisplayValue();
+    phraseSlug = phraseSlug != null ? String(phraseSlug).trim() : "";
+
+    var url = cfg.webOrigin + "/api/lesson-audio/clear-segment";
+    var payloadObj = {
+      lesson: lessonId,
+      phraseIndex: pi,
+      segment: segTrim,
+      phrase: phraseSlug,
+    };
+    var response = UrlFetchApp.fetch(url, {
+      method: "post",
+      contentType: "application/json",
+      muteHttpExceptions: true,
+      followRedirects: true,
+      payload: JSON.stringify(payloadObj),
+      headers: headersForWebOrigin(token),
+    });
+    var httpCode = response.getResponseCode();
+    var body = response.getContentText();
+    if (httpCode === 401) {
+      return {
+        ok: false,
+        unauthorized: true,
+        message: "Clear segment unauthorized.",
+      };
+    }
+    if (httpCode === 503) {
+      var msg503 = "Storage or S3 not configured on server.";
+      try {
+        /** @type {{ error?: string, message?: string }} */
+        var j503 = JSON.parse(body);
+        if (typeof j503.error === "string" && j503.error) {
+          msg503 = j503.error;
+        } else if (typeof j503.message === "string" && j503.message) {
+          msg503 = j503.message;
+        }
+      } catch (ignore503) {
+        if (body && body.length > 0 && body.length < 400) {
+          msg503 = body;
+        }
+      }
+      return { ok: false, message: msg503 };
+    }
+    if (httpCode < 200 || httpCode >= 300) {
+      var errM = "Clear segment failed (HTTP " + httpCode + ").";
+      try {
+        /** @type {{ error?: string, message?: string }} */
+        var mj = JSON.parse(body);
+        if (typeof mj.error === "string" && mj.error) {
+          errM = mj.error;
+        } else if (typeof mj.message === "string" && mj.message) {
+          errM = mj.message;
+        }
+      } catch (ignoreMj) {}
+      return { ok: false, message: errM };
+    }
+    activatePhraseLessonRow(rowNum);
+    var lastColClear = sheet.getLastColumn();
+    if (segTrim === "follow-up") {
+      sheet.getRange(rowNum, COL_FOLLOW_UP).setValue("");
+      if (lastColClear >= COL_FOLLOW_UP_HEARD) {
+        sheet.getRange(rowNum, COL_FOLLOW_UP_HEARD).setValue("");
+      }
+    } else {
+      sheet.getRange(rowNum, COL_EXPLAIN).setValue("");
+      if (lastColClear >= COL_EXPLAIN_HEARD) {
+        sheet.getRange(rowNum, COL_EXPLAIN_HEARD).setValue("");
+      }
+    }
+    return { ok: true };
+  } catch (eClear) {
+    return {
+      ok: false,
+      message:
+        typeof eClear.message === "string" ? eClear.message : String(eClear),
+    };
+  }
+}
+
+/**
  * Activates the spreadsheet row for the given transcript phrase index (sidebar Save flow).
  * @param {{ index: number }[]} phraseDirectory
  * @param {number} phraseIndex
  */
 function focusLessonRowForPhraseIndex(phraseDirectory, phraseIndex) {
   try {
-    if (!Array.isArray(phraseDirectory)) {
-      return;
-    }
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    var dir = Array.isArray(phraseDirectory) ? phraseDirectory : [];
     var pi =
       typeof phraseIndex === "number" && !isNaN(phraseIndex)
         ? Math.floor(phraseIndex)
@@ -1243,7 +1436,11 @@ function focusLessonRowForPhraseIndex(phraseDirectory, phraseIndex) {
     if (isNaN(pi)) {
       return;
     }
-    var focusRowRecord = findLessonRowNumForPhraseIndex(phraseDirectory, pi);
+    var focusRowRecord = findLessonRowNumForPhraseIndexWithFallback(
+      sheet,
+      dir,
+      pi
+    );
     if (focusRowRecord !== null) {
       activatePhraseLessonRow(focusRowRecord);
     }
@@ -1359,7 +1556,12 @@ function recordPhraseSegment(
       };
     }
 
-    var focusRowRecord = findLessonRowNumForPhraseIndex(phraseDirectory, pi);
+    var sheetFocus = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    var focusRowRecord = findLessonRowNumForPhraseIndexWithFallback(
+      sheetFocus,
+      phraseDirectory,
+      pi
+    );
     if (focusRowRecord !== null) {
       activatePhraseLessonRow(focusRowRecord);
     }
@@ -1494,7 +1696,12 @@ function verifyLessonAudioPhrase(
       return { ok: false, message: "Invalid phrase index." };
     }
 
-    var focusRowNum = findLessonRowNumForPhraseIndex(phraseDirectory, pi);
+    var sheetVerifyFocus = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    var focusRowNum = findLessonRowNumForPhraseIndexWithFallback(
+      sheetVerifyFocus,
+      phraseDirectory,
+      pi
+    );
     if (focusRowNum !== null) {
       activatePhraseLessonRow(focusRowNum);
     }
