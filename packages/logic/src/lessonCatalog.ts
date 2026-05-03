@@ -16,7 +16,7 @@ export const lessons: readonly LessonListEntry[] = [
     id: '1',
     title: 'Lesson 1',
     description:
-      'Greetings, apologies, and essential phrases to get by.',
+      'You are on a busy Spanish street, trying to find someone who speaks English and introducing yourself as British.',
   },
   {
     id: '2',

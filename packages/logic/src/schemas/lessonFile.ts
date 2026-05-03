@@ -15,6 +15,9 @@ export const lessonFileMetaSchema = z.object({
     ),
   sortOrder: z.number().int(),
   title: z.string().min(1),
+  /** Card / listing blurb (homepage, lesson list). */
+  shortDescription: z.string().optional(),
+  /** Longer lesson summary in source JSON; also fallback for catalog listing if `shortDescription` is omitted. */
   description: z.string(),
   courseLevelSlug: z.string().min(1).optional(),
 });

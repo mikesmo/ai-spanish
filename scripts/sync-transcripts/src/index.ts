@@ -281,7 +281,10 @@ async function pushLesson(params: {
   const lessonId = meta.lessonId;
 
   const title = params.cli.catalogTitle ?? meta.title;
-  const description = params.cli.catalogDescription ?? meta.description;
+  const description =
+    params.cli.catalogDescription ??
+    meta.shortDescription ??
+    meta.description;
   const sortOrder = params.cli.sortOrder ?? meta.sortOrder;
   const courseLevelSlug = (
     params.cli.courseLevel ??

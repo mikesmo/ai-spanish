@@ -28,6 +28,20 @@ describe('lessonFileSchema', () => {
     expect(row.phrases).toHaveLength(1);
   });
 
+  it('accepts optional meta.shortDescription', () => {
+    const row = lessonFileSchema.parse({
+      meta: {
+        lessonId: '1',
+        sortOrder: 1,
+        title: 'T',
+        shortDescription: 'Short blurb',
+        description: 'Longer body',
+      },
+      phrases: [minimalPhrase],
+    });
+    expect(row.meta.shortDescription).toBe('Short blurb');
+  });
+
   it('parseLessonFileJson rejects bare array', () => {
     expect(() => parseLessonFileJson([minimalPhrase], 'x')).toThrow(/bare array/);
   });
