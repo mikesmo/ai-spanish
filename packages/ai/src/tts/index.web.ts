@@ -94,8 +94,20 @@ async function playAudio(
 
 export function useTTS(): TTSAdapter {
   const play = useCallback(
-    (text: string, lang: Language, rate?: number, _phraseName?: string, options?: TtsAdapterOptions) =>
-      playAudio(text, lang, rate, options?.signal),
+    (
+      text: string,
+      lang: Language,
+      rate?: number,
+      _phraseName?: string,
+      options?: TtsAdapterOptions,
+    ) => {
+      const r = rate ?? 1;
+      const effectiveRate =
+        lang === 'es' && options?.spanishSegmentOverride === 'answer-slow'
+          ? r * 0.9
+          : r;
+      return playAudio(text, lang, effectiveRate, options?.signal);
+    },
     []
   );
   const prefetch = useCallback(async (text: string, lang: Language, _phraseName?: string, options?: TtsAdapterOptions) => {

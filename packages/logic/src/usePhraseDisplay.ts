@@ -698,7 +698,6 @@ export function usePhraseDisplay(
     const bootstrapAbort = new AbortController();
     const { signal: bootstrapSignal } = bootstrapAbort;
     const enWithSignal = { ...enOpts, signal: bootstrapSignal };
-    const esWithSignal = { ...s3, signal: bootstrapSignal } as TtsAdapterOptions;
     // Presign fetches (prefetch) are not tied to `bootstrapSignal`. Effect
     // cleanup still aborts that signal to cancel play / priming / stt — but
     // aborting in-flight /api/audio during HMR or a duplicate effect run only
@@ -717,6 +716,17 @@ export function usePhraseDisplay(
             hintedName,
             s3 as TtsAdapterOptions,
           ),
+          spanishText.trim() !== ''
+            ? ttsRef.current.prefetch(
+                spanishText,
+                'es',
+                hintedName,
+                {
+                  ...s3,
+                  spanishSegmentOverride: 'answer-slow',
+                } as TtsAdapterOptions,
+              )
+            : Promise.resolve(),
           isFirstSessionPresentation && followUpTextForPrefetch !== ''
             ? ttsRef.current.prefetch(
                 followUpTextForPrefetch,
@@ -756,9 +766,13 @@ export function usePhraseDisplay(
               await ttsRef.current.play(
                 spanishText,
                 'es',
-                undefined,
+                1,
                 phraseNameRef.current,
-                esWithSignal,
+                {
+                  ...s3,
+                  signal: bootstrapSignal,
+                  spanishSegmentOverride: 'answer-slow',
+                } as TtsAdapterOptions,
               );
             } catch (esError) {
               console.error(
@@ -1142,10 +1156,17 @@ export function usePhraseDisplay(
     answerAudioAbortRef.current?.abort();
     explainDialogReplayAbortRef.current?.abort();
     explainDialogReplayAbortRef.current = null;
-    const s3Opts: TtsAdapterOptions | undefined =
+    const s3Opts: TtsAdapterOptions =
       options?.s3LessonSegment != null && options.s3LessonSegment !== ''
-        ? { s3LessonSegment: options.s3LessonSegment }
-        : undefined;
+        ? {
+            s3LessonSegment: options.s3LessonSegment,
+            ...(speed === 'slow'
+              ? { spanishSegmentOverride: 'answer-slow' as const }
+              : {}),
+          }
+        : speed === 'slow'
+          ? { spanishSegmentOverride: 'answer-slow' as const }
+          : {};
     try {
       if (isMountedRef.current) {
         setIsAudioPlaying(true);
@@ -1153,9 +1174,9 @@ export function usePhraseDisplay(
       await ttsRef.current.play(
         spanishText,
         'es',
-        PLAYBACK_RATES[speed],
+        speed === 'slow' ? 1 : PLAYBACK_RATES[speed],
         phraseNameRef.current,
-        s3Opts,
+        Object.keys(s3Opts).length > 0 ? s3Opts : undefined,
       );
     } catch (error) {
       console.error('[usePhraseDisplay] Error replaying Spanish:', error);

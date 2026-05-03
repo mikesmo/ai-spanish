@@ -119,6 +119,13 @@ export type TtsAdapterOptions = {
    */
   englishSegmentOverride?: 'follow-up' | 'explain';
   /**
+   * When set, overrides the Spanish segment for S3 clip playback (`answer` vs
+   * batch `answer-slow`). Used for pronunciation example, feedback replay at
+   * slow speed, etc. Omitted uses `answer`. Ignored by on-the-fly TTS adapters
+   * except for approximate playback-rate parity (see `packages/ai` useTTS).
+   */
+  spanishSegmentOverride?: 'answer' | 'answer-slow';
+  /**
    * When aborted, in-flight S3/playback work should no-op. Used by
    * `usePhraseDisplay` during phrase bootstrap to cancel obsolete audio.
    */

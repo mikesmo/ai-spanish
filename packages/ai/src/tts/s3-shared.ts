@@ -20,6 +20,9 @@ export function segmentsForLanguage(
     }
     return segs;
   }
+  if (options?.spanishSegmentOverride) {
+    return [options.spanishSegmentOverride];
+  }
   return ['answer'];
 }
 
