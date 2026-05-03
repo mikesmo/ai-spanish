@@ -134,9 +134,13 @@
         white-space: pre-wrap;
         word-break: break-word;
       }
-      .preview-diff-spoken-line,
+      .preview-diff-spoken-line {
+        line-height: 1.45;
+      }
+      /* Expected phrase — matches web correct-feedback green (#1D9E75) vs spoken line gray/orange */
       .preview-diff-correct-line {
         line-height: 1.45;
+        color: #1d9e75;
       }
       .preview-diff-divider {
         width: 40px;
@@ -146,7 +150,7 @@
       }
       .preview-diff-correct-label {
         font-size: 11px;
-        color: #9ca3af;
+        color: #1d9e75;
         text-transform: uppercase;
         letter-spacing: 0.05em;
         margin-bottom: 4px;
@@ -171,7 +175,7 @@
         right: 0;
         bottom: 0;
         height: 2px;
-        background: #1d9e75;
+        background: #0f7a56;
       }
       .save-progress {
         margin-top: 14px;
@@ -358,6 +362,8 @@
       var RECORD_LABEL = "Save";
       var silentRefreshPending = false;
       var NO_AUDIO_HEARD = "No audio";
+      var ROW_PLAYSAVE_BLOCKED_MSG =
+        "This row needs a valid Name (lowercase slug: letters, digits, hyphens), a numeric Index column, or click Load lesson from web.";
 
       /**
        * Port of packages/logic/src/comparison.ts — keep algorithm identical when updating.
@@ -785,12 +791,38 @@
         return null;
       }
 
+      function phraseSlugValid(name) {
+        var t = typeof name === "string" ? name.trim() : "";
+        return /^[a-z0-9-]+$/.test(t);
+      }
+
+      /** Prefer phraseDirectory (after Load lesson); else sheet Index column from last preview poll. */
+      function resolvePhraseIndex(name) {
+        var fromDir = findPhraseIndex(name);
+        if (fromDir !== null) {
+          return fromDir;
+        }
+        if (!lastPreviewData) {
+          return null;
+        }
+        var pi = lastPreviewData.phraseIndex;
+        if (typeof pi !== "number" || isNaN(pi) || !isFinite(pi)) {
+          return null;
+        }
+        var ii = Math.floor(pi);
+        if (ii < 0) {
+          return null;
+        }
+        return ii;
+      }
+
       function canPlayCurrentRow() {
         return (
           isLoggedIn() &&
           lastPreviewData != null &&
           lastPreviewData.row > 0 &&
-          findPhraseIndex(lastPreviewData.phraseName) !== null
+          phraseSlugValid(lastPreviewData.phraseName) &&
+          resolvePhraseIndex(lastPreviewData.phraseName) !== null
         );
       }
 
@@ -980,11 +1012,11 @@
         if (!lastPreviewData || !isLoggedIn()) {
           return;
         }
-        if (findPhraseIndex(lastPreviewData.phraseName) === null) {
-          setStatus(
-            "This row’s phrase name is not in the loaded lesson. Reload lesson if you changed the sheet.",
-            "err"
-          );
+        if (
+          !phraseSlugValid(lastPreviewData.phraseName) ||
+          resolvePhraseIndex(lastPreviewData.phraseName) === null
+        ) {
+          setStatus(ROW_PLAYSAVE_BLOCKED_MSG, "err");
           return;
         }
         var phraseName = lastPreviewData.phraseName;
@@ -1389,12 +1421,12 @@
         if (!lastPreviewData || !isLoggedIn()) {
           return;
         }
-        var phraseIdx = findPhraseIndex(lastPreviewData.phraseName);
-        if (phraseIdx === null) {
-          setStatus(
-            "This row’s phrase name is not in the loaded lesson. Reload lesson if you changed the sheet.",
-            "err"
-          );
+        var phraseIdx = resolvePhraseIndex(lastPreviewData.phraseName);
+        if (
+          !phraseSlugValid(lastPreviewData.phraseName) ||
+          phraseIdx === null
+        ) {
+          setStatus(ROW_PLAYSAVE_BLOCKED_MSG, "err");
           return;
         }
         if (!canRecordSegment(segment)) {
@@ -1596,6 +1628,10 @@
           data.row +
           "\0" +
           (data.phraseName || "") +
+          "\0" +
+          (data.phraseIndex !== undefined && data.phraseIndex !== null
+            ? String(data.phraseIndex)
+            : "") +
           "\0" +
           data.firstIntro +
           "\0" +

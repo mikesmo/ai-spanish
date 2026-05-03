@@ -103,8 +103,34 @@ function s3LessonFolderForTranscriptLessonId(transcriptLessonId) {
 }
 
 /**
+ * Parses transcript phrase index from sheet "Index" column display value.
+ * @param {number} row 1-based sheet row
+ * @param {unknown} displayValue
+ * @returns {number | null}
+ */
+function parsePhraseIndexCell(row, displayValue) {
+  if (typeof row !== "number" || row <= 1 || isNaN(row)) {
+    return null;
+  }
+  var s =
+    displayValue != null ? String(displayValue).trim().replace(/,/g, "") : "";
+  if (s === "") {
+    return null;
+  }
+  var n = Number(s);
+  if (typeof n !== "number" || isNaN(n) || !isFinite(n)) {
+    return null;
+  }
+  var floored = Math.floor(n);
+  if (floored < 0) {
+    return null;
+  }
+  return floored;
+}
+
+/**
  * Values from the active row for the phrase columns shown in the sidebar.
- * @returns {{ row: number, phraseName: string, firstIntro: string, secondIntro: string, answer: string, firstIntroHeard: string, secondIntroHeard: string, answerHeard: string }}
+ * @returns {{ row: number, phraseName: string, phraseIndex: number | null, firstIntro: string, secondIntro: string, answer: string, firstIntroHeard: string, secondIntroHeard: string, answerHeard: string }}
  */
 function getActiveRowPhrasePreview() {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
@@ -113,6 +139,7 @@ function getActiveRowPhrasePreview() {
     return {
       row: 0,
       phraseName: "",
+      phraseIndex: null,
       firstIntro: "",
       secondIntro: "",
       answer: "",
@@ -128,6 +155,7 @@ function getActiveRowPhrasePreview() {
     return {
       row: row,
       phraseName: "",
+      phraseIndex: null,
       firstIntro: "",
       secondIntro: "",
       answer: "",
@@ -136,6 +164,10 @@ function getActiveRowPhrasePreview() {
       answerHeard: "",
     };
   }
+
+  var phraseIndexCell =
+    lastCol >= COL_INDEX ? sheet.getRange(row, COL_INDEX).getDisplayValue() : "";
+  var phraseIndex = parsePhraseIndexCell(row, phraseIndexCell);
 
   var phraseNameCell =
     lastCol >= COL_NAME ? sheet.getRange(row, COL_NAME).getDisplayValue() : "";
@@ -165,6 +197,7 @@ function getActiveRowPhrasePreview() {
   return {
     row: row,
     phraseName: phraseName,
+    phraseIndex: phraseIndex,
     firstIntro: firstIntro != null ? String(firstIntro) : "",
     secondIntro: secondIntro != null ? String(secondIntro) : "",
     answer: answer != null ? String(answer) : "",
