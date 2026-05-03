@@ -125,6 +125,7 @@ export const PhraseDisplay = ({
           spanishPhrase={display.spanishText}
           isCorrect={display.isCorrect}
           isAudioPlaying={display.isAudioPlaying}
+          isExplainAckPending={display.isExplainAckOpen}
           speed={display.speed}
           onSpeedChange={display.setSpeed}
           onReplay={display.handleReplay}
@@ -133,6 +134,38 @@ export const PhraseDisplay = ({
             runPhraseFeedbackNext(display, session);
           }}
         />
+      )}
+
+      {display.isExplainAckOverlayVisible && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Continue after explanation"
+          className="absolute inset-0 z-50 flex flex-col justify-end bg-black/40 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
+        >
+          <div className="w-full rounded-2xl bg-white px-6 pt-6 pb-6 shadow-xl flex flex-col gap-3">
+              <button
+                type="button"
+                disabled={display.isAudioPlaying}
+                onClick={() => void display.handleExplainSayAgain()}
+                className="w-full rounded-full h-[54px] bg-pill-secondary border border-pill-border flex items-center justify-center shadow-sm transition hover:opacity-90 disabled:opacity-50"
+              >
+                <span className="text-[16px] font-medium text-pill-secondary-foreground">
+                  Say that again
+                </span>
+              </button>
+              <button
+                type="button"
+                autoFocus
+                onClick={display.handleExplainAckOkay}
+                className="w-full rounded-full h-[54px] bg-primary border border-primary flex items-center justify-center shadow-sm transition hover:opacity-90"
+              >
+                <span className="text-[16px] font-medium text-primary-foreground">
+                  Okay
+                </span>
+              </button>
+          </div>
+        </div>
       )}
       </div>
 

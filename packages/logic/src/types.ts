@@ -234,4 +234,25 @@ export type PhraseDisplayAPI = {
    * attempt of the current phrase completes.
    */
   lastScoreBreakdown: ScoreBreakdown | null;
+  /**
+   * True after an `explain` clip finishes, while the acknowledgment dialog is
+   * visible. Cleared by `handleExplainAckOkay` (or on phrase navigation).
+   */
+  isExplainAckOpen: boolean;
+  /**
+   * True when the acknowledgment modal should render. False during
+   * `handleExplainSayAgain` playback so the dialog hides until the replay ends.
+   */
+  isExplainAckOverlayVisible: boolean;
+  /**
+   * User tapped "Okay" in the explain acknowledgment dialog — close the dialog
+   * and run any pending continuation (advance phrase on the recording path;
+   * no-op on the feedback path beyond closing).
+   */
+  handleExplainAckOkay: () => void;
+  /**
+   * User tapped "Say that again" — replay the `explain` clip; the overlay
+   * hides for the duration of the replay and returns anew when it completes.
+   */
+  handleExplainSayAgain: () => void;
 };

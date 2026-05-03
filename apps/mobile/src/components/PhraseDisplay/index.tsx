@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { useEffect, useRef } from "react";
 import {
   buildDeckFingerprint,
@@ -128,6 +128,7 @@ export const PhraseDisplay = ({
             spanishPhrase={display.spanishText}
             isCorrect={display.isCorrect}
             isAudioPlaying={display.isAudioPlaying}
+            isExplainAckPending={display.isExplainAckOpen}
             speed={display.speed}
             onSpeedChange={display.setSpeed}
             onReplay={display.handleReplay}
@@ -138,6 +139,43 @@ export const PhraseDisplay = ({
           />
         )}
       </View>
+
+      <Modal
+        visible={display.isExplainAckOverlayVisible}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={display.handleExplainAckOkay}
+      >
+        <View style={dialogStyles.backdrop}>
+          <View style={dialogStyles.card}>
+            <View style={dialogStyles.buttons}>
+              <Pressable
+                onPress={() => void display.handleExplainSayAgain()}
+                disabled={display.isAudioPlaying}
+                style={({ pressed }) => [
+                  dialogStyles.btn,
+                  dialogStyles.btnSecondary,
+                  pressed && dialogStyles.pressed,
+                  display.isAudioPlaying && dialogStyles.btnDisabled,
+                ]}
+                accessibilityRole="button"
+              >
+                <Text style={[dialogStyles.btnLabel, dialogStyles.btnLabelSecondary]}>
+                  Say that again
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={display.handleExplainAckOkay}
+                style={({ pressed }) => [dialogStyles.btn, dialogStyles.btnPrimary, pressed && dialogStyles.pressed]}
+                accessibilityRole="button"
+              >
+                <Text style={[dialogStyles.btnLabel, dialogStyles.btnLabelPrimary]}>Okay</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -196,5 +234,61 @@ const styles = StyleSheet.create({
     flex: 1,
     width: "100%",
     minHeight: 0,
+  },
+});
+
+const dialogStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "flex-end",
+    paddingHorizontal: 24,
+    paddingBottom: 36,
+  },
+  card: {
+    width: "100%",
+    backgroundColor: "#ffffff",
+    borderRadius: 20,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 8,
+    alignItems: "stretch",
+  },
+  buttons: {
+    width: "100%",
+    gap: 12,
+  },
+  btn: {
+    width: "100%",
+    height: 54,
+    borderRadius: 27,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  btnPrimary: {
+    backgroundColor: "#1D9E75",
+    borderWidth: 1,
+    borderColor: "#1D9E75",
+  },
+  btnSecondary: {
+    backgroundColor: "#f3f4f6",
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+  },
+  btnDisabled: {
+    opacity: 0.5,
+  },
+  pressed: {
+    opacity: 0.8,
+  },
+  btnLabel: {
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  btnLabelPrimary: {
+    color: "#ffffff",
+  },
+  btnLabelSecondary: {
+    color: "#374151",
   },
 });

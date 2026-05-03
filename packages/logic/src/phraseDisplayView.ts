@@ -112,4 +112,9 @@ export type UserFeedbackViewProps = {
   onReplay: () => void;
   onTryAgain: () => void;
   onNext: () => void;
+  /**
+   * When true, the explain acknowledgment dialog is pending. Prevents the
+   * auto-advance timer from starting and disables nav controls.
+   */
+  isExplainAckPending?: boolean;
 };

@@ -147,6 +147,9 @@ export function usePhraseDisplay(
     useState(false);
   const [isFirstSessionPresentationOfCurrentPhrase, setIsFirstOfCurrentPhrase] =
     useState(true);
+  const [isExplainAckOpen, setIsExplainAckOpen] = useState(false);
+  const [isExplainAckReplayPlaying, setIsExplainAckReplayPlaying] =
+    useState(false);
   const isFirstOfCurrentPhraseForBootstrapRef = useRef(true);
   /**
    * Set only in useLayout (presentation) after map + isFirst is computed, so
@@ -238,6 +241,20 @@ export function usePhraseDisplay(
    * the explain play before the advance call runs.
    */
   const successExplainAbortRef = useRef<AbortController | null>(null);
+  /**
+   * Aborts the "Say that again" explain replay that may be in-flight while the
+   * acknowledgment dialog is open. Cleared on Okay and on all interrupts.
+   */
+  const explainDialogReplayAbortRef = useRef<AbortController | null>(null);
+  /**
+   * Thunk to run when the user taps "Okay" on the recording-screen path.
+   * Null on the feedback-screen path (Okay only closes the dialog there).
+   * Cleared after invocation or on phrase navigation.
+   */
+  const explainAckContinuationRef = useRef<(() => void) | null>(null);
+  /** Bumps on each `handleExplainSayAgain` call so an older request's `finally`
+   * does not clear `isExplainAckReplayPlaying` after a newer replay started. */
+  const explainSayAgainEpochRef = useRef(0);
   const prevIndexRef = useRef<number | null>(null);
   /**
    * Suppress duplicate `onPresentationStart` when React Strict Mode (or any
@@ -476,6 +493,12 @@ export function usePhraseDisplay(
               phraseNameRef.current,
               { ...baseS3, signal: ac.signal, englishSegmentOverride: 'explain' },
             );
+            if (!ac.signal.aborted && isMountedRef.current) {
+              // Open the acknowledgment dialog; continuation is null on this
+              // path — Okay just closes the dialog and lets the UI proceed.
+              explainAckContinuationRef.current = null;
+              setIsExplainAckOpen(true);
+            }
           }
         }
       } catch (error) {
@@ -600,6 +623,9 @@ export function usePhraseDisplay(
     setIsAudioPlaying(false);
     setLastScoreBreakdown(null);
     setHasUsedTryAgainOnCurrentCard(false);
+    setIsExplainAckOpen(false);
+    setIsExplainAckReplayPlaying(false);
+    explainAckContinuationRef.current = null;
     attemptEmittedRef.current = false;
     answerAudioInFlightRef.current = false;
     firstIsFinalAtRef.current = null;
@@ -803,6 +829,10 @@ export function usePhraseDisplay(
       answerAudioAbortRef.current?.abort();
       // Abort the success-path explain play (recording screen) if in-flight.
       successExplainAbortRef.current?.abort();
+      // Abort any in-flight "Say that again" replay and clear dialog state.
+      explainDialogReplayAbortRef.current?.abort();
+      explainDialogReplayAbortRef.current = null;
+      explainAckContinuationRef.current = null;
       ttsRef.current.stop();
     };
     // Re-run on currentIndex change (linear navigation) AND on
@@ -955,13 +985,13 @@ export function usePhraseDisplay(
             if (explainAc.signal.aborted) return;
             if (!isMountedRef.current) return;
 
-            // Explain played on the recording screen → always advance to the
-            // next phrase. Do not show the feedback/answer screen.
-            if (onSkipAnswerScreenAfterSuccessRef.current != null) {
-              onSkipAnswerScreenAfterSuccessRef.current();
-            } else {
-              void playAnswerAudio();
-            }
+            // Explain played on the recording screen → open acknowledgment
+            // dialog. Okay will run the continuation.
+            explainAckContinuationRef.current =
+              onSkipAnswerScreenAfterSuccessRef.current != null
+                ? () => { onSkipAnswerScreenAfterSuccessRef.current!(); }
+                : () => { void playAnswerAudio(); };
+            setIsExplainAckOpen(true);
             return;
           }
 
@@ -1053,6 +1083,11 @@ export function usePhraseDisplay(
     englishFirstPassOnCardRef.current = false;
     successExplainAbortRef.current?.abort();
     answerAudioAbortRef.current?.abort();
+    explainDialogReplayAbortRef.current?.abort();
+    explainDialogReplayAbortRef.current = null;
+    explainAckContinuationRef.current = null;
+    setIsExplainAckOpen(false);
+    setIsExplainAckReplayPlaying(false);
     ttsRef.current.stop();
     sttRef.current.clearTranscription();
     // Try Again starts a new practice session for this phrase — we do NOT
@@ -1070,6 +1105,11 @@ export function usePhraseDisplay(
   const handleNext = (options?: { exitToLoading?: boolean }) => {
     successExplainAbortRef.current?.abort();
     answerAudioAbortRef.current?.abort();
+    explainDialogReplayAbortRef.current?.abort();
+    explainDialogReplayAbortRef.current = null;
+    explainAckContinuationRef.current = null;
+    setIsExplainAckOpen(false);
+    setIsExplainAckReplayPlaying(false);
     sttRef.current.clearTranscription();
     if (options?.exitToLoading) {
       setStatus('loading');
@@ -1080,6 +1120,8 @@ export function usePhraseDisplay(
   const handleReplay = async () => {
     successExplainAbortRef.current?.abort();
     answerAudioAbortRef.current?.abort();
+    explainDialogReplayAbortRef.current?.abort();
+    explainDialogReplayAbortRef.current = null;
     const s3Opts: TtsAdapterOptions | undefined =
       options?.s3LessonSegment != null && options.s3LessonSegment !== ''
         ? { s3LessonSegment: options.s3LessonSegment }
@@ -1104,6 +1146,51 @@ export function usePhraseDisplay(
     }
   };
 
+  const handleExplainAckOkay = () => {
+    explainDialogReplayAbortRef.current?.abort();
+    explainDialogReplayAbortRef.current = null;
+    setIsExplainAckOpen(false);
+    setIsExplainAckReplayPlaying(false);
+    const continuation = explainAckContinuationRef.current;
+    explainAckContinuationRef.current = null;
+    continuation?.();
+  };
+
+  const handleExplainSayAgain = async () => {
+    explainDialogReplayAbortRef.current?.abort();
+    const replayAc = new AbortController();
+    explainDialogReplayAbortRef.current = replayAc;
+    const epoch = ++explainSayAgainEpochRef.current;
+    if (isMountedRef.current) setIsExplainAckReplayPlaying(true);
+    const explainText = currentPhrase.English.explain.trim();
+    const s3Opts: TtsAdapterOptions =
+      options?.s3LessonSegment != null && options.s3LessonSegment !== ''
+        ? { s3LessonSegment: options.s3LessonSegment }
+        : {};
+    try {
+      if (isMountedRef.current) setIsAudioPlaying(true);
+      await ttsRef.current.play(
+        explainText,
+        'en',
+        undefined,
+        phraseNameRef.current,
+        { ...s3Opts, signal: replayAc.signal, englishSegmentOverride: 'explain' },
+      );
+    } catch {
+      // Aborts (user tapped Say Again again, or navigated away) are expected.
+    } finally {
+      if (explainDialogReplayAbortRef.current === replayAc) {
+        explainDialogReplayAbortRef.current = null;
+      }
+      if (!replayAc.signal.aborted && isMountedRef.current) {
+        setIsAudioPlaying(false);
+      }
+      if (epoch === explainSayAgainEpochRef.current && isMountedRef.current) {
+        setIsExplainAckReplayPlaying(false);
+      }
+    }
+  };
+
   return {
     status,
     currentIndex,
@@ -1123,6 +1210,11 @@ export function usePhraseDisplay(
     hasUsedTryAgainOnCurrentCard,
     isFirstSessionPresentationOfCurrentPhrase,
     lastScoreBreakdown,
+    isExplainAckOpen,
+    isExplainAckOverlayVisible:
+      isExplainAckOpen && !isExplainAckReplayPlaying,
+    handleExplainAckOkay,
+    handleExplainSayAgain,
   };
 }
 

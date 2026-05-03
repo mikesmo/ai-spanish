@@ -114,14 +114,16 @@ const AutoNextButton = ({ label, onPress, onTimeout }: AutoNextButtonProps): JSX
 
 interface NextPhraseAfterAudioButtonProps {
   isAudioPlaying: boolean;
+  isExplainAckPending: boolean;
   onNext: () => void;
 }
 
 const NextPhraseAfterAudioButton = ({
   isAudioPlaying,
+  isExplainAckPending,
   onNext,
 }: NextPhraseAfterAudioButtonProps): JSX.Element => {
-  if (isAudioPlaying) {
+  if (isAudioPlaying || isExplainAckPending) {
     return <PillButton label={NEXT_PHRASE_LABEL} onPress={onNext} variant="secondary" />;
   }
   return <AutoNextButton label={NEXT_PHRASE_LABEL} onPress={onNext} onTimeout={onNext} />;
@@ -153,6 +155,7 @@ export const UserFeedback = ({
   onReplay,
   onTryAgain,
   onNext,
+  isExplainAckPending = false,
 }: UserFeedbackProps): JSX.Element => {
   const diff = transcription.trim() ? diffWords(transcription, spanishPhrase) : null;
 
@@ -212,7 +215,11 @@ export const UserFeedback = ({
 
       <View style={styles.footer}>
         {isCorrect ? (
-          <NextPhraseAfterAudioButton isAudioPlaying={isAudioPlaying} onNext={onNext} />
+          <NextPhraseAfterAudioButton
+            isAudioPlaying={isAudioPlaying}
+            isExplainAckPending={isExplainAckPending}
+            onNext={onNext}
+          />
         ) : (
           <View style={styles.buttonGroup}>
             <PillButton label={NEXT_PHRASE_LABEL} onPress={onNext} variant="secondary" />

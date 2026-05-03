@@ -80,15 +80,17 @@ const AutoNextButton = ({ label, onPress, onTimeout }: AutoNextButtonProps): JSX
 
 interface ContinueAfterAudioButtonProps {
   isAudioPlaying: boolean;
+  isExplainAckPending: boolean;
   onNext: () => void;
 }
 
-/** Auto-advance + progress bar only after Spanish TTS has finished; replay restarts this gate. */
+/** Auto-advance + progress bar only after Spanish TTS and explain ack are done. */
 const NextPhraseAfterAudioButton = ({
   isAudioPlaying,
+  isExplainAckPending,
   onNext,
 }: ContinueAfterAudioButtonProps): JSX.Element => {
-  if (isAudioPlaying) {
+  if (isAudioPlaying || isExplainAckPending) {
     return <PillNavButton label={NEXT_PHRASE_LABEL} onClick={onNext} />;
   }
 
@@ -218,6 +220,7 @@ export const UserFeedback = ({
   onReplay,
   onTryAgain,
   onNext,
+  isExplainAckPending = false,
 }: UserFeedbackProps): JSX.Element => {
   const diff = transcription.trim() ? diffWords(transcription, spanishPhrase) : null;
 
@@ -253,7 +256,11 @@ export const UserFeedback = ({
 
       <div className="mt-auto w-full pt-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
         {isCorrect ? (
-          <NextPhraseAfterAudioButton isAudioPlaying={isAudioPlaying} onNext={onNext} />
+          <NextPhraseAfterAudioButton
+            isAudioPlaying={isAudioPlaying}
+            isExplainAckPending={isExplainAckPending}
+            onNext={onNext}
+          />
         ) : (
           <div className="flex flex-col items-center gap-4">
             <PillNavButton label={NEXT_PHRASE_LABEL} onClick={onNext} variant="secondary" />
