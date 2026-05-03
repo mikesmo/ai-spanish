@@ -125,14 +125,53 @@
       #status.ok {
         color: #137333;
       }
-      .preview-heard {
+      /* Word-level STT vs expected: keep in sync with packages/logic/src/comparison.ts + web UserFeedback */
+      .preview-diff-wrap {
         display: none;
-        margin-top: 4px;
-        font-size: 12px;
-        line-height: 1.4;
-        color: #c5221f;
+        margin-top: 6px;
+        font-size: 13px;
+        line-height: 1.45;
         white-space: pre-wrap;
         word-break: break-word;
+      }
+      .preview-diff-spoken-line,
+      .preview-diff-correct-line {
+        line-height: 1.45;
+      }
+      .preview-diff-divider {
+        width: 40px;
+        height: 1px;
+        background: #e5e7eb;
+        margin: 10px 0;
+      }
+      .preview-diff-correct-label {
+        font-size: 11px;
+        color: #9ca3af;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 4px;
+      }
+      .preview-diff-token--wrong {
+        color: #d85a30;
+      }
+      .preview-diff-token--spoken-ok {
+        color: #1f2937;
+      }
+      .preview-diff-placeholder {
+        color: #9ca3af;
+      }
+      .preview-diff-missing-wrap {
+        position: relative;
+        display: inline-block;
+        padding-bottom: 3px;
+      }
+      .preview-diff-missing-line {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 2px;
+        background: #1d9e75;
       }
       .save-progress {
         margin-top: 14px;
@@ -162,8 +201,8 @@
           <dt>First intro</dt>
           <dd id="previewFirstIntro">—</dd>
           <div
-            class="preview-heard"
-            id="previewHeardFirstIntro"
+            class="preview-diff-wrap"
+            id="previewDiffFirstIntro"
             style="display: none"
             aria-live="polite"
           ></div>
@@ -192,8 +231,8 @@
           <dt>Second intro</dt>
           <dd id="previewSecondIntro">—</dd>
           <div
-            class="preview-heard"
-            id="previewHeardSecondIntro"
+            class="preview-diff-wrap"
+            id="previewDiffSecondIntro"
             style="display: none"
             aria-live="polite"
           ></div>
@@ -222,8 +261,8 @@
           <dt>Answer</dt>
           <dd id="previewAnswer">—</dd>
           <div
-            class="preview-heard"
-            id="previewHeardAnswer"
+            class="preview-diff-wrap"
+            id="previewDiffAnswer"
             style="display: none"
             aria-live="polite"
           ></div>
@@ -318,6 +357,214 @@
       var RECORD_LABEL = "Save";
       var silentRefreshPending = false;
       var NO_AUDIO_HEARD = "No audio";
+
+      /**
+       * Port of packages/logic/src/comparison.ts — keep algorithm identical when updating.
+       */
+      function normalizeWordForDiff(s) {
+        return String(s)
+          .toLowerCase()
+          .replace(/[¿?¡!.,;:'"\u2026]/g, "")
+          .trim();
+      }
+
+      /**
+       * @returns {{ word: string, spanishWord: string|null, type: string }[]}
+       */
+      function diffWords(spoken, spanish) {
+        var spokenWords = (spoken || "").trim().split(/\s+/).filter(function (w) {
+          return w;
+        });
+        var spanishWords = (spanish || "").trim().split(/\s+/).filter(function (w) {
+          return w;
+        });
+        var m = spokenWords.length;
+        var n = spanishWords.length;
+        var dp = [];
+        var ii;
+        var jj;
+        for (ii = 0; ii <= m; ii++) {
+          dp[ii] = [];
+          for (jj = 0; jj <= n; jj++) {
+            dp[ii][jj] = 0;
+          }
+        }
+        for (ii = 1; ii <= m; ii++) {
+          for (jj = 1; jj <= n; jj++) {
+            dp[ii][jj] =
+              normalizeWordForDiff(spokenWords[ii - 1]) ===
+              normalizeWordForDiff(spanishWords[jj - 1])
+                ? dp[ii - 1][jj - 1] + 1
+                : Math.max(dp[ii - 1][jj], dp[ii][jj - 1]);
+          }
+        }
+        var result = [];
+        var i = m;
+        var j = n;
+        while (i > 0 || j > 0) {
+          if (
+            i > 0 &&
+            j > 0 &&
+            normalizeWordForDiff(spokenWords[i - 1]) ===
+              normalizeWordForDiff(spanishWords[j - 1])
+          ) {
+            result.unshift({
+              word: spokenWords[i - 1],
+              spanishWord: spanishWords[j - 1],
+              type: "correct",
+            });
+            i--;
+            j--;
+          } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+            result.unshift({
+              word: spanishWords[j - 1],
+              spanishWord: spanishWords[j - 1],
+              type: "missing",
+            });
+            j--;
+          } else {
+            result.unshift({
+              word: spokenWords[i - 1],
+              spanishWord: null,
+              type: "wrong",
+            });
+            i--;
+          }
+        }
+        return result;
+      }
+
+      function ddTextAsExpected(dd) {
+        if (!dd) return "";
+        var txt = dd.textContent || "";
+        return txt === "—" ? "" : txt;
+      }
+
+      function appendSpokenLine(container, diff) {
+        var first = true;
+        var k;
+        for (k = 0; k < diff.length; k++) {
+          var entry = diff[k];
+          if (entry.type === "missing") continue;
+          if (!first) {
+            container.appendChild(document.createTextNode(" "));
+          }
+          first = false;
+          var span = document.createElement("span");
+          span.textContent = entry.word;
+          span.className =
+            entry.type === "wrong"
+              ? "preview-diff-token preview-diff-token--wrong"
+              : "preview-diff-token preview-diff-token--spoken-ok";
+          container.appendChild(span);
+        }
+      }
+
+      function appendCorrectLine(container, diff, fallbackPhrase) {
+        var filtered = [];
+        var k;
+        for (k = 0; k < diff.length; k++) {
+          if (diff[k].type !== "wrong") filtered.push(diff[k]);
+        }
+        if (filtered.length === 0) {
+          container.textContent = fallbackPhrase;
+          return;
+        }
+        var first = true;
+        for (k = 0; k < filtered.length; k++) {
+          var entry = filtered[k];
+          if (!first) {
+            container.appendChild(document.createTextNode(" "));
+          }
+          first = false;
+          var sw = entry.spanishWord != null ? entry.spanishWord : "";
+          if (entry.type === "missing") {
+            var wrap = document.createElement("span");
+            wrap.className = "preview-diff-missing-wrap";
+            var wordSpan = document.createElement("span");
+            wordSpan.textContent = sw;
+            wordSpan.className = "preview-diff-token";
+            wrap.appendChild(wordSpan);
+            var line = document.createElement("span");
+            line.className = "preview-diff-missing-line";
+            line.setAttribute("aria-hidden", "true");
+            wrap.appendChild(line);
+            container.appendChild(wrap);
+          } else {
+            var plain = document.createElement("span");
+            plain.textContent = sw;
+            plain.className = "preview-diff-token";
+            container.appendChild(plain);
+          }
+        }
+      }
+
+      /**
+       * @param {string} ddId
+       * @param {string} wrapId
+       * @param {unknown} expectedRaw cell text (not display dash)
+       * @param {unknown} heardRaw heard column or clip transcript
+       */
+      function renderSegmentDiff(ddId, wrapId, expectedRaw, heardRaw) {
+        var dd = document.getElementById(ddId);
+        var wrap = document.getElementById(wrapId);
+        if (!dd || !wrap) return;
+
+        while (wrap.firstChild) {
+          wrap.removeChild(wrap.firstChild);
+        }
+
+        var expected = expectedRaw != null ? String(expectedRaw).trim() : "";
+        var heard = heardRaw != null ? String(heardRaw).trim() : "";
+
+        if (heard.length === 0) {
+          wrap.style.display = "none";
+          dd.style.display = "";
+          return;
+        }
+
+        var isNoAudio =
+          heard === NO_AUDIO_HEARD || heard.toLowerCase() === "no audio";
+
+        if (isNoAudio) {
+          dd.style.display = "";
+          wrap.style.display = "block";
+          var spokenOnly = document.createElement("div");
+          spokenOnly.className = "preview-diff-spoken-line";
+          var ph = document.createElement("span");
+          ph.className = "preview-diff-placeholder";
+          ph.textContent = NO_AUDIO_HEARD;
+          spokenOnly.appendChild(ph);
+          wrap.appendChild(spokenOnly);
+          return;
+        }
+
+        dd.style.display = "none";
+        wrap.style.display = "block";
+
+        var diff = diffWords(heard, expected);
+
+        var spokenLine = document.createElement("div");
+        spokenLine.className = "preview-diff-spoken-line";
+        appendSpokenLine(spokenLine, diff);
+        wrap.appendChild(spokenLine);
+
+        var divider = document.createElement("div");
+        divider.className = "preview-diff-divider";
+        wrap.appendChild(divider);
+
+        var lab = document.createElement("div");
+        lab.className = "preview-diff-correct-label";
+        lab.textContent = "Correct";
+        wrap.appendChild(lab);
+
+        var correctLine = document.createElement("div");
+        correctLine.className = "preview-diff-correct-line";
+        var fallbackCorrect =
+          expected.length > 0 ? expected : ddTextAsExpected(dd) || "—";
+        appendCorrectLine(correctLine, diff, fallbackCorrect);
+        wrap.appendChild(correctLine);
+      }
 
       function isLoggedIn() {
         return (
@@ -463,32 +710,45 @@
       }
 
       function clearVerificationHeardHints() {
-        ["previewHeardFirstIntro", "previewHeardSecondIntro", "previewHeardAnswer"].forEach(function (id) {
-          var el = document.getElementById(id);
-          if (!el) return;
-          el.textContent = "";
-          el.style.display = "none";
+        ["previewDiffFirstIntro", "previewDiffSecondIntro", "previewDiffAnswer"].forEach(
+          function (id) {
+            var wrap = document.getElementById(id);
+            if (!wrap) return;
+            while (wrap.firstChild) {
+              wrap.removeChild(wrap.firstChild);
+            }
+            wrap.style.display = "none";
+          }
+        );
+        ["previewFirstIntro", "previewSecondIntro", "previewAnswer"].forEach(function (
+          did
+        ) {
+          var ddEl = document.getElementById(did);
+          if (ddEl) ddEl.style.display = "";
         });
-      }
-
-      /** Show sheet-sourced heard text under Correct line; hide when empty. */
-      function setPreviewHeardField(id, raw) {
-        var el = document.getElementById(id);
-        if (!el) return;
-        var t = raw != null ? String(raw).trim() : "";
-        if (t.length > 0) {
-          el.textContent = t;
-          el.style.display = "block";
-        } else {
-          el.textContent = "";
-          el.style.display = "none";
-        }
       }
 
       /** @param {unknown[]} clips */
       function applyVerificationHeardHints(clips) {
         clearVerificationHeardHints();
         if (!Array.isArray(clips)) return;
+        var segments = [
+          {
+            suffix: "-first-intro",
+            ddId: "previewFirstIntro",
+            wrapId: "previewDiffFirstIntro",
+          },
+          {
+            suffix: "-second-intro",
+            ddId: "previewSecondIntro",
+            wrapId: "previewDiffSecondIntro",
+          },
+          {
+            suffix: "-answer",
+            ddId: "previewAnswer",
+            wrapId: "previewDiffAnswer",
+          },
+        ];
         var i;
         for (i = 0; i < clips.length; i++) {
           /** @type {{ ok?: unknown, transcript?: unknown, id?: unknown }} */
@@ -498,18 +758,14 @@
             typeof clip.transcript === "string" ? clip.transcript.trim() : "";
           var t = trimmed.length > 0 ? trimmed : NO_AUDIO_HEARD;
           var idStr = clip.id != null ? String(clip.id) : "";
-          var elId = "";
-          if (idStr.endsWith("-first-intro")) {
-            elId = "previewHeardFirstIntro";
-          } else if (idStr.endsWith("-second-intro")) {
-            elId = "previewHeardSecondIntro";
-          } else if (idStr.endsWith("-answer")) {
-            elId = "previewHeardAnswer";
-          }
-          var el = elId ? document.getElementById(elId) : null;
-          if (el) {
-            el.textContent = t;
-            el.style.display = "block";
+          var j;
+          for (j = 0; j < segments.length; j++) {
+            if (idStr.endsWith(segments[j].suffix)) {
+              var dd = document.getElementById(segments[j].ddId);
+              var expected = ddTextAsExpected(dd);
+              renderSegmentDiff(segments[j].ddId, segments[j].wrapId, expected, t);
+              break;
+            }
           }
         }
       }
@@ -1377,16 +1633,22 @@
         );
         document.getElementById("previewAnswer").textContent = orDash(data.answer);
 
-        setPreviewHeardField(
-          "previewHeardFirstIntro",
+        renderSegmentDiff(
+          "previewFirstIntro",
+          "previewDiffFirstIntro",
+          data.firstIntro != null ? String(data.firstIntro) : "",
           data.firstIntroHeard !== undefined ? data.firstIntroHeard : ""
         );
-        setPreviewHeardField(
-          "previewHeardSecondIntro",
+        renderSegmentDiff(
+          "previewSecondIntro",
+          "previewDiffSecondIntro",
+          data.secondIntro != null ? String(data.secondIntro) : "",
           data.secondIntroHeard !== undefined ? data.secondIntroHeard : ""
         );
-        setPreviewHeardField(
-          "previewHeardAnswer",
+        renderSegmentDiff(
+          "previewAnswer",
+          "previewDiffAnswer",
+          data.answer != null ? String(data.answer) : "",
           data.answerHeard !== undefined ? data.answerHeard : ""
         );
 
