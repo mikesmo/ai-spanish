@@ -198,7 +198,7 @@ export const UserFeedback = ({
             <View style={styles.correctStageColumn}>
               <Text style={styles.correctPhrase}>{spanishPhrase}</Text>
               {explainAckActions != null ? (
-                <View style={styles.feedbackControlsBelowHeading}>{explainAckActions}</View>
+                <View style={styles.explainAckBelowCorrectPhrase}>{explainAckActions}</View>
               ) : null}
             </View>
           ) : (
@@ -240,7 +240,7 @@ export const UserFeedback = ({
                 </View>
               </View>
 
-              <View style={styles.feedbackControlsBelowHeading}>
+              <View style={styles.incorrectPlaybackCluster}>
                 <AudioControls
                   isAudioPlaying={isAudioPlaying}
                   isExplainAckReplayPlaying={isExplainAckReplayPlaying}
@@ -302,11 +302,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 24,
   },
-  feedbackControlsBelowHeading: {
-    marginTop: 80,
+  incorrectPlaybackCluster: {
+    marginTop: 16,
     width: "100%",
     alignItems: "center",
     gap: 24,
+  },
+  explainAckBelowCorrectPhrase: {
+    marginTop: 80,
+    width: "100%",
+    alignItems: "center",
   },
   explainAckActions: {
     width: "100%",
