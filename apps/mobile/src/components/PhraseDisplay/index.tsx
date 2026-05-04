@@ -168,6 +168,9 @@ export const PhraseDisplay = ({
             spanishPhrase={display.spanishText}
             isCorrect={display.isCorrect}
             isAudioPlaying={display.isAudioPlaying}
+            isEnglishExplainDominatingLessonControls={
+              display.isEnglishExplainDominatingLessonControls
+            }
             isExplainAckOpen={display.isExplainAckOpen}
             isExplainAckReplayPlaying={display.isExplainAckReplayPlaying}
             handleExplainSayAgain={display.handleExplainSayAgain}
@@ -175,6 +178,7 @@ export const PhraseDisplay = ({
             onSpeedChange={display.setSpeed}
             onReplay={display.handleReplay}
             onStopAnswerAudio={display.stopAnswerAudio}
+            onExplainInterrupted={display.handleExplainInterrupted}
             onTryAgain={display.handleTryAgain}
             onNext={() => {
               runPhraseFeedbackNext(display, session);

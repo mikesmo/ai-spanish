@@ -261,6 +261,12 @@ export type PhraseDisplayAPI = {
    */
   isExplainAckReplayPlaying: boolean;
   /**
+   * True while English explain dominates feedback lesson replay chrome —
+   * feedback chained explain (`playAnswerAudio`) or explain-ack replay. Spanish
+   * replay control stays visually inactive (grey) during these segments.
+   */
+  isEnglishExplainDominatingLessonControls: boolean;
+  /**
    * Completes explain acknowledgment — clears ack state and runs any pending
    * continuation (e.g. advance to answer audio on the recording path;
    * no-op on the feedback path beyond closing).
@@ -272,9 +278,9 @@ export type PhraseDisplayAPI = {
    */
   handleExplainSayAgain: () => void;
   /**
-   * Opens the explain acknowledgment after the learner interrupted explain audio
-   * via "I have a question". No-op if no continuation is pending (explain never
-   * started, or the user already advanced).
+   * Opens explain ack after the learner interrupted lesson explain audio via "I have a question"
+   * (recording: success-path continuation; feedback: chained explain in `playAnswerAudio`).
+   * No-op if nothing was interrupted for this phrase.
    */
   handleExplainInterrupted: () => void;
 };

@@ -134,6 +134,11 @@ export type UserFeedbackViewProps = {
   spanishPhrase: string;
   isCorrect: boolean;
   isAudioPlaying: boolean;
+  /**
+   * True while English explain is active for feedback UX — chained explain after Spanish
+   * or Explain-that-again replay. Spanish replay chrome stays visually idle.
+   */
+  isEnglishExplainDominatingLessonControls: boolean;
   speed: '1x' | 'slow';
   onSpeedChange: (speed: '1x' | 'slow') => void;
   onReplay: () => void;
@@ -143,4 +148,6 @@ export type UserFeedbackViewProps = {
   isExplainAckOpen: boolean;
   isExplainAckReplayPlaying: boolean;
   handleExplainSayAgain: () => void;
+  /** After interrupting feedback explain chain, reopen explain ack pills. */
+  onExplainInterrupted?: () => void;
 };

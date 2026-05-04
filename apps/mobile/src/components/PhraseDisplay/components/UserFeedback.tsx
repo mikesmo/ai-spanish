@@ -18,8 +18,8 @@ const QUESTION_PLACEHOLDER_LABEL = "I have a question";
 
 interface AudioControlsProps {
   isAudioPlaying: boolean;
-  /** When true, TTS is the explain-ack replay — play button stays visually idle. */
-  isExplainAckReplayPlaying?: boolean;
+  /** When true, Spanish replay control stays visually idle — English explain dominates. */
+  isEnglishExplainDominatingLessonControls: boolean;
   speed: "1x" | "slow";
   onSpeedChange: (speed: "1x" | "slow") => void;
   onReplay: () => void;
@@ -27,12 +27,12 @@ interface AudioControlsProps {
 
 const AudioControls = ({
   isAudioPlaying,
-  isExplainAckReplayPlaying = false,
+  isEnglishExplainDominatingLessonControls,
   speed,
   onSpeedChange,
   onReplay,
 }: AudioControlsProps): JSX.Element => {
-  const isPlayButtonActive = isAudioPlaying && !isExplainAckReplayPlaying;
+  const isPlayButtonActive = isAudioPlaying && !isEnglishExplainDominatingLessonControls;
 
   return (
   <View style={styles.audioControls}>
@@ -183,10 +183,12 @@ export const UserFeedback = ({
   spanishPhrase,
   isCorrect,
   isAudioPlaying,
+  isEnglishExplainDominatingLessonControls,
   speed,
   onSpeedChange,
   onReplay,
   onStopAnswerAudio,
+  onExplainInterrupted,
   onTryAgain,
   onNext,
   isExplainAckOpen,
@@ -194,15 +196,39 @@ export const UserFeedback = ({
   handleExplainSayAgain,
 }: UserFeedbackProps): JSX.Element => {
   const [isQuestionActive, setIsQuestionActive] = useState(false);
+  const audioWasInterrupted = useRef(false);
+  const wasExplainAckOpenRef = useRef(false);
   const diff = transcription.trim() ? diffWords(transcription, spanishPhrase) : null;
   const explainAckDisabled = isAudioPlaying || isExplainAckReplayPlaying;
 
-  const handleQuestionToggle = () => {
-    if (isAudioPlaying) {
-      onStopAnswerAudio();
+  useEffect(() => {
+    if (!isCorrect) {
+      setIsQuestionActive(false);
+      audioWasInterrupted.current = false;
     }
-    if (isCorrect) {
-      setIsQuestionActive((v) => !v);
+  }, [isCorrect]);
+
+  useEffect(() => {
+    if (wasExplainAckOpenRef.current && !isExplainAckOpen) {
+      setIsQuestionActive(false);
+      audioWasInterrupted.current = false;
+    }
+    wasExplainAckOpenRef.current = isExplainAckOpen;
+  }, [isExplainAckOpen]);
+
+  const handleQuestionToggle = () => {
+    if (!isQuestionActive) {
+      if (isAudioPlaying) {
+        onStopAnswerAudio();
+        audioWasInterrupted.current = true;
+      }
+      setIsQuestionActive(true);
+    } else {
+      if (audioWasInterrupted.current) {
+        onExplainInterrupted?.();
+        audioWasInterrupted.current = false;
+      }
+      setIsQuestionActive(false);
     }
   };
 
@@ -282,7 +308,7 @@ export const UserFeedback = ({
               <View style={styles.incorrectPlaybackCluster}>
                 <AudioControls
                   isAudioPlaying={isAudioPlaying}
-                  isExplainAckReplayPlaying={isExplainAckReplayPlaying}
+                  isEnglishExplainDominatingLessonControls={isEnglishExplainDominatingLessonControls}
                   speed={speed}
                   onSpeedChange={onSpeedChange}
                   onReplay={onReplay}
