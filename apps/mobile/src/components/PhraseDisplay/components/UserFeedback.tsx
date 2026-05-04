@@ -197,54 +197,60 @@ export const UserFeedback = ({
           {isCorrect ? (
             <View style={styles.correctStageColumn}>
               <Text style={styles.correctPhrase}>{spanishPhrase}</Text>
-              {explainAckActions}
+              {explainAckActions != null ? (
+                <View style={styles.feedbackControlsBelowHeading}>{explainAckActions}</View>
+              ) : null}
             </View>
           ) : (
             <View style={styles.incorrectStageColumn}>
-              <View style={styles.diffBlock}>
-                <Text style={styles.diffLabel}>YOU SAID</Text>
-                <Text style={styles.diffText}>
-                  {diff ? (
-                    renderDiffWords(
-                      diff.filter(({ type }) => type !== "missing").map(({ word, type }) => ({ word, type })),
-                      (type) => (type === "wrong" ? styles.wrongWord : styles.correctWord),
-                    )
-                  ) : (
-                    <Text style={styles.noAnswer}>No answer recorded</Text>
-                  )}
-                </Text>
+              <View style={styles.feedbackTextAboveControls}>
+                <View style={styles.diffBlock}>
+                  <Text style={styles.diffLabel}>YOU SAID</Text>
+                  <Text style={styles.diffText}>
+                    {diff ? (
+                      renderDiffWords(
+                        diff.filter(({ type }) => type !== "missing").map(({ word, type }) => ({ word, type })),
+                        (type) => (type === "wrong" ? styles.wrongWord : styles.correctWord),
+                      )
+                    ) : (
+                      <Text style={styles.noAnswer}>No answer recorded</Text>
+                    )}
+                  </Text>
+                </View>
+
+                <View style={styles.divider} />
+
+                <View style={styles.diffBlock}>
+                  <Text style={styles.diffLabel}>CORRECT</Text>
+                  <Text style={styles.diffText}>
+                    {diff ? (
+                      renderDiffWords(
+                        diff
+                          .filter(({ type }) => type !== "wrong")
+                          .map(({ spanishWord, type }) => ({
+                            word: spanishWord ?? "",
+                            type,
+                          })),
+                        (type) => (type === "missing" ? styles.missingWord : styles.normalWord),
+                      )
+                    ) : (
+                      <Text style={styles.normalWord}>{spanishPhrase}</Text>
+                    )}
+                  </Text>
+                </View>
               </View>
 
-              <View style={styles.divider} />
+              <View style={styles.feedbackControlsBelowHeading}>
+                <AudioControls
+                  isAudioPlaying={isAudioPlaying}
+                  isExplainAckReplayPlaying={isExplainAckReplayPlaying}
+                  speed={speed}
+                  onSpeedChange={onSpeedChange}
+                  onReplay={onReplay}
+                />
 
-              <View style={styles.diffBlock}>
-                <Text style={styles.diffLabel}>CORRECT</Text>
-                <Text style={styles.diffText}>
-                  {diff ? (
-                    renderDiffWords(
-                      diff
-                        .filter(({ type }) => type !== "wrong")
-                        .map(({ spanishWord, type }) => ({
-                          word: spanishWord ?? "",
-                          type,
-                        })),
-                      (type) => (type === "missing" ? styles.missingWord : styles.normalWord),
-                    )
-                  ) : (
-                    <Text style={styles.normalWord}>{spanishPhrase}</Text>
-                  )}
-                </Text>
+                {explainAckActions}
               </View>
-
-              <AudioControls
-                isAudioPlaying={isAudioPlaying}
-                isExplainAckReplayPlaying={isExplainAckReplayPlaying}
-                speed={speed}
-                onSpeedChange={onSpeedChange}
-                onReplay={onReplay}
-              />
-
-              {explainAckActions}
             </View>
           )}
         </View>
@@ -281,14 +287,23 @@ const styles = StyleSheet.create({
     width: "100%",
     alignItems: "center",
     justifyContent: "flex-start",
-    paddingTop: 60,
+    paddingTop: 80,
   },
   correctStageColumn: {
     width: "100%",
     alignItems: "center",
-    gap: 24,
   },
   incorrectStageColumn: {
+    width: "100%",
+    alignItems: "center",
+  },
+  feedbackTextAboveControls: {
+    width: "100%",
+    alignItems: "center",
+    gap: 24,
+  },
+  feedbackControlsBelowHeading: {
+    marginTop: 80,
     width: "100%",
     alignItems: "center",
     gap: 24,

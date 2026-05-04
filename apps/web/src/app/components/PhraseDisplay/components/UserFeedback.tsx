@@ -262,36 +262,42 @@ export const UserFeedback = ({
 
   return (
     <div className="flex-1 flex flex-col items-center min-h-0 w-full animate-screen-fade-in">
-      <div className="flex flex-1 min-h-0 w-full flex-col items-center justify-start pt-6">
+      <div className="flex flex-1 min-h-0 w-full flex-col items-center justify-start pt-[80px]">
         {isCorrect ? (
-          <div className="flex flex-col items-center gap-8 w-full">
+          <div className="flex flex-col items-center w-full">
             <p className="text-[18px] text-[#1D9E75] text-center leading-relaxed">{spanishPhrase}</p>
-            {explainAckActions}
+            {explainAckActions != null ? (
+              <div className="pt-[80px] flex w-full flex-col items-center">{explainAckActions}</div>
+            ) : null}
           </div>
         ) : (
-          <div className="flex flex-col items-center gap-8 w-full">
-            <div className="flex flex-col items-center gap-2">
-              <p className="text-[18px] text-center leading-relaxed">{renderSpokenWords(diff)}</p>
+          <div className="flex w-full flex-col items-center">
+            <div className="flex flex-col items-center gap-8 w-full">
+              <div className="flex flex-col items-center gap-2">
+                <p className="text-[18px] text-center leading-relaxed">{renderSpokenWords(diff)}</p>
+              </div>
+
+              <div className="w-[40px] h-[1px] bg-gray-300" />
+
+              <div className="flex flex-col items-center gap-2">
+                <p className="text-[11px] text-gray-400 uppercase tracking-wide">Correct</p>
+                <p className="text-[18px] text-gray-800 text-center leading-relaxed">
+                  {renderCorrectWords(diff, spanishPhrase)}
+                </p>
+              </div>
             </div>
 
-            <div className="w-[40px] h-[1px] bg-gray-300" />
+            <div className="pt-[80px] flex w-full flex-col items-center gap-8">
+              <AudioControls
+                isAudioPlaying={isAudioPlaying}
+                isExplainAckReplayPlaying={isExplainAckReplayPlaying}
+                speed={speed}
+                onSpeedChange={onSpeedChange}
+                onReplay={onReplay}
+              />
 
-            <div className="flex flex-col items-center gap-2">
-              <p className="text-[11px] text-gray-400 uppercase tracking-wide">Correct</p>
-              <p className="text-[18px] text-gray-800 text-center leading-relaxed">
-                {renderCorrectWords(diff, spanishPhrase)}
-              </p>
+              {explainAckActions}
             </div>
-
-            <AudioControls
-              isAudioPlaying={isAudioPlaying}
-              isExplainAckReplayPlaying={isExplainAckReplayPlaying}
-              speed={speed}
-              onSpeedChange={onSpeedChange}
-              onReplay={onReplay}
-            />
-
-            {explainAckActions}
           </div>
         )}
       </div>
