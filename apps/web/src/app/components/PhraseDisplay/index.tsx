@@ -57,9 +57,16 @@ export const PhraseDisplay = ({
     lessonDeck: phrases,
   });
 
+  const isIncorrectAnswerFeedback =
+    display.status === "answer" && !display.isCorrect && !session.isComplete;
+
   return (
     <div className="w-full max-w-[390px] mx-auto bg-white flex flex-col min-h-[100dvh] py-16 px-8">
-      <header className="relative mb-6 flex min-h-10 w-full shrink-0 items-center">
+      <header
+        className={`relative flex min-h-10 w-full shrink-0 items-center ${
+          isIncorrectAnswerFeedback ? "mb-0" : "mb-6"
+        }`}
+      >
         <Link
           href="/"
           className="absolute left-0 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg text-gray-500 transition hover:bg-gray-100 hover:text-gray-800"

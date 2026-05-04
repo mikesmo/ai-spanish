@@ -343,7 +343,7 @@ const styles = StyleSheet.create({
   },
   feedbackStageIncorrect: {
     justifyContent: "flex-start",
-    paddingTop: 80,
+    paddingTop: 120,
   },
   correctStageColumn: {
     width: "100%",

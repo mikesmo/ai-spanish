@@ -87,9 +87,12 @@ export const PhraseDisplay = ({
     lessonDeck: phrases,
   });
 
+  const isIncorrectAnswerFeedback =
+    display.status === "answer" && !display.isCorrect && !session.isComplete;
+
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, isIncorrectAnswerFeedback && styles.headerNoMarginBelow]}>
         <Pressable
           onPress={onExit}
           style={({ pressed }) => [styles.headerClose, pressed && styles.pressed]}
@@ -192,6 +195,9 @@ const styles = StyleSheet.create({
     width: "100%",
     minHeight: 40,
     marginBottom: 16,
+  },
+  headerNoMarginBelow: {
+    marginBottom: 0,
   },
   headerClose: {
     position: "absolute",

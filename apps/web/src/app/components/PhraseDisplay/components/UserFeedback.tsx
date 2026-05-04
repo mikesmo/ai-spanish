@@ -304,7 +304,7 @@ export const UserFeedback = ({
     <div className="flex-1 flex flex-col items-center min-h-0 w-full animate-screen-fade-in">
       <div
         className={`flex flex-1 min-h-0 w-full flex-col items-center ${
-          isCorrect ? "justify-center" : "justify-start pt-[80px]"
+          isCorrect ? "justify-center" : "justify-start pt-[120px]"
         }`}
       >
         {isCorrect ? (
