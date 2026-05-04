@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   Animated,
   LayoutChangeEvent,
+  Pressable,
   StyleSheet,
   Text,
   View,
@@ -11,7 +12,7 @@ import {
 import { Feather } from "@expo/vector-icons";
 import { getPhraseHeroLayout } from "../heroLayout";
 import type { UserRecordingProps } from "../PhraseDisplay.types";
-import { PillButton } from "./PillButton";
+import { PillButton, pillStyles } from "./PillButton";
 import { SayThatAgainAckButton } from "./SayThatAgainAckButton";
 
 const QUESTION_PLACEHOLDER_LABEL = "I have a question";
@@ -189,14 +190,22 @@ export const UserRecording = ({
 
           {replaySpanishMedium?.show === true ? (
             <View style={styles.replaySpanishBelowTranscript}>
-              <PillButton
-                label="Replay spanish"
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Replay spanish"
+                disabled={replaySpanishMedium.isPlaying}
                 onPress={() => {
                   void replaySpanishMedium.onReplay();
                 }}
-                variant="secondary"
-                disabled={replaySpanishMedium.isPlaying}
-              />
+                style={({ pressed }) => [
+                  styles.replaySpanishButton,
+                  replaySpanishMedium.isPlaying && pillStyles.pillDisabled,
+                  pressed && !replaySpanishMedium.isPlaying && styles.replaySpanishButtonPressed,
+                ]}
+              >
+                <Feather name="volume-2" size={22} color="#ffffff" accessibilityElementsHidden />
+                <Text style={styles.replaySpanishButtonLabel}>Replay spanish</Text>
+              </Pressable>
             </View>
           ) : null}
         </View>
@@ -296,6 +305,26 @@ const styles = StyleSheet.create({
     marginTop: 16,
     width: "100%",
     alignSelf: "stretch",
+  },
+  replaySpanishButton: {
+    width: "100%",
+    height: 54,
+    borderRadius: 9999,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    backgroundColor: "#1D9E75",
+    borderWidth: 1,
+    borderColor: "#1D9E75",
+  },
+  replaySpanishButtonPressed: {
+    opacity: 0.92,
+  },
+  replaySpanishButtonLabel: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#ffffff",
   },
   englishLine: {
     fontSize: 15,

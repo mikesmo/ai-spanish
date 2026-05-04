@@ -10,6 +10,10 @@ const QUESTION_PLACEHOLDER_LABEL = "I have a question";
 const showAnswerPillClassName =
   "relative w-full overflow-hidden rounded-full bg-white border border-gray-200 h-[54px] flex items-center justify-center shadow-sm disabled:opacity-50 disabled:pointer-events-none";
 
+/** Replay answer-medium pronunciation; brand green, white speaker + label */
+const replaySpanishPillClassName =
+  "mt-4 relative w-full overflow-hidden rounded-full bg-[#1D9E75] border border-[#1D9E75] h-[54px] flex flex-row items-center justify-center gap-2 px-5 shadow-sm disabled:opacity-50 disabled:pointer-events-none";
+
 /** Matches `UserFeedback` section labels (e.g. "You said"). */
 const sectionLabelClassName = "text-[11px] text-gray-400 uppercase tracking-wide";
 
@@ -250,9 +254,32 @@ export const UserRecording = ({
           onClick={() => {
             void replaySpanishMedium.onReplay();
           }}
-          className={`${showAnswerPillClassName} mt-4`}
+          className={replaySpanishPillClassName}
+          aria-label="Replay spanish"
         >
-          <span className="relative z-10 text-[16px] font-medium text-gray-900">Replay spanish</span>
+          <svg
+            className="h-[22px] w-[22px] shrink-0 text-white"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden
+          >
+            <path
+              d="M11 5L6 9H4a1 1 0 00-1 1v4a1 1 0 001 1h2l5 4V5z"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M15.54 8.46a5 5 0 010 7.07M18.07 5.93a9 9 0 010 12.14"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          <span className="relative z-10 text-[16px] font-medium text-white">Replay spanish</span>
         </button>
       ) : null}
     </div>
