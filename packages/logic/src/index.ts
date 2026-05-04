@@ -38,6 +38,7 @@ export {
 export { transcriptsMatch } from './transcriptsMatch';
 export {
   buildPhraseAudioClipSpecs,
+  PHRASE_ANSWER_MEDIUM_CLIP_SUFFIX,
   PHRASE_ANSWER_SLOW_CLIP_SUFFIX,
   type PhraseAudioClipSpec,
 } from './phraseAudioClipSpecs';

@@ -9,6 +9,7 @@ import { getVoiceForLanguage } from '@ai-spanish/ai/tts/voices';
 import { postProcessMp3 } from '@ai-spanish/audio-verify';
 import type { PhraseSynthSegment } from '@ai-spanish/logic';
 import {
+  PHRASE_ANSWER_MEDIUM_CLIP_SUFFIX,
   PHRASE_ANSWER_SLOW_CLIP_SUFFIX,
   buildS3AudioKey,
   findDuplicatePhraseNames,
@@ -77,13 +78,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const isAnswerSlow = segmentRaw === 'answer-slow';
-  if (!isPhraseSynthSegment(segmentRaw) && !isAnswerSlow) {
+  const isAnswerMedium = segmentRaw === PHRASE_ANSWER_MEDIUM_CLIP_SUFFIX;
+  const isAnswerSlow = segmentRaw === PHRASE_ANSWER_SLOW_CLIP_SUFFIX;
+  if (!isPhraseSynthSegment(segmentRaw) && !isAnswerMedium && !isAnswerSlow) {
     return NextResponse.json(
       {
         ok: false,
         message:
-          'Invalid segment: must be first-intro, second-intro, follow-up, explain, answer, or answer-slow',
+          'Invalid segment: must be first-intro, second-intro, follow-up, explain, answer, answer-medium, or answer-slow',
       },
       { status: 400 },
     );
@@ -153,6 +155,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   let speakSpeed: number;
   if (isAnswerSlow) {
     jobId = `${phraseRaw}-${PHRASE_ANSWER_SLOW_CLIP_SUFFIX}`;
+    lang = 'es';
+    speakSpeed = 0.7;
+  } else if (isAnswerMedium) {
+    jobId = `${phraseRaw}-${PHRASE_ANSWER_MEDIUM_CLIP_SUFFIX}`;
     lang = 'es';
     speakSpeed = 0.9;
   } else {

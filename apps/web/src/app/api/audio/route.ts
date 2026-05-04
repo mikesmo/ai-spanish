@@ -11,7 +11,7 @@ import { assertApiUser } from '@/lib/auth/assert-api-user';
 /**
  * Allowed segment values — must stay in sync with `buildPhraseAudioClipSpecs`
  * clip suffixes (`first-intro`, `second-intro`, `follow-up`, `explain`, `answer`,
- * `answer-slow`). `question` is kept for ad-hoc presigns even though tts-batch
+ * `answer-medium`, `answer-slow`). `question` is kept for ad-hoc presigns even though tts-batch
  * does not synthesize it.
  */
 const ALLOWED_SEGMENTS = [
@@ -21,6 +21,7 @@ const ALLOWED_SEGMENTS = [
   'explain',
   'question',
   'answer',
+  'answer-medium',
   'answer-slow',
 ] as const;
 type Segment = (typeof ALLOWED_SEGMENTS)[number];

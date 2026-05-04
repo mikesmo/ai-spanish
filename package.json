@@ -16,6 +16,7 @@
     "build": "turbo build",
     "typecheck": "turbo typecheck",
     "tts:batch": "tsx scripts/tts-batch/src/index.ts",
+    "tts:migrate-spanish-answer-speeds": "tsx scripts/tts-batch/src/migrate-spanish-answer-speeds.ts",
     "migrate:lesson1": "tsx scripts/migrate-lesson-weights/src/index.ts",
     "push:transcripts": "tsx scripts/sync-transcripts/src/index.ts",
     "pull:transcripts": "tsx scripts/sync-transcripts/src/pull.ts"

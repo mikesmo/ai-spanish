@@ -115,7 +115,7 @@ Secrets belong in repo-root **`.env.scripts`** (gitignored). Never commit real k
 | `--force` | Regenerate all clips; ignore hash cache |
 | `--local-only` | Write `output/` only; no S3, no AWS keys required |
 | `--upload-only` | Upload existing `output/` to S3; no Deepgram calls |
-| `--only-phrase` | Transcript `"index"` field (0-based, matches lesson JSON). Regenerates every clip for that phrase (all jobs from `buildPhraseAudioClipSpecs`, including `follow-up`, `explain`, `answer`, `answer-slow` when applicable), merges into existing `manifest.json` and hash cache; other clips unchanged. **Requires** a previous full `tts:batch` so every other id already exists in the manifest. Incompatible with `--verify-stt` and `--upload-only`. |
+| `--only-phrase` | Transcript `"index"` field (0-based, matches lesson JSON). Regenerates every clip for that phrase (all jobs from `buildPhraseAudioClipSpecs`, including `follow-up`, `explain`, `answer`, `answer-medium`, `answer-slow` when applicable), merges into existing `manifest.json` and hash cache; other clips unchanged. **Requires** a previous full `tts:batch` so every other id already exists in the manifest. Incompatible with `--verify-stt` and `--upload-only`. |
 | `--verify-stt` | Runs **`--verify-loudness` first**, then Deepgram STT on each `manifest.json` MP3. STT: optional `keywords` from expected `text` (tokenize via `tokenizeForDeepgramKeywords` in `@ai-spanish/logic`, `word:1` if **3+** tokens). **strict** normalized text compare. Exit 1 if loudness **or** STT fails. Requires `DEEPGRAM_API_KEY` and **ffmpeg** on `PATH` |
 | `--verify-loudness` | **ffmpeg** `volumedetect`: `max_volume` must be **≥** `TTS_VERIFY_LOUDNESS_MIN_MAX_DB` and `mean_volume` **≥** `TTS_VERIFY_LOUDNESS_MIN_MEAN_DB`. Use alone (no API key) or with `--verify-stt` (STT run already includes loudness). Incompatible with `--upload-only` and `--only-phrase` |
 | `--no-audio-pos` | Skip ffmpeg post-processing; write raw Deepgram output (no ffmpeg required) |
@@ -153,9 +153,23 @@ output/
     hashes.json
 ```
 
-Transcript rows are flattened to jobs such as `{name}-first-intro`, `{name}-second-intro`, optional `{name}-follow-up` and `{name}-explain` when those English strings are non-empty, `{name}-answer` (Spanish at Deepgram speed **1**) and **`{name}-answer-slow`** (same text at speed **0.9**); empty strings are skipped. `{name}` is the phrase slug. Each phrase also has a numeric **`index`** (0-based) and optional **`type`** (`new` | `composite`). English clips use the English Aura voice; Spanish clips use the Spanish Aura voice (see `TTS_DEEPGRAM_VOICE_ES`).
+Transcript rows are flattened to jobs such as `{name}-first-intro`, `{name}-second-intro`, optional `{name}-follow-up` and `{name}-explain` when those English strings are non-empty, `{name}-answer` (Spanish at Deepgram speed **1**), **`{name}-answer-medium`** (speed **0.9**), and **`{name}-answer-slow`** (speed **0.7**); empty strings are skipped. `{name}` is the phrase slug. Each phrase also has a numeric **`index`** (0-based) and optional **`type`** (`new` | `composite`). English clips use the English Aura voice; Spanish clips use the Spanish Aura voice (see `TTS_DEEPGRAM_VOICE_ES`).
 
-**Runtime / presigned audio:** [`GET /api/audio`](../../apps/web/src/app/api/audio/route.ts) allows `segment` values that match these file suffixes (plus `question` for ad-hoc presigns). The learning app currently plays **`answer`** by default; **`answer-slow`** is extra inventory for future UX.
+**Runtime / presigned audio:** [`GET /api/audio`](../../apps/web/src/app/api/audio/route.ts) allows `segment` values that match these file suffixes (plus `question` for ad-hoc presigns). The app plays **`answer`** by default, **`answer-medium`** for some flows (e.g. pronunciation example), and **`answer-slow`** for feedback “slow” replay.
+
+### Migrating existing buckets (legacy `answer-slow` was 0.9×)
+
+Older manifests used **`answer-slow` only** at **0.9×**. To promote those bytes to **`answer-medium`** and regenerate **`answer-slow`** at **0.7×** without re-running a full batch, use (from monorepo root, same `.env.scripts` as `tts:batch`):
+
+```bash
+npm run tts:migrate-spanish-answer-speeds -- --transcript-lesson 1 --out ./output
+```
+
+With **`--transcript-lesson <id>`** (only), upload paths default to **`{prefix}/lesson{id}/`** (e.g. `audio-content/lesson1/`), same as `s3LessonFolderForTranscriptLessonId` used by **`tts:batch --transcript-lesson <id>`** + **`--lesson lesson<id>`**. Pass **`--lesson …`** or set **`S3_LESSON`** to override. With **`--input`** JSON only (no transcript lesson env), omitting both `--lesson` and **`S3_LESSON`** targets **`{prefix}/`** only—set **`S3_LESSON`** explicitly if clips live under a lesson folder.
+
+Add `--local-only` to skip S3, or `--dry-run` to print actions only. See `tsx scripts/tts-batch/src/migrate-spanish-answer-speeds.ts --help`.
+
+For **new** lessons, a normal `npm run tts:batch` after updating the repo already emits all three answer clips.
 
 **Note:** Saved session history that embeds full phrase snapshots uses the same transcript shape. After changing these field names, older exported history entries may not parse until cleared or migrated.
 

@@ -102,10 +102,12 @@ export function useTTS(): TTSAdapter {
       options?: TtsAdapterOptions,
     ) => {
       const r = rate ?? 1;
-      const effectiveRate =
-        lang === 'es' && options?.spanishSegmentOverride === 'answer-slow'
-          ? r * 0.9
-          : r;
+      let effectiveRate = r;
+      if (lang === 'es' && options?.spanishSegmentOverride === 'answer-slow') {
+        effectiveRate = r * 0.7;
+      } else if (lang === 'es' && options?.spanishSegmentOverride === 'answer-medium') {
+        effectiveRate = r * 0.9;
+      }
       return playAudio(text, lang, effectiveRate, options?.signal);
     },
     []

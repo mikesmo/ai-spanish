@@ -6,6 +6,9 @@ import {
 } from './phraseAudioSegments';
 
 /** Clip id suffix for Spanish answer at Deepgram speed 0.9 (paired with `{name}-answer`). */
+export const PHRASE_ANSWER_MEDIUM_CLIP_SUFFIX = 'answer-medium';
+
+/** Clip id suffix for Spanish answer at Deepgram speed 0.7 (paired with `{name}-answer`). */
 export const PHRASE_ANSWER_SLOW_CLIP_SUFFIX = 'answer-slow';
 
 /** One TTS / S3 clip derived from a transcript phrase (no voice — batch adds that). */
@@ -15,7 +18,7 @@ export interface PhraseAudioClipSpec {
   phraseName: string;
   language: Language;
   text: string;
-  /** Deepgram speaking rate (default 1). Used for dual-speed Spanish answer clips. */
+  /** Deepgram speaking rate (default 1). Used for multi-speed Spanish answer clips. */
   speakingRate?: number;
 }
 
@@ -25,7 +28,7 @@ function isNonEmpty(text: string): boolean {
 
 /**
  * Flattens transcript phrases into clip specs with stable ids `{name}-{field}`.
- * Fields: first-intro, second-intro, follow-up, explain (English), answer + answer-slow (Spanish).
+ * Fields: first-intro, second-intro, follow-up, explain (English), answer + answer-medium + answer-slow (Spanish).
  * Skips empty segments (same job set as tts-batch `buildTtsJobs`).
  */
 export function buildPhraseAudioClipSpecs(phrases: Phrase[]): PhraseAudioClipSpec[] {
@@ -87,12 +90,20 @@ export function buildPhraseAudioClipSpecs(phrases: Phrase[]): PhraseAudioClipSpe
         speakingRate: 1,
       });
       specs.push({
-        id: `${name}-${PHRASE_ANSWER_SLOW_CLIP_SUFFIX}`,
+        id: `${name}-${PHRASE_ANSWER_MEDIUM_CLIP_SUFFIX}`,
         phraseIndex: phrase.index,
         phraseName: name,
         language: 'es',
         text: answerText,
         speakingRate: 0.9,
+      });
+      specs.push({
+        id: `${name}-${PHRASE_ANSWER_SLOW_CLIP_SUFFIX}`,
+        phraseIndex: phrase.index,
+        phraseName: name,
+        language: 'es',
+        text: answerText,
+        speakingRate: 0.7,
       });
     }
   }

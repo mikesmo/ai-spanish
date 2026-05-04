@@ -28,8 +28,8 @@ function fetchPresignedUrl(
  *
  * - English: first-intro or second-intro per englishUseFirstIntro; appends
  *   question when englishAppendQuestion (intro ends with ":" after trim).
- * - Spanish: `answer` by default, or `answer-slow` when
- *   `options.spanishSegmentOverride` is set.
+ * - Spanish: `answer` by default, or `answer-medium` / `answer-slow` per
+ *   `options.spanishSegmentOverride`.
  * - Missing clips (skipped at batch time due to empty text) are silently skipped.
  * - Requires a valid phraseName; calls without one are no-ops so the adapter
  *   stays compatible with the TTSAdapter interface.

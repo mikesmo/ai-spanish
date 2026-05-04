@@ -26,7 +26,7 @@ export interface ManifestEntry {
   language: Language;
   text: string;
   voice: string;
-  /** Deepgram speaking rate when not default (e.g. 0.9 for answer-slow). */
+  /** Deepgram speaking rate when not default (e.g. 0.9 for answer-medium, 0.7 for answer-slow). */
   speakingRate?: number;
   /** Relative path from output dir, e.g. audio/perdona-first-intro.mp3 */
   localFile: string;

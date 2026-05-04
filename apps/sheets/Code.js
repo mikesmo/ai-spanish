@@ -92,6 +92,7 @@ var ALLOWED_AUDIO_SEGMENTS = [
   "explain",
   "question",
   "answer",
+  "answer-medium",
   "answer-slow",
 ];
 
@@ -749,7 +750,11 @@ function clipsFromPhrasePayload(onePhrase) {
  * @returns {boolean}
  */
 function clipIdEndsWithAnswerBucket(id) {
-  return id.endsWith("-answer-slow") || id.endsWith("-answer");
+  return (
+    id.endsWith("-answer-medium") ||
+    id.endsWith("-answer-slow") ||
+    id.endsWith("-answer")
+  );
 }
 
 /**
@@ -1202,7 +1207,7 @@ function lessonAudioSynthesize(accessToken, transcriptLessonId, phraseName, segm
 function mergeTranscriptSegment(accessToken, transcriptLessonId, phraseIndex, segment, text) {
   try {
     var segTrim = typeof segment === "string" ? segment.trim() : "";
-    if (segTrim === "answer-slow") {
+    if (segTrim === "answer-slow" || segTrim === "answer-medium") {
       return { ok: true, message: "" };
     }
     var token = typeof accessToken === "string" ? accessToken.trim() : "";
@@ -1535,6 +1540,7 @@ function recordPhraseSegment(
       seg !== "first-intro" &&
       seg !== "second-intro" &&
       seg !== "answer" &&
+      seg !== "answer-medium" &&
       seg !== "answer-slow"
     ) {
       return { ok: false, message: "Invalid segment for save." };
@@ -1546,7 +1552,7 @@ function recordPhraseSegment(
     if (seg === "second-intro") {
       textBody = si;
     }
-    if (seg === "answer" || seg === "answer-slow") {
+    if (seg === "answer" || seg === "answer-medium" || seg === "answer-slow") {
       textBody = ans;
     }
     if (String(textBody).trim().length === 0) {

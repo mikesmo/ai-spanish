@@ -13,6 +13,7 @@ import {
   isPhraseSynthSegment,
   normalizeAudioContentPrefix,
   normalizeLessonSegment,
+  PHRASE_ANSWER_MEDIUM_CLIP_SUFFIX,
   PHRASE_ANSWER_SLOW_CLIP_SUFFIX,
   phraseSynthSegmentFromClipId,
   s3LessonFolderForTranscriptLessonId,
@@ -157,11 +158,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       for (const item of rawSeg) {
         const s = typeof item === 'string' ? item.trim() : '';
         const isSlowSuffix = s === 'answer-slow';
-        if (!isPhraseSynthSegment(s) && !isSlowSuffix) {
+        const isMediumSuffix = s === 'answer-medium';
+        if (!isPhraseSynthSegment(s) && !isSlowSuffix && !isMediumSuffix) {
           return NextResponse.json(
             {
               ok: false,
-              message: `Invalid segment in segments: ${String(item)} (expected first-intro, second-intro, follow-up, explain, answer, or answer-slow)`,
+              message: `Invalid segment in segments: ${String(item)} (expected first-intro, second-intro, follow-up, explain, answer, answer-medium, or answer-slow)`,
             },
             { status: 400 },
           );
@@ -384,9 +386,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   if (segmentsFilter !== undefined && segmentsFilter.length > 0) {
     const allowed = new Set(segmentsFilter);
     const slowSuffix = `-${PHRASE_ANSWER_SLOW_CLIP_SUFFIX}`;
+    const mediumSuffix = `-${PHRASE_ANSWER_MEDIUM_CLIP_SUFFIX}`;
     specsToVerify = specsToVerify.filter((s) => {
       const id = s.id;
       if (allowed.has('answer-slow') && id.endsWith(slowSuffix)) {
+        return true;
+      }
+      if (allowed.has('answer-medium') && id.endsWith(mediumSuffix)) {
         return true;
       }
       const seg = phraseSynthSegmentFromClipId(id);

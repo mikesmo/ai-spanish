@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildPhraseAudioClipSpecs,
+  PHRASE_ANSWER_MEDIUM_CLIP_SUFFIX,
   PHRASE_ANSWER_SLOW_CLIP_SUFFIX,
 } from '../phraseAudioClipSpecs';
 import { phraseSynthSegmentFromClipId } from '../phraseAudioSegments';
@@ -26,7 +27,8 @@ const phrase = (overrides: Partial<Phrase>): Phrase => ({
 });
 
 describe('phraseSynthSegmentFromClipId', () => {
-  it('maps answer-slow to answer for verify/merge semantics', () => {
+  it('maps answer-medium, answer-slow to answer for verify/merge semantics', () => {
+    expect(phraseSynthSegmentFromClipId('foo-answer-medium')).toBe('answer');
     expect(phraseSynthSegmentFromClipId('foo-answer-slow')).toBe('answer');
     expect(phraseSynthSegmentFromClipId('foo-answer')).toBe('answer');
   });
@@ -38,15 +40,19 @@ describe('phraseSynthSegmentFromClipId', () => {
 });
 
 describe('buildPhraseAudioClipSpecs', () => {
-  it('emits dual Spanish answer clips with speakingRate 1 and 0.9', () => {
+  it('emits triple Spanish answer clips with speakingRate 1, 0.9, and 0.7', () => {
     const specs = buildPhraseAudioClipSpecs([phrase({})]);
     const answerSpecs = specs.filter((s) => s.id.includes('answer'));
-    expect(answerSpecs).toHaveLength(2);
+    expect(answerSpecs).toHaveLength(3);
+    expect(answerSpecs.some((s) => s.id.endsWith(`-${PHRASE_ANSWER_MEDIUM_CLIP_SUFFIX}`))).toBe(
+      true,
+    );
     expect(answerSpecs.some((s) => s.id.endsWith(`-${PHRASE_ANSWER_SLOW_CLIP_SUFFIX}`))).toBe(
       true,
     );
     expect(answerSpecs.find((s) => s.id.endsWith('-answer'))?.speakingRate).toBe(1);
-    expect(answerSpecs.find((s) => s.id.endsWith('-answer-slow'))?.speakingRate).toBe(0.9);
+    expect(answerSpecs.find((s) => s.id.endsWith('-answer-medium'))?.speakingRate).toBe(0.9);
+    expect(answerSpecs.find((s) => s.id.endsWith('-answer-slow'))?.speakingRate).toBe(0.7);
   });
 
   it('includes follow-up and explain when non-empty', () => {

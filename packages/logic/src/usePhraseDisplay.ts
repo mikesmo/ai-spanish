@@ -722,7 +722,7 @@ export function usePhraseDisplay(
                 hintedName,
                 {
                   ...s3,
-                  spanishSegmentOverride: 'answer-slow',
+                  spanishSegmentOverride: 'answer-medium',
                 } as TtsAdapterOptions,
               )
             : Promise.resolve(),
@@ -770,7 +770,7 @@ export function usePhraseDisplay(
                 {
                   ...s3,
                   signal: bootstrapSignal,
-                  spanishSegmentOverride: 'answer-slow',
+                  spanishSegmentOverride: 'answer-medium',
                 } as TtsAdapterOptions,
               );
             } catch (esError) {

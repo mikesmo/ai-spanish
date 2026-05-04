@@ -28,7 +28,7 @@ export function phraseClipJobId(phraseName: string, segment: PhraseSynthSegment)
 }
 
 /**
- * Parses clip id suffix into a merge/STT segment (`answer-slow` before `answer`).
+ * Parses clip id suffix into a merge/STT segment (`answer-medium` / `answer-slow` before `answer`).
  * Question-only clips (no batch job id pattern here) return null.
  */
 export function phraseSynthSegmentFromClipId(id: string): PhraseSynthSegment | null {
@@ -36,6 +36,7 @@ export function phraseSynthSegmentFromClipId(id: string): PhraseSynthSegment | n
   if (id.endsWith('-first-intro')) return 'first-intro';
   if (id.endsWith('-follow-up')) return 'follow-up';
   if (id.endsWith('-explain')) return 'explain';
+  if (id.endsWith('-answer-medium')) return 'answer';
   if (id.endsWith('-answer-slow')) return 'answer';
   if (id.endsWith('-answer')) return 'answer';
   return null;
