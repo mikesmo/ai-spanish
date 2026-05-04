@@ -680,7 +680,8 @@ function findLessonRowByIndexColumn(sheet, phraseIndex) {
 }
 
 /**
- * Row for phrase index using in-memory directory (after Load), else scan sheet Index column.
+ * Row for phrase index: prefer live sheet Index column scan, then in-memory
+ * phraseDirectory (import-order row = array slot + 2).
  * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet
  * @param {{ index: number }[]} phraseDirectory
  * @param {number} phraseIndex
@@ -691,11 +692,11 @@ function findLessonRowNumForPhraseIndexWithFallback(
   phraseDirectory,
   phraseIndex
 ) {
-  var fromDir = findLessonRowNumForPhraseIndex(phraseDirectory, phraseIndex);
-  if (fromDir !== null) {
-    return fromDir;
+  var fromScan = findLessonRowByIndexColumn(sheet, phraseIndex);
+  if (fromScan !== null) {
+    return fromScan;
   }
-  return findLessonRowByIndexColumn(sheet, phraseIndex);
+  return findLessonRowNumForPhraseIndex(phraseDirectory, phraseIndex);
 }
 
 /** Move sheet selection so the sidebar preview polls the verified phrase row. */

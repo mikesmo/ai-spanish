@@ -99,7 +99,7 @@ If port **8081** is already taken, stop the other Metro process (Ctrl+C in that 
 4. Optional—if a **physical Android** struggles to reach Metro on USB, forward the bundler port (default **8081**; match whatever Metro prints if different):
 
    ```bash
-   adb reverse tcp:8081 tcp:8081
+   adb reverse tcp:7558 tcp:7558
    ```
 
 Then start Metro as usual (`npx expo start` from `apps/mobile`, or `npm run start --workspace=@ai-spanish/mobile`) and open your **development build** on the device.

@@ -1,5 +1,6 @@
 import { useCallback, useRef } from 'react';
 import { Audio } from 'expo-av';
+import type { AVPlaybackStatus } from 'expo-av';
 import * as FileSystem from 'expo-file-system';
 import type { Language, TTSAdapter, TtsAdapterOptions } from '@ai-spanish/logic';
 import {
@@ -165,33 +166,94 @@ export function useS3TTS(): TTSAdapter {
     void unloadWithTracking();
   }, [unloadWithTracking]);
 
-  const playSegment = useCallback(async (fileUri: string, rate: number): Promise<void> => {
-    await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
-    const { sound } = await Audio.Sound.createAsync({ uri: fileUri });
-    currentSoundRef.current = sound;
-    stopIntentionallyRef.current = false;
+  const playSegment = useCallback(
+    async (fileUri: string, rate: number, signal?: AbortSignal): Promise<void> => {
+      if (signal?.aborted) return;
+      const { sound } = await Audio.Sound.createAsync({ uri: fileUri });
+      if (signal?.aborted) {
+        await sound.unloadAsync().catch(() => {});
+        return;
+      }
+      currentSoundRef.current = sound;
+      stopIntentionallyRef.current = false;
 
-    if (rate !== 1) await sound.setRateAsync(rate, true);
+      if (rate !== 1) await sound.setRateAsync(rate, true);
 
-    try {
-      await new Promise<void>((resolve, reject) => {
-        sound.setOnPlaybackStatusUpdate((status: { isLoaded: boolean; didJustFinish?: boolean }) => {
-          if (!status.isLoaded) return;
-          if (status.didJustFinish) {
+      let settled = false;
+      const finish = (resolve: () => void) => {
+        if (settled) return;
+        settled = true;
+        resolve();
+      };
+
+      let onAbortHandler: (() => void) | undefined;
+
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const resolveOnce = () => finish(resolve);
+
+          onAbortHandler = () => {
+            stopIntentionallyRef.current = true;
             if (currentSoundRef.current === sound) currentSoundRef.current = null;
-            resolve();
+            void sound.stopAsync().catch(() => {});
+            resolveOnce();
+          };
+          if (signal) {
+            signal.addEventListener('abort', onAbortHandler);
           }
+
+          sound.setOnPlaybackStatusUpdate((status: AVPlaybackStatus) => {
+            if (!status.isLoaded) {
+              // Sound was unloaded externally (runUnload / tts.stop).
+              // Resolve so the play() loop can exit cleanly.
+              resolveOnce();
+              return;
+            }
+            if (signal?.aborted || stoppedRef.current) {
+              if (currentSoundRef.current === sound) currentSoundRef.current = null;
+              resolveOnce();
+              return;
+            }
+            const dur = status.durationMillis ?? 0;
+            const pos = status.positionMillis ?? 0;
+            const earlyStopped =
+              'isBuffering' in status &&
+              !status.isBuffering &&
+              !status.isPlaying &&
+              !status.didJustFinish &&
+              dur > 200 &&
+              pos > 400 &&
+              pos < dur - 80;
+            if (earlyStopped) {
+              // Unexpected mid-clip stop (e.g. audio focus loss / backgrounding).
+              // Mark stopped so the outer loop skips remaining segments.
+              stoppedRef.current = true;
+              if (currentSoundRef.current === sound) currentSoundRef.current = null;
+              resolveOnce();
+              return;
+            }
+            if (status.didJustFinish) {
+              if (currentSoundRef.current === sound) currentSoundRef.current = null;
+              resolveOnce();
+            }
+          });
+          sound.playAsync().catch((err: unknown) => {
+            if (stopIntentionallyRef.current || stoppedRef.current || signal?.aborted) resolveOnce();
+            else reject(err);
+          });
+          // If already stopped/aborted before or during playAsync, finish immediately.
+          if (signal?.aborted || stoppedRef.current) resolveOnce();
         });
-        sound.playAsync().catch((err: unknown) => {
-          if (stopIntentionallyRef.current || stoppedRef.current) resolve();
-          else reject(err);
-        });
-      });
-    } finally {
-      if (currentSoundRef.current === sound) currentSoundRef.current = null;
-      await sound.unloadAsync().catch(() => {});
-    }
-  }, []);
+      } finally {
+        if (signal != null && onAbortHandler != null) {
+          signal.removeEventListener('abort', onAbortHandler);
+        }
+        if (currentSoundRef.current === sound) currentSoundRef.current = null;
+        await sound.unloadAsync().catch(() => {});
+      }
+    },
+    [],
+  );
 
   const prefetch = useCallback(
     async (
@@ -237,6 +299,17 @@ export function useS3TTS(): TTSAdapter {
       if (signal?.aborted) return;
       stopIntentionallyRef.current = false;
 
+      // Set audio mode once per play call so audio focus is acquired before
+      // the first segment and maintained across the loop.
+      // `staysActiveInBackground` prevents Android from revoking audio focus
+      // when the app briefly goes to the background (e.g. notification,
+      // screen lock during a long intro clip).
+      await Audio.setAudioModeAsync({
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: true,
+      });
+      if (signal?.aborted || stoppedRef.current) return;
+
       for (const seg of segmentsForLanguage(lang, options)) {
         if (stoppedRef.current || signal?.aborted) return;
 
@@ -252,7 +325,7 @@ export function useS3TTS(): TTSAdapter {
 
         try {
           /* eslint-disable no-await-in-loop */
-          await playSegment(uri, rate);
+          await playSegment(uri, rate, signal);
           /* eslint-enable no-await-in-loop */
         } catch {
           // Skip failed segments (network/playback); matches silent skip for missing clips.

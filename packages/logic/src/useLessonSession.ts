@@ -183,8 +183,14 @@ export const useLessonSession = (
     initialCheckpoint.currentPresentedPhraseId === null &&
     initialCheckpoint.queuePhraseIds.length === 0;
 
-  const [currentPhrase, setCurrentPhrase] = useState<Phrase>(firstPhraseRef.current!);
-  const [presentationVersion, setPresentationVersion] = useState(1);
+  const [cardState, setCardState] = useState<{
+    currentPhrase: Phrase;
+    presentationVersion: number;
+  }>({
+    currentPhrase: firstPhraseRef.current!,
+    presentationVersion: 1,
+  });
+  const { currentPhrase, presentationVersion } = cardState;
   const [isComplete, setIsComplete] = useState(isInitiallyComplete);
   const [remaining, setRemaining] = useState<number>(() =>
     engineRef.current!.remaining(),
@@ -219,8 +225,15 @@ export const useLessonSession = (
     if (!engine) return;
     const next = engine.pickNext();
     if (next) {
-      setCurrentPhrase(next);
-      setPresentationVersion((v) => v + 1);
+      // Update currentPhrase and presentationVersion in a single setState so
+      // React always commits them in the same render. Two separate setState
+      // calls are not guaranteed to batch on all React Native versions, which
+      // caused the bootstrap effect to run twice per navigation (once with the
+      // new phrase but the old version, then again with both updated).
+      setCardState((prev) => ({
+        currentPhrase: next,
+        presentationVersion: prev.presentationVersion + 1,
+      }));
       setRemaining(engine.remaining());
     } else {
       setIsComplete(true);
