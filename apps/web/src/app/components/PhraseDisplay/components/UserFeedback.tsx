@@ -104,7 +104,7 @@ const NextPhraseAfterAudioButton = ({
 
 interface AudioControlsProps {
   isAudioPlaying: boolean;
-  /** When true, TTS is the explain-ack replay — speaker stays visually idle. */
+  /** When true, TTS is the explain-ack replay — play button stays visually idle. */
   isExplainAckReplayPlaying?: boolean;
   speed: "1x" | "slow";
   onSpeedChange: (speed: "1x" | "slow") => void;
@@ -118,8 +118,8 @@ const AudioControls = ({
   onSpeedChange,
   onReplay,
 }: AudioControlsProps): JSX.Element => {
-  const isSpeakerActive = isAudioPlaying && !isExplainAckReplayPlaying;
-  const playTitle = isSpeakerActive
+  const isPlayButtonActive = isAudioPlaying && !isExplainAckReplayPlaying;
+  const playTitle = isPlayButtonActive
     ? "Playing..."
     : isAudioPlaying && isExplainAckReplayPlaying
       ? "Explanation playing"
@@ -131,7 +131,7 @@ const AudioControls = ({
       onClick={onReplay}
       disabled={isAudioPlaying}
       className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
-        isSpeakerActive
+        isPlayButtonActive
           ? "border border-[#1D9E75] bg-[#E1F5EE]"
           : "border-[0.5px] border-gray-300 hover:border-[#1D9E75]"
       }`}
@@ -143,14 +143,12 @@ const AudioControls = ({
         height="16"
         viewBox="0 0 24 24"
         fill="none"
-        stroke={isSpeakerActive ? "#1D9E75" : "#6b7280"}
+        stroke={isPlayButtonActive ? "#1D9E75" : "#6b7280"}
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
       >
-        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-        <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-        <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+        <polygon points="8 5 19 12 8 19 8 5" />
       </svg>
     </button>
 
