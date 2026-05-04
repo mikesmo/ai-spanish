@@ -13,8 +13,6 @@ const showAnswerPillClassName =
 /** Matches `UserFeedback` section labels (e.g. "You said"). */
 const sectionLabelClassName = "text-[11px] text-gray-400 uppercase tracking-wide";
 
-type UserRecordingScreenMode = "pronunciationAttempt" | "userTest";
-
 export const UserRecording = ({
   englishText,
   spanishLine,
@@ -57,8 +55,6 @@ export const UserRecording = ({
     replaySpanishMedium?.show === true && replaySpanishMedium.isPlaying;
   const showRecordingIndicator =
     showMicChrome && !isReplaySpanishAudioPlaying && isRecording && !isCorrect;
-  const screenMode: UserRecordingScreenMode =
-    displaySpanishLine != null ? "pronunciationAttempt" : "userTest";
 
   return (
   <div className="relative flex-1 flex flex-col min-h-0 w-full animate-screen-fade-in">
@@ -99,11 +95,11 @@ export const UserRecording = ({
           <p className="text-[18px] text-[#1D9E75]">Bien hecho!</p>
         </div>
       </div>
-    ) : screenMode === "pronunciationAttempt" ? (
+    ) : (
       <div className="pointer-events-none absolute left-1/2 top-[calc(40%_-_60px_-_1.5rem)] z-0 flex w-full -translate-x-1/2 -translate-y-full flex-col items-center">
         <p className={sectionLabelClassName}>Now you try</p>
       </div>
-    ) : null}
+    )}
 
     <div className="absolute left-1/2 top-[40%] z-[1] -translate-x-1/2 -translate-y-1/2">
       {showMicChrome && !isReplaySpanishAudioPlaying ? (
