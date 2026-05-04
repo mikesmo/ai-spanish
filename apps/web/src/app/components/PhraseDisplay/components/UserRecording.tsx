@@ -25,6 +25,8 @@ export const UserRecording = ({
   isCorrect,
   onShowAnswer,
   showMicChrome = true,
+  phraseLessonType,
+  hasRecordingExplainReplay = false,
   explainAck,
   replaySpanishMedium,
 }: UserRecordingProps): JSX.Element => {
@@ -42,6 +44,10 @@ export const UserRecording = ({
     }
     wasExplainAckOpenRef.current = isOpen;
   }, [explainAck?.isOpen]);
+
+  const showNewPhraseQuestionButton = isCorrect && phraseLessonType === "new";
+  const showExplainThatAgain =
+    explainAck?.isOpen === true && hasRecordingExplainReplay === true;
 
   const displaySpanishLine =
     showSpanishTranslation && spanishLine != null && String(spanishLine).trim() !== ""
@@ -209,9 +215,9 @@ export const UserRecording = ({
         </p>
       </div>
 
-      {explainAck?.isOpen === true || isCorrect ? (
+      {explainAck?.isOpen === true || showNewPhraseQuestionButton ? (
         <div className="mt-4 flex w-full flex-col gap-3">
-          {isCorrect ? (
+          {showNewPhraseQuestionButton ? (
             <button
               type="button"
               onClick={() => {
@@ -224,7 +230,7 @@ export const UserRecording = ({
               </span>
             </button>
           ) : null}
-          {explainAck?.isOpen === true ? (
+          {showExplainThatAgain ? (
             <button
               type="button"
               disabled={explainAck.isReplayPlaying}
@@ -261,7 +267,7 @@ export const UserRecording = ({
           isReplayPlaying={explainAck.isReplayPlaying}
           label="Next phrase"
           autoAdvanceMs={EXPLAIN_ACK_AUTO_ADVANCE_MS}
-          isPaused={isQuestionActive}
+          isPaused={showNewPhraseQuestionButton && isQuestionActive}
           onSayAgain={explainAck.onAckOkay}
           onAckOkay={explainAck.onAckOkay}
         />

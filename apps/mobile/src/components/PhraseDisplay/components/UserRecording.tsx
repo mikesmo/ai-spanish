@@ -28,6 +28,8 @@ export const UserRecording = ({
   isCorrect,
   onShowAnswer,
   showMicChrome = true,
+  phraseLessonType,
+  hasRecordingExplainReplay = false,
   explainAck,
   replaySpanishMedium,
 }: UserRecordingProps): JSX.Element => {
@@ -46,6 +48,10 @@ export const UserRecording = ({
     }
     wasExplainAckOpenRef.current = isOpen;
   }, [explainAck?.isOpen]);
+
+  const showNewPhraseQuestionButton = isCorrect && phraseLessonType === "new";
+  const showExplainThatAgain =
+    explainAck?.isOpen === true && hasRecordingExplainReplay === true;
 
   const onStageLayout = (e: LayoutChangeEvent) => {
     setHero(getPhraseHeroLayout(e.nativeEvent.layout));
@@ -157,9 +163,9 @@ export const UserRecording = ({
             </Text>
           </View>
 
-          {explainAck?.isOpen === true || isCorrect ? (
+          {explainAck?.isOpen === true || showNewPhraseQuestionButton ? (
             <View style={styles.explainAckUnderTranscript}>
-              {isCorrect ? (
+              {showNewPhraseQuestionButton ? (
                 <PillButton
                   label={QUESTION_PLACEHOLDER_LABEL}
                   onPress={() => {
@@ -168,7 +174,7 @@ export const UserRecording = ({
                   variant="secondary"
                 />
               ) : null}
-              {explainAck?.isOpen === true ? (
+              {showExplainThatAgain && explainAck != null ? (
                 <PillButton
                   label="Explain that again"
                   onPress={() => {
@@ -202,7 +208,7 @@ export const UserRecording = ({
             isReplayPlaying={explainAck.isReplayPlaying}
             label="Next phrase"
             autoAdvanceMs={EXPLAIN_ACK_AUTO_ADVANCE_MS}
-            isPaused={isQuestionActive}
+            isPaused={showNewPhraseQuestionButton && isQuestionActive}
             onSayAgain={explainAck.onAckOkay}
             onAckOkay={explainAck.onAckOkay}
           />

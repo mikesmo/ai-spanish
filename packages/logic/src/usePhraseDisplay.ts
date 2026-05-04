@@ -1048,6 +1048,23 @@ export function usePhraseDisplay(
             return;
           }
 
+          // Empty explain on a `new` phrase: same recording acknowledgement as above
+          // (question + Next slider) without playing TTS — do not skip immediately.
+          const openAckWithoutExplainAudio =
+            explainText === '' && skipAnswerScreen;
+          if (openAckWithoutExplainAudio) {
+            explainAckContinuationRef.current =
+              onSkipAnswerScreenAfterSuccessRef.current != null
+                ? () => {
+                    onSkipAnswerScreenAfterSuccessRef.current!();
+                  }
+                : () => {
+                    void playAnswerAudio();
+                  };
+            if (isMountedRef.current) setIsExplainAckOpen(true);
+            return;
+          }
+
           // No explain to play: use the original skip-answer-screen logic.
           if (skipAnswerScreen) {
             onSkipAnswerScreenAfterSuccessRef.current?.();
@@ -1335,6 +1352,9 @@ export function usePhraseDisplay(
   }, []);
 
   const handleExplainSayAgain = async () => {
+    const explainTextTrimmed = currentPhrase.English.explain.trim();
+    if (explainTextTrimmed === '') return;
+
     explainDialogReplayAbortRef.current?.abort();
     replaySpanishMediumAbortRef.current?.abort();
     replaySpanishMediumAbortRef.current = null;
@@ -1342,7 +1362,6 @@ export function usePhraseDisplay(
     explainDialogReplayAbortRef.current = replayAc;
     const epoch = ++explainSayAgainEpochRef.current;
     if (isMountedRef.current) setIsExplainAckReplayPlaying(true);
-    const explainText = currentPhrase.English.explain.trim();
     const s3Opts: TtsAdapterOptions =
       options?.s3LessonSegment != null && options.s3LessonSegment !== ''
         ? { s3LessonSegment: options.s3LessonSegment }
@@ -1350,7 +1369,7 @@ export function usePhraseDisplay(
     try {
       if (isMountedRef.current) setIsAudioPlaying(true);
       await ttsRef.current.play(
-        explainText,
+        explainTextTrimmed,
         'en',
         undefined,
         phraseNameRef.current,
