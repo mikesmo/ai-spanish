@@ -60,6 +60,13 @@ export const PhraseDisplay = ({
     lessonDeck: phrases,
   });
 
+  const showNextPhraseInsteadOfAnswer =
+    display.isCorrect &&
+    display.currentPhrase.type === "new" &&
+    display.currentPhrase.English.explain.trim() !== "" &&
+    display.isFirstSessionPresentationOfCurrentPhrase &&
+    !display.hasUsedTryAgainOnCurrentCard;
+
   const isIncorrectAnswerFeedback =
     display.status === "answer" && !display.isCorrect && !session.isComplete;
 
@@ -131,6 +138,11 @@ export const PhraseDisplay = ({
           isAudioPlaying={display.isAudioPlaying}
           onStopAnswerAudio={display.stopAnswerAudio}
           onExplainInterrupted={display.handleExplainInterrupted}
+          showNextPhraseInsteadOfAnswer={showNextPhraseInsteadOfAnswer}
+          onNextPhrase={() => {
+            display.stopAnswerAudio();
+            runPhraseFeedbackNext(display, session);
+          }}
           explainAck={
             display.isExplainAckOpen &&
             (display.status === "recording" || display.status === "recordingPriming")

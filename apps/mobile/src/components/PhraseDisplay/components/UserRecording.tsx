@@ -36,6 +36,8 @@ export const UserRecording = ({
   isAudioPlaying = false,
   onStopAnswerAudio,
   onExplainInterrupted,
+  showNextPhraseInsteadOfAnswer = false,
+  onNextPhrase,
 }: UserRecordingProps): JSX.Element => {
   const [isQuestionActive, setIsQuestionActive] = useState(false);
   const [nextPhraseSliderKey, setNextPhraseSliderKey] = useState(0);
@@ -250,6 +252,14 @@ export const UserRecording = ({
             isPaused={showNewPhraseQuestionButton && isQuestionActive}
             onSayAgain={explainAck.onAckOkay}
             onAckOkay={explainAck.onAckOkay}
+          />
+        ) : showNextPhraseInsteadOfAnswer ? (
+          <PillButton
+            label="Next phrase"
+            onPress={() => {
+              onNextPhrase?.();
+            }}
+            variant="secondary"
           />
         ) : (
           <PillButton label="show answer" onPress={onShowAnswer} variant="secondary" />

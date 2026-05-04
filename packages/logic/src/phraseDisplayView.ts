@@ -127,6 +127,10 @@ export type UserRecordingViewProps = {
   onStopAnswerAudio?: () => void;
   /** Called when the learner dismisses "I have a question" after having interrupted explain audio. */
   onExplainInterrupted?: () => void;
+  /** When true, show a plain "Next phrase" button instead of "Show Answer". */
+  showNextPhraseInsteadOfAnswer?: boolean;
+  /** Called when learner taps the plain "Next phrase" on the recording screen. */
+  onNextPhrase?: () => void;
 };
 
 export type UserFeedbackViewProps = {

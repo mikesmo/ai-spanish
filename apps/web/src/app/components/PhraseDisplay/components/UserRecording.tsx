@@ -34,6 +34,8 @@ export const UserRecording = ({
   isAudioPlaying = false,
   onStopAnswerAudio,
   onExplainInterrupted,
+  showNextPhraseInsteadOfAnswer = false,
+  onNextPhrase,
 }: UserRecordingProps): JSX.Element => {
   const [isQuestionActive, setIsQuestionActive] = useState(false);
   const [nextPhraseSliderKey, setNextPhraseSliderKey] = useState(0);
@@ -324,6 +326,16 @@ export const UserRecording = ({
           onSayAgain={explainAck.onAckOkay}
           onAckOkay={explainAck.onAckOkay}
         />
+      ) : showNextPhraseInsteadOfAnswer ? (
+        <button
+          type="button"
+          onClick={() => {
+            onNextPhrase?.();
+          }}
+          className={showAnswerPillClassName}
+        >
+          <span className="relative z-10 text-[16px] font-medium text-gray-900">Next phrase</span>
+        </button>
       ) : (
         <button type="button" onClick={onShowAnswer} className={showAnswerPillClassName}>
           <span className="relative z-10 text-[16px] font-medium text-gray-900">show answer</span>
