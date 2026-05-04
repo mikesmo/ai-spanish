@@ -1,4 +1,4 @@
-import type { Phrase, PhraseLessonType, UIStatus } from './types';
+import type { Phrase, UIStatus } from './types';
 
 /**
  * Props for AISpeaking on web and mobile — derived from
@@ -113,8 +113,6 @@ export type UserRecordingViewProps = {
   onShowAnswer: () => void;
   /** When false, hide mic circle and recording affordances (e.g. recordingPriming). */
   showMicChrome?: boolean;
-  /** Lesson card kind; drives recording explain-ack "I have a question" + next-phrase timing. */
-  phraseLessonType?: PhraseLessonType;
   /** Inline explain acknowledgment on the recording screen (replaces show answer). */
   explainAck?: UserRecordingExplainAckViewProps;
   /** Replay pronunciation-example Spanish (`answer-medium`) after follow-up priming. */

@@ -28,21 +28,25 @@ export const UserRecording = ({
   isCorrect,
   onShowAnswer,
   showMicChrome = true,
-  phraseLessonType,
   explainAck,
   replaySpanishMedium,
 }: UserRecordingProps): JSX.Element => {
   const [isQuestionActive, setIsQuestionActive] = useState(false);
   const [hero, setHero] = useState<ReturnType<typeof getPhraseHeroLayout>>(null);
+  const wasExplainAckOpenRef = useRef(false);
 
   useEffect(() => {
-    if (explainAck?.isOpen !== true) {
+    if (!isCorrect) setIsQuestionActive(false);
+  }, [isCorrect]);
+
+  useEffect(() => {
+    const isOpen = explainAck?.isOpen === true;
+    if (wasExplainAckOpenRef.current && !isOpen) {
       setIsQuestionActive(false);
     }
+    wasExplainAckOpenRef.current = isOpen;
   }, [explainAck?.isOpen]);
 
-  const isNewPhraseCard = phraseLessonType === "new";
-  const showQuestionOnExplainAck = isCorrect && isNewPhraseCard;
   const onStageLayout = (e: LayoutChangeEvent) => {
     setHero(getPhraseHeroLayout(e.nativeEvent.layout));
   };
@@ -153,23 +157,25 @@ export const UserRecording = ({
             </Text>
           </View>
 
-          {explainAck?.isOpen === true ? (
+          {explainAck?.isOpen === true || isCorrect ? (
             <View style={styles.explainAckUnderTranscript}>
-              <PillButton
-                label="Explain that again"
-                onPress={() => {
-                  void explainAck.onSayAgain();
-                }}
-                variant="secondary"
-                disabled={explainAck.isReplayPlaying}
-              />
-              {showQuestionOnExplainAck ? (
+              {isCorrect ? (
                 <PillButton
                   label={QUESTION_PLACEHOLDER_LABEL}
                   onPress={() => {
                     setIsQuestionActive((v) => !v);
                   }}
                   variant="secondary"
+                />
+              ) : null}
+              {explainAck?.isOpen === true ? (
+                <PillButton
+                  label="Explain that again"
+                  onPress={() => {
+                    void explainAck.onSayAgain();
+                  }}
+                  variant="secondary"
+                  disabled={explainAck.isReplayPlaying}
                 />
               ) : null}
             </View>
@@ -196,7 +202,7 @@ export const UserRecording = ({
             isReplayPlaying={explainAck.isReplayPlaying}
             label="Next phrase"
             autoAdvanceMs={EXPLAIN_ACK_AUTO_ADVANCE_MS}
-            isPaused={isNewPhraseCard && isQuestionActive}
+            isPaused={isQuestionActive}
             onSayAgain={explainAck.onAckOkay}
             onAckOkay={explainAck.onAckOkay}
           />

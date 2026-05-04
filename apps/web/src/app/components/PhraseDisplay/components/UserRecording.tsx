@@ -1,7 +1,7 @@
 "use client";
 
 import { EXPLAIN_ACK_AUTO_ADVANCE_MS } from "@ai-spanish/logic";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { UserRecordingProps } from "../PhraseDisplay.types";
 import { SayThatAgainAckButton } from "./SayThatAgainAckButton";
 
@@ -25,20 +25,23 @@ export const UserRecording = ({
   isCorrect,
   onShowAnswer,
   showMicChrome = true,
-  phraseLessonType,
   explainAck,
   replaySpanishMedium,
 }: UserRecordingProps): JSX.Element => {
   const [isQuestionActive, setIsQuestionActive] = useState(false);
+  const wasExplainAckOpenRef = useRef(false);
 
   useEffect(() => {
-    if (explainAck?.isOpen !== true) {
+    if (!isCorrect) setIsQuestionActive(false);
+  }, [isCorrect]);
+
+  useEffect(() => {
+    const isOpen = explainAck?.isOpen === true;
+    if (wasExplainAckOpenRef.current && !isOpen) {
       setIsQuestionActive(false);
     }
+    wasExplainAckOpenRef.current = isOpen;
   }, [explainAck?.isOpen]);
-
-  const isNewPhraseCard = phraseLessonType === "new";
-  const showQuestionOnExplainAck = isCorrect && isNewPhraseCard;
 
   const displaySpanishLine =
     showSpanishTranslation && spanishLine != null && String(spanishLine).trim() !== ""
@@ -206,21 +209,9 @@ export const UserRecording = ({
         </p>
       </div>
 
-      {explainAck?.isOpen === true ? (
+      {explainAck?.isOpen === true || isCorrect ? (
         <div className="mt-4 flex w-full flex-col gap-3">
-          <button
-            type="button"
-            disabled={explainAck.isReplayPlaying}
-            onClick={() => {
-              void explainAck.onSayAgain();
-            }}
-            className={showAnswerPillClassName}
-          >
-            <span className="relative z-10 text-[16px] font-medium text-gray-900">
-              Explain that again
-            </span>
-          </button>
-          {showQuestionOnExplainAck ? (
+          {isCorrect ? (
             <button
               type="button"
               onClick={() => {
@@ -230,6 +221,20 @@ export const UserRecording = ({
             >
               <span className="relative z-10 text-[16px] font-medium text-gray-900">
                 {QUESTION_PLACEHOLDER_LABEL}
+              </span>
+            </button>
+          ) : null}
+          {explainAck?.isOpen === true ? (
+            <button
+              type="button"
+              disabled={explainAck.isReplayPlaying}
+              onClick={() => {
+                void explainAck.onSayAgain();
+              }}
+              className={showAnswerPillClassName}
+            >
+              <span className="relative z-10 text-[16px] font-medium text-gray-900">
+                Explain that again
               </span>
             </button>
           ) : null}
@@ -256,7 +261,7 @@ export const UserRecording = ({
           isReplayPlaying={explainAck.isReplayPlaying}
           label="Next phrase"
           autoAdvanceMs={EXPLAIN_ACK_AUTO_ADVANCE_MS}
-          isPaused={isNewPhraseCard && isQuestionActive}
+          isPaused={isQuestionActive}
           onSayAgain={explainAck.onAckOkay}
           onAckOkay={explainAck.onAckOkay}
         />
