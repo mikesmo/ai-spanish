@@ -226,6 +226,10 @@ export type PhraseDisplayAPI = {
    */
   handleNext: (options?: { exitToLoading?: boolean }) => void;
   handleReplay: () => Promise<void>;
+  /** Recording screen: replay Spanish model audio (`answer-medium` clip). */
+  showReplaySpanishMedium: boolean;
+  isReplaySpanishMediumPlaying: boolean;
+  handleReplaySpanishMedium: () => Promise<void>;
   /**
    * True after the user taps Try Again for the current card; reset when the
    * phrase (re)presents. Used for “first pass” UI on the answer screen.

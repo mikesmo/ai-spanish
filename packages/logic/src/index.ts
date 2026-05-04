@@ -132,5 +132,6 @@ export {
   type UserRecordingViewModel,
   type UserRecordingViewProps,
   type UserRecordingExplainAckViewProps,
+  type UserRecordingReplaySpanishMediumProps,
 } from './phraseDisplayView';
 export { usePhraseDisplayWithDeck } from './usePhraseDisplayWithDeck';

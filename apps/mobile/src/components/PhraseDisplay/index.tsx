@@ -142,6 +142,15 @@ export const PhraseDisplay = ({
                   }
                 : undefined
             }
+            replaySpanishMedium={
+              display.showReplaySpanishMedium
+                ? {
+                    show: true,
+                    isPlaying: display.isReplaySpanishMediumPlaying,
+                    onReplay: display.handleReplaySpanishMedium,
+                  }
+                : undefined
+            }
           />
         )}
 

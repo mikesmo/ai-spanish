@@ -5,7 +5,7 @@ import type { UserRecordingProps } from "../PhraseDisplay.types";
 import { SayThatAgainAckButton } from "./SayThatAgainAckButton";
 
 const showAnswerPillClassName =
-  "relative w-full overflow-hidden rounded-full bg-white border border-gray-200 h-[54px] flex items-center justify-center shadow-sm";
+  "relative w-full overflow-hidden rounded-full bg-white border border-gray-200 h-[54px] flex items-center justify-center shadow-sm disabled:opacity-50 disabled:pointer-events-none";
 
 /** Matches `UserFeedback` section labels (e.g. "You said"). */
 const sectionLabelClassName = "text-[11px] text-gray-400 uppercase tracking-wide";
@@ -23,12 +23,16 @@ export const UserRecording = ({
   onShowAnswer,
   showMicChrome = true,
   explainAck,
+  replaySpanishMedium,
 }: UserRecordingProps): JSX.Element => {
   const displaySpanishLine =
     showSpanishTranslation && spanishLine != null && String(spanishLine).trim() !== ""
       ? spanishLine
       : null;
-  const showRecordingIndicator = showMicChrome && isRecording && !isCorrect;
+  const isReplaySpanishAudioPlaying =
+    replaySpanishMedium?.show === true && replaySpanishMedium.isPlaying;
+  const showRecordingIndicator =
+    showMicChrome && !isReplaySpanishAudioPlaying && isRecording && !isCorrect;
   const screenMode: UserRecordingScreenMode =
     displaySpanishLine != null ? "pronunciationAttempt" : "userTest";
 
@@ -78,7 +82,7 @@ export const UserRecording = ({
     ) : null}
 
     <div className="absolute left-1/2 top-[40%] z-[1] -translate-x-1/2 -translate-y-1/2">
-      {showMicChrome ? (
+      {showMicChrome && !isReplaySpanishAudioPlaying ? (
         <div
           className={`flex h-[120px] w-[120px] shrink-0 items-center justify-center rounded-full animate-breathe-fast ${
             isCorrect ? "bg-[#1D9E75]/70" : "bg-[#1D9E75]"
@@ -99,6 +103,36 @@ export const UserRecording = ({
             <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
             <line x1="12" y1="19" x2="12" y2="22" />
             <line x1="8" y1="22" x2="16" y2="22" />
+          </svg>
+        </div>
+      ) : showMicChrome && isReplaySpanishAudioPlaying ? (
+        <div
+          className={`flex h-[120px] w-[120px] shrink-0 items-center justify-center rounded-full ${
+            isCorrect ? "bg-[#1D9E75]/70" : "bg-[#1D9E75]"
+          }`}
+          role="status"
+          aria-label="Loading"
+        >
+          <svg
+            className="h-6 w-6 animate-spin text-white/80"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            aria-hidden
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+            />
           </svg>
         </div>
       ) : (
@@ -132,9 +166,9 @@ export const UserRecording = ({
       )}
     </div>
 
-    <div className="absolute left-1/2 top-[calc(40%_+_60px_+_1.5rem)] z-0 w-full -translate-x-1/2 flex flex-col items-center px-0">
+    <div className="absolute left-1/2 top-[calc(40%_+_60px_+_1.5rem)] z-0 w-full max-w-full -translate-x-1/2 flex flex-col items-stretch px-4">
       {displaySpanishLine ? (
-        <div className="flex max-w-[280px] flex-col items-center gap-1">
+        <div className="flex max-w-[280px] flex-col items-center gap-1 self-center">
           {showEnglishInHint ? (
             <p className="text-center text-[15px] leading-snug text-gray-500">{englishText}</p>
           ) : null}
@@ -144,21 +178,34 @@ export const UserRecording = ({
         </div>
       ) : (
         <p
-          className="max-w-[280px] text-center text-[15px] text-gray-400"
+          className="max-w-[280px] self-center text-center text-[15px] text-gray-400"
           style={{ opacity: 0.45 }}
         >
           {englishText}
         </p>
       )}
 
-      <div className="mt-6 flex min-h-[28px] items-center justify-center px-4">
+      <div className="mt-6 flex min-h-[28px] items-center justify-center">
         <p className={`text-[18px] text-center ${isCorrect ? "text-[#1D9E75]" : "text-gray-500"}`}>
           {transcription}
         </p>
       </div>
+
+      {replaySpanishMedium?.show === true ? (
+        <button
+          type="button"
+          disabled={replaySpanishMedium.isPlaying}
+          onClick={() => {
+            void replaySpanishMedium.onReplay();
+          }}
+          className={`${showAnswerPillClassName} mt-4`}
+        >
+          <span className="relative z-10 text-[16px] font-medium text-gray-900">Replay spanish</span>
+        </button>
+      ) : null}
     </div>
 
-    <div className="mt-auto flex w-full flex-col items-center pt-4">
+    <div className="mt-auto flex w-full flex-col items-center gap-3 pt-4">
       {explainAck?.isOpen === true ? (
         <SayThatAgainAckButton
           isReplayPlaying={explainAck.isReplayPlaying}

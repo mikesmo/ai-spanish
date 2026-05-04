@@ -95,6 +95,12 @@ export type UserRecordingExplainAckViewProps = {
   onAckOkay: () => void;
 };
 
+export type UserRecordingReplaySpanishMediumProps = {
+  show: boolean;
+  isPlaying: boolean;
+  onReplay: () => void;
+};
+
 export type UserRecordingViewProps = {
   englishText: string;
   spanishLine?: string | null;
@@ -109,6 +115,8 @@ export type UserRecordingViewProps = {
   showMicChrome?: boolean;
   /** Inline explain acknowledgment on the recording screen (replaces show answer). */
   explainAck?: UserRecordingExplainAckViewProps;
+  /** Replay pronunciation-example Spanish (`answer-medium`) after follow-up priming. */
+  replaySpanishMedium?: UserRecordingReplaySpanishMediumProps;
 };
 
 export type UserFeedbackViewProps = {

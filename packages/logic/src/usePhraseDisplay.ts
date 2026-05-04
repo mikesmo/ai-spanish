@@ -5,6 +5,7 @@ import {
   useEffect,
   useLayoutEffect,
   useCallback,
+  useMemo,
   useRef,
 } from 'react';
 import { alignWords } from './alignment';
@@ -152,6 +153,10 @@ export function usePhraseDisplay(
   const [isExplainAckOpen, setIsExplainAckOpen] = useState(false);
   const [isExplainAckReplayPlaying, setIsExplainAckReplayPlaying] =
     useState(false);
+  const [followUpPlaybackCompleted, setFollowUpPlaybackCompleted] =
+    useState(false);
+  const [isReplaySpanishMediumPlaying, setIsReplaySpanishMediumPlaying] =
+    useState(false);
   const isFirstOfCurrentPhraseForBootstrapRef = useRef(true);
   /**
    * Set only in useLayout (presentation) after map + isFirst is computed, so
@@ -257,6 +262,9 @@ export function usePhraseDisplay(
   /** Bumps on each `handleExplainSayAgain` call so an older request's `finally`
    * does not clear `isExplainAckReplayPlaying` after a newer replay started. */
   const explainSayAgainEpochRef = useRef(0);
+  /** Aborts in-flight recording-screen `answer-medium` replay. */
+  const replaySpanishMediumAbortRef = useRef<AbortController | null>(null);
+  const replaySpanishMediumEpochRef = useRef(0);
   const prevIndexRef = useRef<number | null>(null);
   /**
    * Suppress duplicate `onPresentationStart` when React Strict Mode (or any
@@ -305,6 +313,8 @@ export function usePhraseDisplay(
 
   const isCorrect =
     !!caption?.trim() && normalizeStr(caption) === normalizeStr(spanishText);
+  const isCorrectRef = useRef(isCorrect);
+  isCorrectRef.current = isCorrect;
 
   const emitAttempt = useCallback(
     (
@@ -449,6 +459,8 @@ export function usePhraseDisplay(
     // it, or the first call never got to setStatus in edge races.
     if (answerAudioInFlightRef.current) {
       sttRef.current.stop();
+      replaySpanishMediumAbortRef.current?.abort();
+      replaySpanishMediumAbortRef.current = null;
       if (isMountedRef.current) {
         setStatus('answer');
       }
@@ -458,6 +470,8 @@ export function usePhraseDisplay(
     // Abort any previous answer chain (shouldn't normally be in-flight here,
     // but guards against edge-case double calls racing the in-flight check).
     answerAudioAbortRef.current?.abort();
+    replaySpanishMediumAbortRef.current?.abort();
+    replaySpanishMediumAbortRef.current = null;
     const ac = new AbortController();
     answerAudioAbortRef.current = ac;
     try {
@@ -639,6 +653,7 @@ export function usePhraseDisplay(
     setHasUsedTryAgainOnCurrentCard(false);
     setIsExplainAckOpen(false);
     setIsExplainAckReplayPlaying(false);
+    setFollowUpPlaybackCompleted(false);
     explainAckContinuationRef.current = null;
     attemptEmittedRef.current = false;
     answerAudioInFlightRef.current = false;
@@ -823,6 +838,10 @@ export function usePhraseDisplay(
           if (!isMountedRef.current) return;
         }
 
+        if (bootstrapSignal.aborted) return;
+        if (!isMountedRef.current) return;
+        setFollowUpPlaybackCompleted(true);
+
         await sttRef.current.stop();
         if (bootstrapSignal.aborted) return;
         if (!isMountedRef.current) return;
@@ -860,6 +879,8 @@ export function usePhraseDisplay(
       // Abort any in-flight "Say that again" replay and clear explain-ack state.
       explainDialogReplayAbortRef.current?.abort();
       explainDialogReplayAbortRef.current = null;
+      replaySpanishMediumAbortRef.current?.abort();
+      replaySpanishMediumAbortRef.current = null;
       explainAckContinuationRef.current = null;
       ttsRef.current.stop();
     };
@@ -1117,6 +1138,8 @@ export function usePhraseDisplay(
     answerAudioAbortRef.current?.abort();
     explainDialogReplayAbortRef.current?.abort();
     explainDialogReplayAbortRef.current = null;
+    replaySpanishMediumAbortRef.current?.abort();
+    replaySpanishMediumAbortRef.current = null;
     explainAckContinuationRef.current = null;
     setIsExplainAckOpen(false);
     setIsExplainAckReplayPlaying(false);
@@ -1139,6 +1162,8 @@ export function usePhraseDisplay(
     answerAudioAbortRef.current?.abort();
     explainDialogReplayAbortRef.current?.abort();
     explainDialogReplayAbortRef.current = null;
+    replaySpanishMediumAbortRef.current?.abort();
+    replaySpanishMediumAbortRef.current = null;
     explainAckContinuationRef.current = null;
     setIsExplainAckOpen(false);
     setIsExplainAckReplayPlaying(false);
@@ -1152,6 +1177,8 @@ export function usePhraseDisplay(
   const handleReplay = async () => {
     successExplainAbortRef.current?.abort();
     answerAudioAbortRef.current?.abort();
+    replaySpanishMediumAbortRef.current?.abort();
+    replaySpanishMediumAbortRef.current = null;
     explainDialogReplayAbortRef.current?.abort();
     explainDialogReplayAbortRef.current = null;
     const s3Opts: TtsAdapterOptions =
@@ -1185,9 +1212,107 @@ export function usePhraseDisplay(
     }
   };
 
+  const showReplaySpanishMedium = useMemo(
+    () =>
+      currentPhrase.type === 'new' &&
+      followUpPlaybackCompleted &&
+      status === 'recording' &&
+      !hasUsedTryAgainOnCurrentCard &&
+      isFirstSessionPresentationOfCurrentPhrase &&
+      !isCorrect &&
+      !isExplainAckOpen &&
+      spanishText.trim() !== '',
+    [
+      currentPhrase.type,
+      followUpPlaybackCompleted,
+      status,
+      hasUsedTryAgainOnCurrentCard,
+      isFirstSessionPresentationOfCurrentPhrase,
+      isCorrect,
+      isExplainAckOpen,
+      spanishText,
+    ],
+  );
+
+  const handleReplaySpanishMedium = useCallback(async () => {
+    replaySpanishMediumAbortRef.current?.abort();
+    const ac = new AbortController();
+    replaySpanishMediumAbortRef.current = ac;
+    const epoch = ++replaySpanishMediumEpochRef.current;
+    const phraseAtStart = phraseNameRef.current;
+    const spanishAtStart = spanishText;
+
+    const baseS3: TtsAdapterOptions =
+      options?.s3LessonSegment != null && options.s3LessonSegment !== ''
+        ? { s3LessonSegment: options.s3LessonSegment }
+        : {};
+
+    let playFinishedSuccessfully = false;
+    try {
+      if (isMountedRef.current) setIsReplaySpanishMediumPlaying(true);
+      if (isMountedRef.current) setIsAudioPlaying(true);
+      ttsRef.current.stop();
+      sttRef.current.clearTranscription();
+      await Promise.resolve(sttRef.current.stop());
+      if (
+        ac.signal.aborted ||
+        !isMountedRef.current ||
+        phraseNameRef.current !== phraseAtStart
+      ) {
+        return;
+      }
+
+      await ttsRef.current.play(
+        spanishAtStart,
+        'es',
+        PLAYBACK_RATES['1x'],
+        phraseNameRef.current,
+        {
+          ...baseS3,
+          signal: ac.signal,
+          spanishSegmentOverride: 'answer-medium',
+        },
+      );
+      playFinishedSuccessfully =
+        !ac.signal.aborted &&
+        isMountedRef.current &&
+        phraseNameRef.current === phraseAtStart;
+    } catch (error) {
+      if (!ac.signal.aborted) {
+        console.error(
+          '[usePhraseDisplay] Error replaying Spanish (medium):',
+          error,
+        );
+      }
+    } finally {
+      if (replaySpanishMediumAbortRef.current === ac) {
+        replaySpanishMediumAbortRef.current = null;
+      }
+      if (!ac.signal.aborted && isMountedRef.current) {
+        setIsAudioPlaying(false);
+      }
+      if (epoch === replaySpanishMediumEpochRef.current && isMountedRef.current) {
+        setIsReplaySpanishMediumPlaying(false);
+      }
+    }
+
+    if (!playFinishedSuccessfully) return;
+
+    const st = statusRef.current;
+    if (st !== 'recording' && st !== 'tryAgain') return;
+    if (isCorrectRef.current) return;
+    const phraseForKeywords = phrases.find((p) => p.name === phraseAtStart);
+    if (!phraseForKeywords) return;
+    sttRef.current.start({
+      keywords: deepgramLiveKeywordTokensForPhrase(phraseForKeywords),
+    });
+  }, [phrases, spanishText, options?.s3LessonSegment]);
+
   const handleExplainAckOkay = () => {
     explainDialogReplayAbortRef.current?.abort();
     explainDialogReplayAbortRef.current = null;
+    replaySpanishMediumAbortRef.current?.abort();
+    replaySpanishMediumAbortRef.current = null;
     setIsExplainAckOpen(false);
     setIsExplainAckReplayPlaying(false);
     const continuation = explainAckContinuationRef.current;
@@ -1197,6 +1322,8 @@ export function usePhraseDisplay(
 
   const handleExplainSayAgain = async () => {
     explainDialogReplayAbortRef.current?.abort();
+    replaySpanishMediumAbortRef.current?.abort();
+    replaySpanishMediumAbortRef.current = null;
     const replayAc = new AbortController();
     explainDialogReplayAbortRef.current = replayAc;
     const epoch = ++explainSayAgainEpochRef.current;
@@ -1246,6 +1373,9 @@ export function usePhraseDisplay(
     handleTryAgain,
     handleNext,
     handleReplay,
+    showReplaySpanishMedium,
+    isReplaySpanishMediumPlaying,
+    handleReplaySpanishMedium,
     hasUsedTryAgainOnCurrentCard,
     isFirstSessionPresentationOfCurrentPhrase,
     lastScoreBreakdown,

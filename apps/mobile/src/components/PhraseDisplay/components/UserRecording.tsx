@@ -29,6 +29,7 @@ export const UserRecording = ({
   onShowAnswer,
   showMicChrome = true,
   explainAck,
+  replaySpanishMedium,
 }: UserRecordingProps): JSX.Element => {
   const [hero, setHero] = useState<ReturnType<typeof getPhraseHeroLayout>>(null);
   const onStageLayout = (e: LayoutChangeEvent) => {
@@ -39,7 +40,10 @@ export const UserRecording = ({
     showSpanishTranslation && spanishLine != null && String(spanishLine).trim() !== ""
       ? spanishLine
       : null;
-  const showRecordingIndicator = showMicChrome && isRecording && !isCorrect;
+  const isReplaySpanishAudioPlaying =
+    replaySpanishMedium?.show === true && replaySpanishMedium.isPlaying;
+  const showRecordingIndicator =
+    showMicChrome && !isReplaySpanishAudioPlaying && isRecording && !isCorrect;
   const screenMode: UserRecordingScreenMode =
     displaySpanishLine != null ? "pronunciationAttempt" : "userTest";
   const blinkOpacity = useRef(new Animated.Value(1)).current;
@@ -90,7 +94,7 @@ export const UserRecording = ({
         </View>
       ) : null}
 
-      {hero != null && showMicChrome ? (
+      {hero != null && showMicChrome && !isReplaySpanishAudioPlaying ? (
         <Animated.View
           style={[
             styles.micCircle,
@@ -101,6 +105,18 @@ export const UserRecording = ({
         >
           <Feather name="mic" size={28} color="white" />
         </Animated.View>
+      ) : hero != null && showMicChrome && isReplaySpanishAudioPlaying ? (
+        <View
+          style={[
+            styles.micCircle,
+            { left: hero.circleLeft, top: hero.circleTop },
+            isCorrect && styles.micCircleCorrect,
+          ]}
+          accessibilityRole="progressbar"
+          accessibilityLabel="Loading"
+        >
+          <ActivityIndicator size="large" color="#ffffff" />
+        </View>
       ) : hero != null && !showMicChrome ? (
         <View
           style={[styles.primingCircle, { left: hero.circleLeft, top: hero.circleTop }]}
@@ -127,6 +143,19 @@ export const UserRecording = ({
               {transcription}
             </Text>
           </View>
+
+          {replaySpanishMedium?.show === true ? (
+            <View style={styles.replaySpanishBelowTranscript}>
+              <PillButton
+                label="Replay spanish"
+                onPress={() => {
+                  void replaySpanishMedium.onReplay();
+                }}
+                variant="secondary"
+                disabled={replaySpanishMedium.isPlaying}
+              />
+            </View>
+          ) : null}
         </View>
       ) : null}
 
@@ -220,6 +249,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     maxWidth: 280,
     gap: 4,
+  },
+  replaySpanishBelowTranscript: {
+    marginTop: 16,
+    width: "100%",
+    alignSelf: "stretch",
   },
   englishLine: {
     fontSize: 15,
