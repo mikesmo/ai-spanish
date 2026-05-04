@@ -9,6 +9,10 @@ export * from './mastery';
 export * from './progressStore';
 export * from './sessionEngine';
 export {
+  buildDevPhraseIndexCheckpoint,
+  type BuildDevPhraseIndexCheckpointArgs,
+} from './buildDevPhraseIndexCheckpoint';
+export {
   SRS_LEARNING_SESSIONS_OFFSET,
   SRS_STABILIZING_SESSIONS_OFFSET,
   SRS_MASTERED_MIN_SESSIONS_OFFSET,

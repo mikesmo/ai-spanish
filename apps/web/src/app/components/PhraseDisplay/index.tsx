@@ -22,10 +22,13 @@ import type { PhraseDisplayProps } from "./PhraseDisplay.types";
 export const PhraseDisplay = ({
   phrases,
   lessonId,
+  initialSessionCheckpoint,
 }: PhraseDisplayProps): JSX.Element => {
   const tts = useS3TTS();
   const stt = useSTT();
-  const session = useLessonSessionWithHistory(phrases);
+  const session = useLessonSessionWithHistory(phrases, {
+    initialCheckpoint: initialSessionCheckpoint ?? undefined,
+  });
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const lessonTitle = getLessonTitle(lessonId);
 
