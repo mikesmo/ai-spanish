@@ -287,7 +287,7 @@ export const UserFeedback = ({
               </div>
             </div>
 
-            <div className="pt-[80px] flex w-full flex-col items-center gap-8">
+            <div className="pt-4 flex w-full flex-col items-center gap-8">
               <AudioControls
                 isAudioPlaying={isAudioPlaying}
                 isExplainAckReplayPlaying={isExplainAckReplayPlaying}
