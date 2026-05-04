@@ -1,9 +1,6 @@
 "use client";
 
-import {
-  EXPLAIN_ACK_AUTO_ADVANCE_MS,
-  RECORDING_EXPLAIN_ACK_NEXT_NEW_PHRASE_MS,
-} from "@ai-spanish/logic";
+import { EXPLAIN_ACK_AUTO_ADVANCE_MS } from "@ai-spanish/logic";
 import { useEffect, useState } from "react";
 import type { UserRecordingProps } from "../PhraseDisplay.types";
 import { SayThatAgainAckButton } from "./SayThatAgainAckButton";
@@ -42,9 +39,6 @@ export const UserRecording = ({
 
   const isNewPhraseCard = phraseLessonType === "new";
   const showQuestionOnExplainAck = isCorrect && isNewPhraseCard;
-  const nextPhraseAutoAdvanceMs = isNewPhraseCard
-    ? RECORDING_EXPLAIN_ACK_NEXT_NEW_PHRASE_MS
-    : EXPLAIN_ACK_AUTO_ADVANCE_MS;
 
   const displaySpanishLine =
     showSpanishTranslation && spanishLine != null && String(spanishLine).trim() !== ""
@@ -212,23 +206,8 @@ export const UserRecording = ({
         </p>
       </div>
 
-      {replaySpanishMedium?.show === true ? (
-        <button
-          type="button"
-          disabled={replaySpanishMedium.isPlaying}
-          onClick={() => {
-            void replaySpanishMedium.onReplay();
-          }}
-          className={`${showAnswerPillClassName} mt-4`}
-        >
-          <span className="relative z-10 text-[16px] font-medium text-gray-900">Replay spanish</span>
-        </button>
-      ) : null}
-    </div>
-
-    <div className="mt-auto flex w-full flex-col items-center gap-3 pt-4">
       {explainAck?.isOpen === true ? (
-        <div className="flex w-full flex-col gap-3">
+        <div className="mt-4 flex w-full flex-col gap-3">
           <button
             type="button"
             disabled={explainAck.isReplayPlaying}
@@ -254,15 +233,33 @@ export const UserRecording = ({
               </span>
             </button>
           ) : null}
-          <SayThatAgainAckButton
-            isReplayPlaying={explainAck.isReplayPlaying}
-            label="Next phrase"
-            autoAdvanceMs={nextPhraseAutoAdvanceMs}
-            isPaused={isNewPhraseCard && isQuestionActive}
-            onSayAgain={explainAck.onAckOkay}
-            onAckOkay={explainAck.onAckOkay}
-          />
         </div>
+      ) : null}
+
+      {replaySpanishMedium?.show === true ? (
+        <button
+          type="button"
+          disabled={replaySpanishMedium.isPlaying}
+          onClick={() => {
+            void replaySpanishMedium.onReplay();
+          }}
+          className={`${showAnswerPillClassName} mt-4`}
+        >
+          <span className="relative z-10 text-[16px] font-medium text-gray-900">Replay spanish</span>
+        </button>
+      ) : null}
+    </div>
+
+    <div className="mt-auto flex w-full flex-col items-center gap-3 pt-4">
+      {explainAck?.isOpen === true ? (
+        <SayThatAgainAckButton
+          isReplayPlaying={explainAck.isReplayPlaying}
+          label="Next phrase"
+          autoAdvanceMs={EXPLAIN_ACK_AUTO_ADVANCE_MS}
+          isPaused={isNewPhraseCard && isQuestionActive}
+          onSayAgain={explainAck.onAckOkay}
+          onAckOkay={explainAck.onAckOkay}
+        />
       ) : (
         <button type="button" onClick={onShowAnswer} className={showAnswerPillClassName}>
           <span className="relative z-10 text-[16px] font-medium text-gray-900">show answer</span>

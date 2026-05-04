@@ -1,7 +1,4 @@
-import {
-  EXPLAIN_ACK_AUTO_ADVANCE_MS,
-  RECORDING_EXPLAIN_ACK_NEXT_NEW_PHRASE_MS,
-} from "@ai-spanish/logic";
+import { EXPLAIN_ACK_AUTO_ADVANCE_MS } from "@ai-spanish/logic";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -46,9 +43,6 @@ export const UserRecording = ({
 
   const isNewPhraseCard = phraseLessonType === "new";
   const showQuestionOnExplainAck = isCorrect && isNewPhraseCard;
-  const nextPhraseAutoAdvanceMs = isNewPhraseCard
-    ? RECORDING_EXPLAIN_ACK_NEXT_NEW_PHRASE_MS
-    : EXPLAIN_ACK_AUTO_ADVANCE_MS;
   const onStageLayout = (e: LayoutChangeEvent) => {
     setHero(getPhraseHeroLayout(e.nativeEvent.layout));
   };
@@ -159,6 +153,28 @@ export const UserRecording = ({
             </Text>
           </View>
 
+          {explainAck?.isOpen === true ? (
+            <View style={styles.explainAckUnderTranscript}>
+              <PillButton
+                label="Explain that again"
+                onPress={() => {
+                  void explainAck.onSayAgain();
+                }}
+                variant="secondary"
+                disabled={explainAck.isReplayPlaying}
+              />
+              {showQuestionOnExplainAck ? (
+                <PillButton
+                  label={QUESTION_PLACEHOLDER_LABEL}
+                  onPress={() => {
+                    setIsQuestionActive((v) => !v);
+                  }}
+                  variant="secondary"
+                />
+              ) : null}
+            </View>
+          ) : null}
+
           {replaySpanishMedium?.show === true ? (
             <View style={styles.replaySpanishBelowTranscript}>
               <PillButton
@@ -176,33 +192,14 @@ export const UserRecording = ({
 
       <View style={styles.bottomControls}>
         {explainAck?.isOpen === true ? (
-          <View style={styles.explainAckButtonStack}>
-            <PillButton
-              label="Explain that again"
-              onPress={() => {
-                void explainAck.onSayAgain();
-              }}
-              variant="secondary"
-              disabled={explainAck.isReplayPlaying}
-            />
-            {showQuestionOnExplainAck ? (
-              <PillButton
-                label={QUESTION_PLACEHOLDER_LABEL}
-                onPress={() => {
-                  setIsQuestionActive((v) => !v);
-                }}
-                variant="secondary"
-              />
-            ) : null}
-            <SayThatAgainAckButton
-              isReplayPlaying={explainAck.isReplayPlaying}
-              label="Next phrase"
-              autoAdvanceMs={nextPhraseAutoAdvanceMs}
-              isPaused={isNewPhraseCard && isQuestionActive}
-              onSayAgain={explainAck.onAckOkay}
-              onAckOkay={explainAck.onAckOkay}
-            />
-          </View>
+          <SayThatAgainAckButton
+            isReplayPlaying={explainAck.isReplayPlaying}
+            label="Next phrase"
+            autoAdvanceMs={EXPLAIN_ACK_AUTO_ADVANCE_MS}
+            isPaused={isNewPhraseCard && isQuestionActive}
+            onSayAgain={explainAck.onAckOkay}
+            onAckOkay={explainAck.onAckOkay}
+          />
         ) : (
           <PillButton label="show answer" onPress={onShowAnswer} variant="secondary" />
         )}
@@ -323,16 +320,18 @@ const styles = StyleSheet.create({
   transcriptCorrect: {
     color: "#1D9E75",
   },
+  explainAckUnderTranscript: {
+    marginTop: 16,
+    width: "100%",
+    alignSelf: "stretch",
+    gap: 12,
+  },
   bottomControls: {
     marginTop: "auto",
     width: "100%",
     alignItems: "center",
     gap: 24,
     paddingBottom: 16,
-  },
-  explainAckButtonStack: {
-    width: "100%",
-    gap: 12,
   },
   blinkerDot: {
     width: 10,

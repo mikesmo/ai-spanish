@@ -6,6 +6,3 @@ export const FEEDBACK_AUTO_ADVANCE_MS = 2000;
 
 /** Auto-advance for the "Explain that again" pill (progress + timeout), recording and feedback. */
 export const EXPLAIN_ACK_AUTO_ADVANCE_MS = 4000;
-
-/** "Next phrase" on recording explain-ack when phrase `type === 'new'` (paired with question toggle). */
-export const RECORDING_EXPLAIN_ACK_NEXT_NEW_PHRASE_MS = 3000;
