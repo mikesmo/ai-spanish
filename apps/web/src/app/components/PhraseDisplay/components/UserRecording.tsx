@@ -31,21 +31,38 @@ export const UserRecording = ({
   hasRecordingExplainReplay = false,
   explainAck,
   replaySpanishMedium,
+  isAudioPlaying = false,
+  onStopAnswerAudio,
+  onExplainInterrupted,
 }: UserRecordingProps): JSX.Element => {
   const [isQuestionActive, setIsQuestionActive] = useState(false);
+  const [nextPhraseSliderKey, setNextPhraseSliderKey] = useState(0);
+  const audioWasInterrupted = useRef(false);
   const wasExplainAckOpenRef = useRef(false);
+  const wasQuestionActiveRef = useRef(false);
 
   useEffect(() => {
-    if (!isCorrect) setIsQuestionActive(false);
+    if (!isCorrect) {
+      setIsQuestionActive(false);
+      audioWasInterrupted.current = false;
+    }
   }, [isCorrect]);
 
   useEffect(() => {
     const isOpen = explainAck?.isOpen === true;
     if (wasExplainAckOpenRef.current && !isOpen) {
       setIsQuestionActive(false);
+      audioWasInterrupted.current = false;
     }
     wasExplainAckOpenRef.current = isOpen;
   }, [explainAck?.isOpen]);
+
+  useEffect(() => {
+    if (wasQuestionActiveRef.current && !isQuestionActive) {
+      setNextPhraseSliderKey((k) => k + 1);
+    }
+    wasQuestionActiveRef.current = isQuestionActive;
+  }, [isQuestionActive]);
 
   const showNewPhraseQuestionButton = isCorrect && phraseLessonType === "new";
   const showExplainThatAgain =
@@ -221,7 +238,19 @@ export const UserRecording = ({
             <button
               type="button"
               onClick={() => {
-                setIsQuestionActive((v) => !v);
+                if (!isQuestionActive) {
+                  if (isAudioPlaying) {
+                    onStopAnswerAudio?.();
+                    audioWasInterrupted.current = true;
+                  }
+                  setIsQuestionActive(true);
+                } else {
+                  if (audioWasInterrupted.current) {
+                    onExplainInterrupted?.();
+                    audioWasInterrupted.current = false;
+                  }
+                  setIsQuestionActive(false);
+                }
               }}
               className={showAnswerPillClassName}
             >
@@ -287,6 +316,7 @@ export const UserRecording = ({
     <div className="mt-auto flex w-full flex-col items-center gap-3 pt-4">
       {explainAck?.isOpen === true ? (
         <SayThatAgainAckButton
+          key={nextPhraseSliderKey}
           isReplayPlaying={explainAck.isReplayPlaying}
           label="Next phrase"
           autoAdvanceMs={EXPLAIN_ACK_AUTO_ADVANCE_MS}

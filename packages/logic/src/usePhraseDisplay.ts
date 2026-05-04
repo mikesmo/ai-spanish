@@ -1014,6 +1014,12 @@ export function usePhraseDisplay(
             successExplainAbortRef.current?.abort();
             const explainAc = new AbortController();
             successExplainAbortRef.current = explainAc;
+            // Set the continuation BEFORE awaiting audio so it is available to
+            // handleExplainInterrupted even if the user aborts the play early.
+            explainAckContinuationRef.current =
+              onSkipAnswerScreenAfterSuccessRef.current != null
+                ? () => { onSkipAnswerScreenAfterSuccessRef.current!(); }
+                : () => { void playAnswerAudio(); };
             if (isMountedRef.current) {
               setStatus('recordingPriming');
               setIsAudioPlaying(true);
@@ -1039,11 +1045,8 @@ export function usePhraseDisplay(
             if (explainAc.signal.aborted) return;
             if (!isMountedRef.current) return;
 
-            // Explain played on the recording screen → open acknowledgment; ack runs the continuation.
-            explainAckContinuationRef.current =
-              onSkipAnswerScreenAfterSuccessRef.current != null
-                ? () => { onSkipAnswerScreenAfterSuccessRef.current!(); }
-                : () => { void playAnswerAudio(); };
+            // Explain played to completion on the recording screen → open acknowledgment.
+            // (Continuation was already set above before the play started.)
             setIsExplainAckOpen(true);
             return;
           }
@@ -1326,7 +1329,6 @@ export function usePhraseDisplay(
   }, [phrases, spanishText, options?.s3LessonSegment]);
 
   const handleExplainAckOkay = () => {
-    explainDialogReplayAbortRef.current?.abort();
     explainDialogReplayAbortRef.current = null;
     replaySpanishMediumAbortRef.current?.abort();
     replaySpanishMediumAbortRef.current = null;
@@ -1336,6 +1338,19 @@ export function usePhraseDisplay(
     explainAckContinuationRef.current = null;
     continuation?.();
   };
+
+  /**
+   * Opens the explain acknowledgment after the learner interrupted explain audio
+   * via "I have a question". The continuation was already set before the audio
+   * started, so the ack's "Next Phrase" tap / auto-advance still runs the correct
+   * continuation. Guard: no-op if no continuation is pending (explain never started
+   * for this phrase, or the user already advanced).
+   */
+  const handleExplainInterrupted = useCallback(() => {
+    if (!isMountedRef.current) return;
+    if (explainAckContinuationRef.current === null) return;
+    setIsExplainAckOpen(true);
+  }, []);
 
   const stopAnswerAudio = useCallback(() => {
     successExplainAbortRef.current?.abort();
@@ -1417,6 +1432,7 @@ export function usePhraseDisplay(
     isExplainAckReplayPlaying,
     handleExplainAckOkay,
     handleExplainSayAgain,
+    handleExplainInterrupted,
   };
 }
 

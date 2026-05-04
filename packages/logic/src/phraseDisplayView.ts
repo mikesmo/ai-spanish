@@ -121,6 +121,12 @@ export type UserRecordingViewProps = {
   explainAck?: UserRecordingExplainAckViewProps;
   /** Replay pronunciation-example Spanish (`answer-medium`) after follow-up priming. */
   replaySpanishMedium?: UserRecordingReplaySpanishMediumProps;
+  /** True while any lesson TTS is active (e.g. explain on recording). */
+  isAudioPlaying?: boolean;
+  /** Stops in-flight TTS when learner taps "I have a question" while audio plays. */
+  onStopAnswerAudio?: () => void;
+  /** Called when the learner dismisses "I have a question" after having interrupted explain audio. */
+  onExplainInterrupted?: () => void;
 };
 
 export type UserFeedbackViewProps = {

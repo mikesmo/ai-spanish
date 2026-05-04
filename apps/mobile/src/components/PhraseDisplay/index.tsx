@@ -136,6 +136,9 @@ export const PhraseDisplay = ({
             showMicChrome={display.status !== "recordingPriming"}
             phraseLessonType={display.currentPhrase.type}
             hasRecordingExplainReplay={display.currentPhrase.English.explain.trim() !== ""}
+            isAudioPlaying={display.isAudioPlaying}
+            onStopAnswerAudio={display.stopAnswerAudio}
+            onExplainInterrupted={display.handleExplainInterrupted}
             explainAck={
               display.isExplainAckOpen &&
               (display.status === "recording" || display.status === "recordingPriming")

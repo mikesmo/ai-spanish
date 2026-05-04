@@ -271,4 +271,10 @@ export type PhraseDisplayAPI = {
    * playback ends.
    */
   handleExplainSayAgain: () => void;
+  /**
+   * Opens the explain acknowledgment after the learner interrupted explain audio
+   * via "I have a question". No-op if no continuation is pending (explain never
+   * started, or the user already advanced).
+   */
+  handleExplainInterrupted: () => void;
 };
