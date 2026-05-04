@@ -1320,6 +1320,20 @@ export function usePhraseDisplay(
     continuation?.();
   };
 
+  const stopAnswerAudio = useCallback(() => {
+    successExplainAbortRef.current?.abort();
+    answerAudioAbortRef.current?.abort();
+    explainDialogReplayAbortRef.current?.abort();
+    explainDialogReplayAbortRef.current = null;
+    replaySpanishMediumAbortRef.current?.abort();
+    replaySpanishMediumAbortRef.current = null;
+    ttsRef.current.stop();
+    if (isMountedRef.current) {
+      setIsAudioPlaying(false);
+      setIsExplainAckReplayPlaying(false);
+    }
+  }, []);
+
   const handleExplainSayAgain = async () => {
     explainDialogReplayAbortRef.current?.abort();
     replaySpanishMediumAbortRef.current?.abort();
@@ -1370,6 +1384,7 @@ export function usePhraseDisplay(
     speed,
     setSpeed,
     handleShowAnswer,
+    stopAnswerAudio,
     handleTryAgain,
     handleNext,
     handleReplay,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   FEEDBACK_AUTO_ADVANCE_MS,
   diffWords,
@@ -12,13 +12,11 @@ interface AutoNextButtonProps {
   label: string;
   onPress: () => void;
   onTimeout: () => void;
+  isPaused?: boolean;
 }
 
 const NEXT_PHRASE_LABEL = "Next phrase";
 const QUESTION_PLACEHOLDER_LABEL = "I have a question";
-
-/** Placeholder until question flow is wired. */
-const noopQuestionPress = (): void => {};
 
 const pillShellClassName =
   "relative w-full overflow-hidden rounded-full h-[54px] flex items-center justify-center shadow-sm";
@@ -56,19 +54,42 @@ const PillNavButton = ({
   </button>
 );
 
-const AutoNextButton = ({ label, onPress, onTimeout }: AutoNextButtonProps): JSX.Element => {
+const AutoNextButton = ({
+  label,
+  onPress,
+  onTimeout,
+  isPaused = false,
+}: AutoNextButtonProps): JSX.Element => {
+  const [progressKey, setProgressKey] = useState(0);
+  const wasPausedRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onPressRef = useRef(onPress);
   const onTimeoutRef = useRef(onTimeout);
   onPressRef.current = onPress;
   onTimeoutRef.current = onTimeout;
 
+  /** When pause is released, remount the progress fill so the animation restarts from zero. */
   useEffect(() => {
+    if (!isPaused && wasPausedRef.current) {
+      setProgressKey((k) => k + 1);
+    }
+    wasPausedRef.current = isPaused;
+  }, [isPaused]);
+
+  useEffect(() => {
+    if (isPaused) {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+      return;
+    }
+
     timerRef.current = setTimeout(() => onTimeoutRef.current(), FEEDBACK_AUTO_ADVANCE_MS);
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, []);
+  }, [isPaused]);
 
   const handleClick = () => {
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -77,7 +98,11 @@ const AutoNextButton = ({ label, onPress, onTimeout }: AutoNextButtonProps): JSX
 
   return (
     <button type="button" onClick={handleClick} className={pillSecondaryClassName}>
-      <span className="absolute inset-y-0 left-0 bg-[#A8DDD0] animate-progress-fill" />
+      <span
+        key={progressKey}
+        className="absolute inset-y-0 left-0 bg-[#A8DDD0] animate-progress-fill"
+        style={{ animationPlayState: isPaused ? "paused" : "running" }}
+      />
       <span className="relative z-10 text-[16px] font-medium text-pill-secondary-foreground">
         {label}
       </span>
@@ -88,18 +113,27 @@ const AutoNextButton = ({ label, onPress, onTimeout }: AutoNextButtonProps): JSX
 interface ContinueAfterAudioButtonProps {
   isAudioPlaying: boolean;
   onNext: () => void;
+  isPaused?: boolean;
 }
 
 /** Auto-advance + progress bar only after Spanish TTS is idle. */
 const NextPhraseAfterAudioButton = ({
   isAudioPlaying,
   onNext,
+  isPaused = false,
 }: ContinueAfterAudioButtonProps): JSX.Element => {
   if (isAudioPlaying) {
     return <PillNavButton label={NEXT_PHRASE_LABEL} onClick={onNext} />;
   }
 
-  return <AutoNextButton label={NEXT_PHRASE_LABEL} onPress={onNext} onTimeout={onNext} />;
+  return (
+    <AutoNextButton
+      label={NEXT_PHRASE_LABEL}
+      onPress={onNext}
+      onTimeout={onNext}
+      isPaused={isPaused}
+    />
+  );
 };
 
 interface AudioControlsProps {
@@ -233,23 +267,27 @@ export const UserFeedback = ({
   speed,
   onSpeedChange,
   onReplay,
+  onStopAnswerAudio,
   onTryAgain,
   onNext,
   isExplainAckOpen,
   isExplainAckReplayPlaying,
   handleExplainSayAgain,
 }: UserFeedbackProps): JSX.Element => {
+  const [isQuestionActive, setIsQuestionActive] = useState(false);
   const diff = transcription.trim() ? diffWords(transcription, spanishPhrase) : null;
 
   const explainAckDisabled = isAudioPlaying || isExplainAckReplayPlaying;
 
   const explainAckActions = isExplainAckOpen ? (
     <div className="flex w-full flex-col gap-4">
-      <PillNavButton
-        label={QUESTION_PLACEHOLDER_LABEL}
-        onClick={noopQuestionPress}
-        variant="secondary"
-      />
+      {!isCorrect ? (
+        <PillNavButton
+          label={QUESTION_PLACEHOLDER_LABEL}
+          onClick={() => {}}
+          variant="secondary"
+        />
+      ) : null}
       <PillNavButton
         label="Explain that again"
         onClick={() => {
@@ -262,12 +300,28 @@ export const UserFeedback = ({
 
   return (
     <div className="flex-1 flex flex-col items-center min-h-0 w-full animate-screen-fade-in">
-      <div className="flex flex-1 min-h-0 w-full flex-col items-center justify-start pt-[80px]">
+      <div
+        className={`flex flex-1 min-h-0 w-full flex-col items-center ${
+          isCorrect ? "justify-center" : "justify-start pt-[80px]"
+        }`}
+      >
         {isCorrect ? (
           <div className="flex flex-col items-center w-full">
             <p className="text-[18px] text-[#1D9E75] text-center leading-relaxed">{spanishPhrase}</p>
+            <div className="mt-6 flex w-full flex-col gap-4">
+              <PillNavButton
+                label={QUESTION_PLACEHOLDER_LABEL}
+                onClick={() => {
+                  if (isAudioPlaying) {
+                    onStopAnswerAudio();
+                  }
+                  setIsQuestionActive((v) => !v);
+                }}
+                variant="secondary"
+              />
+            </div>
             {explainAckActions != null ? (
-              <div className="pt-[80px] flex w-full flex-col items-center">{explainAckActions}</div>
+              <div className="mt-8 flex w-full flex-col items-center">{explainAckActions}</div>
             ) : null}
           </div>
         ) : (
@@ -308,7 +362,11 @@ export const UserFeedback = ({
         }`}
       >
         {isCorrect ? (
-          <NextPhraseAfterAudioButton isAudioPlaying={isAudioPlaying} onNext={onNext} />
+          <NextPhraseAfterAudioButton
+            isAudioPlaying={isAudioPlaying}
+            onNext={onNext}
+            isPaused={isQuestionActive}
+          />
         ) : (
           <div className="flex flex-col items-center gap-4">
             <PillNavButton label={NEXT_PHRASE_LABEL} onClick={onNext} variant="secondary" />

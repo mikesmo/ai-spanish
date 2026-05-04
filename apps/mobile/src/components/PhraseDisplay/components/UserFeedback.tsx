@@ -76,9 +76,15 @@ interface AutoNextButtonProps {
   label: string;
   onPress: () => void;
   onTimeout: () => void;
+  isPaused?: boolean;
 }
 
-const AutoNextButton = ({ label, onPress, onTimeout }: AutoNextButtonProps): JSX.Element => {
+const AutoNextButton = ({
+  label,
+  onPress,
+  onTimeout,
+  isPaused = false,
+}: AutoNextButtonProps): JSX.Element => {
   const [pillWidth, setPillWidth] = useState(0);
   const fillWidth = useRef(new Animated.Value(0)).current;
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -89,16 +95,28 @@ const AutoNextButton = ({ label, onPress, onTimeout }: AutoNextButtonProps): JSX
 
   useEffect(() => {
     if (pillWidth <= 0) return;
+
+    if (isPaused) {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+      fillWidth.stopAnimation();
+      return;
+    }
+
+    fillWidth.setValue(0);
     timerRef.current = setTimeout(() => onTimeoutRef.current(), FEEDBACK_AUTO_ADVANCE_MS);
     Animated.timing(fillWidth, {
       toValue: pillWidth,
       duration: FEEDBACK_AUTO_ADVANCE_MS,
       useNativeDriver: false,
     }).start();
+
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [pillWidth, fillWidth]);
+  }, [pillWidth, fillWidth, isPaused]);
 
   const handlePress = () => {
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -126,16 +144,25 @@ const AutoNextButton = ({ label, onPress, onTimeout }: AutoNextButtonProps): JSX
 interface NextPhraseAfterAudioButtonProps {
   isAudioPlaying: boolean;
   onNext: () => void;
+  isPaused?: boolean;
 }
 
 const NextPhraseAfterAudioButton = ({
   isAudioPlaying,
   onNext,
+  isPaused = false,
 }: NextPhraseAfterAudioButtonProps): JSX.Element => {
   if (isAudioPlaying) {
     return <PillButton label={NEXT_PHRASE_LABEL} onPress={onNext} variant="secondary" />;
   }
-  return <AutoNextButton label={NEXT_PHRASE_LABEL} onPress={onNext} onTimeout={onNext} />;
+  return (
+    <AutoNextButton
+      label={NEXT_PHRASE_LABEL}
+      onPress={onNext}
+      onTimeout={onNext}
+      isPaused={isPaused}
+    />
+  );
 };
 
 const joinLeadingSpace = (index: number): string => (index > 0 ? " " : "");
@@ -162,23 +189,27 @@ export const UserFeedback = ({
   speed,
   onSpeedChange,
   onReplay,
+  onStopAnswerAudio,
   onTryAgain,
   onNext,
   isExplainAckOpen,
   isExplainAckReplayPlaying,
   handleExplainSayAgain,
 }: UserFeedbackProps): JSX.Element => {
+  const [isQuestionActive, setIsQuestionActive] = useState(false);
   const diff = transcription.trim() ? diffWords(transcription, spanishPhrase) : null;
   const explainAckDisabled = isAudioPlaying || isExplainAckReplayPlaying;
 
   const explainAckActions =
     isExplainAckOpen ? (
       <View style={styles.explainAckActions}>
-        <PillButton
-          label={QUESTION_PLACEHOLDER_LABEL}
-          onPress={noopQuestionPress}
-          variant="secondary"
-        />
+        {!isCorrect ? (
+          <PillButton
+            label={QUESTION_PLACEHOLDER_LABEL}
+            onPress={noopQuestionPress}
+            variant="secondary"
+          />
+        ) : null}
         <PillButton
           label="Explain that again"
           onPress={() => {
@@ -193,10 +224,24 @@ export const UserFeedback = ({
   return (
     <View style={styles.container}>
       <View style={styles.main}>
-        <View style={styles.feedbackStage}>
+        <View
+          style={[styles.feedbackStage, isCorrect ? styles.feedbackStageCorrect : styles.feedbackStageIncorrect]}
+        >
           {isCorrect ? (
             <View style={styles.correctStageColumn}>
               <Text style={styles.correctPhrase}>{spanishPhrase}</Text>
+              <View style={styles.correctQuestionBlock}>
+                <PillButton
+                  label={QUESTION_PLACEHOLDER_LABEL}
+                  onPress={() => {
+                    if (isAudioPlaying) {
+                      onStopAnswerAudio();
+                    }
+                    setIsQuestionActive((v) => !v);
+                  }}
+                  variant="secondary"
+                />
+              </View>
               {explainAckActions != null ? (
                 <View style={styles.explainAckBelowCorrectPhrase}>{explainAckActions}</View>
               ) : null}
@@ -258,7 +303,11 @@ export const UserFeedback = ({
 
       <View style={[styles.footer, isExplainAckOpen && styles.footerWithExplainAckAbove]}>
         {isCorrect ? (
-          <NextPhraseAfterAudioButton isAudioPlaying={isAudioPlaying} onNext={onNext} />
+          <NextPhraseAfterAudioButton
+            isAudioPlaying={isAudioPlaying}
+            onNext={onNext}
+            isPaused={isQuestionActive}
+          />
         ) : (
           <View style={styles.buttonGroup}>
             <PillButton label={NEXT_PHRASE_LABEL} onPress={onNext} variant="secondary" />
@@ -286,12 +335,21 @@ const styles = StyleSheet.create({
     minHeight: 0,
     width: "100%",
     alignItems: "center",
+  },
+  feedbackStageCorrect: {
+    justifyContent: "center",
+  },
+  feedbackStageIncorrect: {
     justifyContent: "flex-start",
     paddingTop: 80,
   },
   correctStageColumn: {
     width: "100%",
     alignItems: "center",
+  },
+  correctQuestionBlock: {
+    marginTop: 24,
+    width: "100%",
   },
   incorrectStageColumn: {
     width: "100%",
@@ -309,7 +367,7 @@ const styles = StyleSheet.create({
     gap: 24,
   },
   explainAckBelowCorrectPhrase: {
-    marginTop: 80,
+    marginTop: 32,
     width: "100%",
     alignItems: "center",
   },

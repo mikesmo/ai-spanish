@@ -127,6 +127,7 @@ export type UserFeedbackViewProps = {
   speed: '1x' | 'slow';
   onSpeedChange: (speed: '1x' | 'slow') => void;
   onReplay: () => void;
+  onStopAnswerAudio: () => void;
   onTryAgain: () => void;
   onNext: () => void;
   isExplainAckOpen: boolean;

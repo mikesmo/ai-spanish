@@ -166,6 +166,7 @@ export const PhraseDisplay = ({
             speed={display.speed}
             onSpeedChange={display.setSpeed}
             onReplay={display.handleReplay}
+            onStopAnswerAudio={display.stopAnswerAudio}
             onTryAgain={display.handleTryAgain}
             onNext={() => {
               runPhraseFeedbackNext(display, session);

@@ -218,6 +218,11 @@ export type PhraseDisplayAPI = {
   speed: '1x' | 'slow';
   setSpeed: (s: '1x' | 'slow') => void;
   handleShowAnswer: () => void;
+  /**
+   * Stops in-flight answer / explain / replay TTS (e.g. learner opens
+   * "I have a question" while feedback audio is playing).
+   */
+  stopAnswerAudio: () => void;
   handleTryAgain: () => void;
   /**
    * `exitToLoading`: set when another card will load — leaves the feedback
