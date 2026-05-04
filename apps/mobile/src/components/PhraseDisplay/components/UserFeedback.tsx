@@ -16,9 +16,6 @@ import { PillButton, pillStyles } from "./PillButton";
 const NEXT_PHRASE_LABEL = "Next phrase";
 const QUESTION_PLACEHOLDER_LABEL = "I have a question";
 
-/** Placeholder until question flow is wired. */
-const noopQuestionPress = (): void => {};
-
 interface AudioControlsProps {
   isAudioPlaying: boolean;
   /** When true, TTS is the explain-ack replay — play button stays visually idle. */
@@ -200,16 +197,18 @@ export const UserFeedback = ({
   const diff = transcription.trim() ? diffWords(transcription, spanishPhrase) : null;
   const explainAckDisabled = isAudioPlaying || isExplainAckReplayPlaying;
 
+  const handleQuestionToggle = () => {
+    if (isAudioPlaying) {
+      onStopAnswerAudio();
+    }
+    if (isCorrect) {
+      setIsQuestionActive((v) => !v);
+    }
+  };
+
   const explainAckActions =
     isExplainAckOpen ? (
       <View style={styles.explainAckActions}>
-        {!isCorrect ? (
-          <PillButton
-            label={QUESTION_PLACEHOLDER_LABEL}
-            onPress={noopQuestionPress}
-            variant="secondary"
-          />
-        ) : null}
         <PillButton
           label="Explain that again"
           onPress={() => {
@@ -233,12 +232,7 @@ export const UserFeedback = ({
               <View style={styles.correctQuestionBlock}>
                 <PillButton
                   label={QUESTION_PLACEHOLDER_LABEL}
-                  onPress={() => {
-                    if (isAudioPlaying) {
-                      onStopAnswerAudio();
-                    }
-                    setIsQuestionActive((v) => !v);
-                  }}
+                  onPress={handleQuestionToggle}
                   variant="secondary"
                 />
               </View>
@@ -293,6 +287,14 @@ export const UserFeedback = ({
                   onSpeedChange={onSpeedChange}
                   onReplay={onReplay}
                 />
+
+                <View style={styles.incorrectQuestionBlock}>
+                  <PillButton
+                    label={QUESTION_PLACEHOLDER_LABEL}
+                    onPress={handleQuestionToggle}
+                    variant="secondary"
+                  />
+                </View>
 
                 {explainAckActions}
               </View>
@@ -365,6 +367,9 @@ const styles = StyleSheet.create({
     width: "100%",
     alignItems: "center",
     gap: 24,
+  },
+  incorrectQuestionBlock: {
+    width: "100%",
   },
   explainAckBelowCorrectPhrase: {
     marginTop: 32,

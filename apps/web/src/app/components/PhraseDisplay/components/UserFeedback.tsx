@@ -279,15 +279,17 @@ export const UserFeedback = ({
 
   const explainAckDisabled = isAudioPlaying || isExplainAckReplayPlaying;
 
+  const handleQuestionToggle = () => {
+    if (isAudioPlaying) {
+      onStopAnswerAudio();
+    }
+    if (isCorrect) {
+      setIsQuestionActive((v) => !v);
+    }
+  };
+
   const explainAckActions = isExplainAckOpen ? (
     <div className="flex w-full flex-col gap-4">
-      {!isCorrect ? (
-        <PillNavButton
-          label={QUESTION_PLACEHOLDER_LABEL}
-          onClick={() => {}}
-          variant="secondary"
-        />
-      ) : null}
       <PillNavButton
         label="Explain that again"
         onClick={() => {
@@ -311,12 +313,7 @@ export const UserFeedback = ({
             <div className="mt-6 flex w-full flex-col gap-4">
               <PillNavButton
                 label={QUESTION_PLACEHOLDER_LABEL}
-                onClick={() => {
-                  if (isAudioPlaying) {
-                    onStopAnswerAudio();
-                  }
-                  setIsQuestionActive((v) => !v);
-                }}
+                onClick={handleQuestionToggle}
                 variant="secondary"
               />
             </div>
@@ -349,6 +346,14 @@ export const UserFeedback = ({
                 onSpeedChange={onSpeedChange}
                 onReplay={onReplay}
               />
+
+              <div className="flex w-full flex-col gap-4">
+                <PillNavButton
+                  label={QUESTION_PLACEHOLDER_LABEL}
+                  onClick={handleQuestionToggle}
+                  variant="secondary"
+                />
+              </div>
 
               {explainAckActions}
             </div>
