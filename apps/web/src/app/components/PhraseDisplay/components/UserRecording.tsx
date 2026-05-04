@@ -207,15 +207,27 @@ export const UserRecording = ({
 
     <div className="mt-auto flex w-full flex-col items-center gap-3 pt-4">
       {explainAck?.isOpen === true ? (
-        <SayThatAgainAckButton
-          isReplayPlaying={explainAck.isReplayPlaying}
-          label="Explain that again"
-          autoAdvanceMs={EXPLAIN_ACK_AUTO_ADVANCE_MS}
-          onSayAgain={() => {
-            void explainAck.onSayAgain();
-          }}
-          onAckOkay={explainAck.onAckOkay}
-        />
+        <div className="flex w-full flex-col gap-3">
+          <button
+            type="button"
+            disabled={explainAck.isReplayPlaying}
+            onClick={() => {
+              void explainAck.onSayAgain();
+            }}
+            className={showAnswerPillClassName}
+          >
+            <span className="relative z-10 text-[16px] font-medium text-gray-900">
+              Explain that again
+            </span>
+          </button>
+          <SayThatAgainAckButton
+            isReplayPlaying={explainAck.isReplayPlaying}
+            label="Next phrase"
+            autoAdvanceMs={EXPLAIN_ACK_AUTO_ADVANCE_MS}
+            onSayAgain={explainAck.onAckOkay}
+            onAckOkay={explainAck.onAckOkay}
+          />
+        </div>
       ) : (
         <button type="button" onClick={onShowAnswer} className={showAnswerPillClassName}>
           <span className="relative z-10 text-[16px] font-medium text-gray-900">show answer</span>

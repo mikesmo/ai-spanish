@@ -14,8 +14,6 @@ import type { UserRecordingProps } from "../PhraseDisplay.types";
 import { PillButton } from "./PillButton";
 import { SayThatAgainAckButton } from "./SayThatAgainAckButton";
 
-type UserRecordingScreenMode = "pronunciationAttempt" | "userTest";
-
 const CIRCLE_SIZE = 120;
 
 export const UserRecording = ({
@@ -44,8 +42,6 @@ export const UserRecording = ({
     replaySpanishMedium?.show === true && replaySpanishMedium.isPlaying;
   const showRecordingIndicator =
     showMicChrome && !isReplaySpanishAudioPlaying && isRecording && !isCorrect;
-  const screenMode: UserRecordingScreenMode =
-    displaySpanishLine != null ? "pronunciationAttempt" : "userTest";
   const blinkOpacity = useRef(new Animated.Value(1)).current;
   const breatheScale = useRef(new Animated.Value(1)).current;
 
@@ -86,7 +82,7 @@ export const UserRecording = ({
             <Text style={styles.bienHechoText}>Bien hecho!</Text>
           </View>
         </View>
-      ) : hero != null && screenMode === "pronunciationAttempt" ? (
+      ) : hero != null ? (
         <View style={[styles.aboveLabel, { top: hero.aboveCircleLabelTop }]}>
           <View style={styles.nowYouTryRow}>
             <Text style={styles.diffLabel}>Now you try</Text>
@@ -161,15 +157,23 @@ export const UserRecording = ({
 
       <View style={styles.bottomControls}>
         {explainAck?.isOpen === true ? (
-          <SayThatAgainAckButton
-            isReplayPlaying={explainAck.isReplayPlaying}
-            label="Explain that again"
-            autoAdvanceMs={EXPLAIN_ACK_AUTO_ADVANCE_MS}
-            onSayAgain={() => {
-              void explainAck.onSayAgain();
-            }}
-            onAckOkay={explainAck.onAckOkay}
-          />
+          <View style={styles.explainAckButtonStack}>
+            <PillButton
+              label="Explain that again"
+              onPress={() => {
+                void explainAck.onSayAgain();
+              }}
+              variant="secondary"
+              disabled={explainAck.isReplayPlaying}
+            />
+            <SayThatAgainAckButton
+              isReplayPlaying={explainAck.isReplayPlaying}
+              label="Next phrase"
+              autoAdvanceMs={EXPLAIN_ACK_AUTO_ADVANCE_MS}
+              onSayAgain={explainAck.onAckOkay}
+              onAckOkay={explainAck.onAckOkay}
+            />
+          </View>
         ) : (
           <PillButton label="show answer" onPress={onShowAnswer} variant="secondary" />
         )}
@@ -296,6 +300,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 24,
     paddingBottom: 16,
+  },
+  explainAckButtonStack: {
+    width: "100%",
+    gap: 12,
   },
   blinkerDot: {
     width: 10,
