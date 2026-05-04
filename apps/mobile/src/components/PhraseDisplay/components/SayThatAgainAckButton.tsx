@@ -13,6 +13,8 @@ export interface SayThatAgainAckButtonProps {
   label?: string;
   /** Progress + timeout duration in ms; default 2000 (recording screen). */
   autoAdvanceMs?: number;
+  /** When true, freeze progress + timeout (e.g. "I have a question" toggle). */
+  isPaused?: boolean;
 }
 
 /**
@@ -25,8 +27,11 @@ export const SayThatAgainAckButton = ({
   onAckOkay,
   label = DEFAULT_LABEL,
   autoAdvanceMs = FEEDBACK_AUTO_ADVANCE_MS,
+  isPaused = false,
 }: SayThatAgainAckButtonProps): JSX.Element => {
   const [pillWidth, setPillWidth] = useState(0);
+  const [progressKey, setProgressKey] = useState(0);
+  const wasPausedRef = useRef(false);
   const fillWidth = useRef(new Animated.Value(0)).current;
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onAckOkayRef = useRef(onAckOkay);
@@ -34,7 +39,14 @@ export const SayThatAgainAckButton = ({
   onAckOkayRef.current = onAckOkay;
   onSayAgainRef.current = onSayAgain;
 
-  const shouldRunTimer = !isReplayPlaying && pillWidth > 0;
+  useEffect(() => {
+    if (!isPaused && wasPausedRef.current) {
+      setProgressKey((k) => k + 1);
+    }
+    wasPausedRef.current = isPaused;
+  }, [isPaused]);
+
+  const shouldRunTimer = !isReplayPlaying && pillWidth > 0 && !isPaused;
 
   useEffect(() => {
     if (!shouldRunTimer) return;
@@ -48,8 +60,9 @@ export const SayThatAgainAckButton = ({
     }).start();
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
+      fillWidth.stopAnimation();
     };
-  }, [shouldRunTimer, pillWidth, fillWidth, autoAdvanceMs]);
+  }, [shouldRunTimer, pillWidth, fillWidth, autoAdvanceMs, progressKey]);
 
   const handlePress = () => {
     if (isReplayPlaying) return;

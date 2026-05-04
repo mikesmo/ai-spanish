@@ -1,4 +1,7 @@
-import { EXPLAIN_ACK_AUTO_ADVANCE_MS } from "@ai-spanish/logic";
+import {
+  EXPLAIN_ACK_AUTO_ADVANCE_MS,
+  RECORDING_EXPLAIN_ACK_NEXT_NEW_PHRASE_MS,
+} from "@ai-spanish/logic";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -14,6 +17,8 @@ import type { UserRecordingProps } from "../PhraseDisplay.types";
 import { PillButton } from "./PillButton";
 import { SayThatAgainAckButton } from "./SayThatAgainAckButton";
 
+const QUESTION_PLACEHOLDER_LABEL = "I have a question";
+
 const CIRCLE_SIZE = 120;
 
 export const UserRecording = ({
@@ -26,10 +31,24 @@ export const UserRecording = ({
   isCorrect,
   onShowAnswer,
   showMicChrome = true,
+  phraseLessonType,
   explainAck,
   replaySpanishMedium,
 }: UserRecordingProps): JSX.Element => {
+  const [isQuestionActive, setIsQuestionActive] = useState(false);
   const [hero, setHero] = useState<ReturnType<typeof getPhraseHeroLayout>>(null);
+
+  useEffect(() => {
+    if (explainAck?.isOpen !== true) {
+      setIsQuestionActive(false);
+    }
+  }, [explainAck?.isOpen]);
+
+  const isNewPhraseCard = phraseLessonType === "new";
+  const showQuestionOnExplainAck = isCorrect && isNewPhraseCard;
+  const nextPhraseAutoAdvanceMs = isNewPhraseCard
+    ? RECORDING_EXPLAIN_ACK_NEXT_NEW_PHRASE_MS
+    : EXPLAIN_ACK_AUTO_ADVANCE_MS;
   const onStageLayout = (e: LayoutChangeEvent) => {
     setHero(getPhraseHeroLayout(e.nativeEvent.layout));
   };
@@ -166,10 +185,20 @@ export const UserRecording = ({
               variant="secondary"
               disabled={explainAck.isReplayPlaying}
             />
+            {showQuestionOnExplainAck ? (
+              <PillButton
+                label={QUESTION_PLACEHOLDER_LABEL}
+                onPress={() => {
+                  setIsQuestionActive((v) => !v);
+                }}
+                variant="secondary"
+              />
+            ) : null}
             <SayThatAgainAckButton
               isReplayPlaying={explainAck.isReplayPlaying}
               label="Next phrase"
-              autoAdvanceMs={EXPLAIN_ACK_AUTO_ADVANCE_MS}
+              autoAdvanceMs={nextPhraseAutoAdvanceMs}
+              isPaused={isNewPhraseCard && isQuestionActive}
               onSayAgain={explainAck.onAckOkay}
               onAckOkay={explainAck.onAckOkay}
             />

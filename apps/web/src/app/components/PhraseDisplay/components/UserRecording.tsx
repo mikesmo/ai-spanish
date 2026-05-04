@@ -1,8 +1,14 @@
 "use client";
 
-import { EXPLAIN_ACK_AUTO_ADVANCE_MS } from "@ai-spanish/logic";
+import {
+  EXPLAIN_ACK_AUTO_ADVANCE_MS,
+  RECORDING_EXPLAIN_ACK_NEXT_NEW_PHRASE_MS,
+} from "@ai-spanish/logic";
+import { useEffect, useState } from "react";
 import type { UserRecordingProps } from "../PhraseDisplay.types";
 import { SayThatAgainAckButton } from "./SayThatAgainAckButton";
+
+const QUESTION_PLACEHOLDER_LABEL = "I have a question";
 
 const showAnswerPillClassName =
   "relative w-full overflow-hidden rounded-full bg-white border border-gray-200 h-[54px] flex items-center justify-center shadow-sm disabled:opacity-50 disabled:pointer-events-none";
@@ -22,9 +28,24 @@ export const UserRecording = ({
   isCorrect,
   onShowAnswer,
   showMicChrome = true,
+  phraseLessonType,
   explainAck,
   replaySpanishMedium,
 }: UserRecordingProps): JSX.Element => {
+  const [isQuestionActive, setIsQuestionActive] = useState(false);
+
+  useEffect(() => {
+    if (explainAck?.isOpen !== true) {
+      setIsQuestionActive(false);
+    }
+  }, [explainAck?.isOpen]);
+
+  const isNewPhraseCard = phraseLessonType === "new";
+  const showQuestionOnExplainAck = isCorrect && isNewPhraseCard;
+  const nextPhraseAutoAdvanceMs = isNewPhraseCard
+    ? RECORDING_EXPLAIN_ACK_NEXT_NEW_PHRASE_MS
+    : EXPLAIN_ACK_AUTO_ADVANCE_MS;
+
   const displaySpanishLine =
     showSpanishTranslation && spanishLine != null && String(spanishLine).trim() !== ""
       ? spanishLine
@@ -220,10 +241,24 @@ export const UserRecording = ({
               Explain that again
             </span>
           </button>
+          {showQuestionOnExplainAck ? (
+            <button
+              type="button"
+              onClick={() => {
+                setIsQuestionActive((v) => !v);
+              }}
+              className={showAnswerPillClassName}
+            >
+              <span className="relative z-10 text-[16px] font-medium text-gray-900">
+                {QUESTION_PLACEHOLDER_LABEL}
+              </span>
+            </button>
+          ) : null}
           <SayThatAgainAckButton
             isReplayPlaying={explainAck.isReplayPlaying}
             label="Next phrase"
-            autoAdvanceMs={EXPLAIN_ACK_AUTO_ADVANCE_MS}
+            autoAdvanceMs={nextPhraseAutoAdvanceMs}
+            isPaused={isNewPhraseCard && isQuestionActive}
             onSayAgain={explainAck.onAckOkay}
             onAckOkay={explainAck.onAckOkay}
           />

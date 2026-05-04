@@ -123,6 +123,7 @@ export const PhraseDisplay = ({
           isCorrect={display.isCorrect}
           onShowAnswer={display.handleShowAnswer}
           showMicChrome={display.status !== "recordingPriming"}
+          phraseLessonType={display.currentPhrase.type}
           explainAck={
             display.isExplainAckOpen &&
             (display.status === "recording" || display.status === "recordingPriming")

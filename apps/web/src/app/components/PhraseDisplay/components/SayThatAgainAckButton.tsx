@@ -1,7 +1,7 @@
 "use client";
 
 import { FEEDBACK_AUTO_ADVANCE_MS } from "@ai-spanish/logic";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const DEFAULT_LABEL = "Say that again";
 
@@ -18,6 +18,8 @@ export interface SayThatAgainAckButtonProps {
   label?: string;
   /** Progress + timeout duration in ms; default 2000 (recording screen). */
   autoAdvanceMs?: number;
+  /** When true, freeze progress + timeout (e.g. "I have a question" toggle). */
+  isPaused?: boolean;
 }
 
 /**
@@ -30,14 +32,24 @@ export const SayThatAgainAckButton = ({
   onAckOkay,
   label = DEFAULT_LABEL,
   autoAdvanceMs = FEEDBACK_AUTO_ADVANCE_MS,
+  isPaused = false,
 }: SayThatAgainAckButtonProps): JSX.Element => {
+  const [progressKey, setProgressKey] = useState(0);
+  const wasPausedRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onAckOkayRef = useRef(onAckOkay);
   const onSayAgainRef = useRef(onSayAgain);
   onAckOkayRef.current = onAckOkay;
   onSayAgainRef.current = onSayAgain;
 
-  const shouldRunTimer = !isReplayPlaying;
+  useEffect(() => {
+    if (!isPaused && wasPausedRef.current) {
+      setProgressKey((k) => k + 1);
+    }
+    wasPausedRef.current = isPaused;
+  }, [isPaused]);
+
+  const shouldRunTimer = !isReplayPlaying && !isPaused;
 
   useEffect(() => {
     if (!shouldRunTimer) return;
@@ -45,7 +57,7 @@ export const SayThatAgainAckButton = ({
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [shouldRunTimer, autoAdvanceMs]);
+  }, [shouldRunTimer, autoAdvanceMs, progressKey]);
 
   const handleClick = () => {
     if (isReplayPlaying) return;
@@ -66,10 +78,11 @@ export const SayThatAgainAckButton = ({
   return (
     <button type="button" onClick={handleClick} className={pillSecondaryClassName}>
       <span
-        key={`${shouldRunTimer}-${autoAdvanceMs}`}
+        key={progressKey}
         className="absolute inset-y-0 left-0 bg-[#A8DDD0]"
         style={{
           animation: `progress-fill ${autoAdvanceMs}ms linear forwards`,
+          animationPlayState: isPaused ? "paused" : "running",
         }}
       />
       <span className="relative z-10 text-[16px] font-medium text-pill-secondary-foreground">{label}</span>
