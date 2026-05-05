@@ -86,7 +86,11 @@ const INACTIVITY_WATCHDOG_MS = 3000;
  */
 const INITIAL_SILENCE_TIMEOUT_MS = 6000;
 
-export function useSTT(): SpeechToTextHandle {
+interface UseSttOptions {
+  language?: string;
+}
+
+export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
   const {
     connectionState,
     connectionStateRef,
@@ -389,10 +393,13 @@ export function useSTT(): SpeechToTextHandle {
   // connectToDeepgram site (initial, unexpected-close reconnect, and backoff
   // retry) so the next WebSocket inherits the currently-armed bias.
   const buildConnectOptions = () => {
+    const baseOptions = hookOptions?.language
+      ? { ...DEEPGRAM_OPTIONS, language: hookOptions.language }
+      : DEEPGRAM_OPTIONS;
     const kws = nextKeywordsRef.current;
     return kws.length > 0
-      ? { ...DEEPGRAM_OPTIONS, keywords: toDeepgramLiveKeywordParams(kws) }
-      : DEEPGRAM_OPTIONS;
+      ? { ...baseOptions, keywords: toDeepgramLiveKeywordParams(kws) }
+      : baseOptions;
   };
 
   const start = (options?: SttStartOptions) => {

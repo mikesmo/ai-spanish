@@ -151,4 +151,10 @@ export {
   type UseLearnerQuestionPauseOptions,
   type LearnerQuestionPauseHandle,
 } from './useLearnerQuestionPause';
+export {
+  DEFAULT_QUESTION_MAX_RECORD_MS,
+  useQuestionInput,
+  type UseQuestionInputOptions,
+  type UseQuestionInputResult,
+} from './useQuestionInput';
 export { usePhraseDisplayWithDeck } from './usePhraseDisplayWithDeck';

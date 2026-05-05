@@ -12,7 +12,12 @@ import {
   View,
 } from "react-native";
 import { useState } from "react";
-import { LEARNER_QUESTION_PRESET_PROMPTS } from "@ai-spanish/logic";
+import { useSTT } from "@ai-spanish/ai";
+import {
+  DEFAULT_QUESTION_MAX_RECORD_MS,
+  LEARNER_QUESTION_PRESET_PROMPTS,
+  useQuestionInput,
+} from "@ai-spanish/logic";
 
 export interface QuestionSidebarProps {
   isOpen: boolean;
@@ -29,7 +34,18 @@ export const QuestionSidebar = ({
   englishText,
   spanishText,
 }: QuestionSidebarProps): JSX.Element => {
-  const [question, setQuestion] = useState("");
+  const stt = useSTT({ language: "multi" });
+  const {
+    text: question,
+    setText: setQuestion,
+    isRecording,
+    startRecording,
+    stopRecording,
+    error,
+  } = useQuestionInput(stt, {
+    maxRecordMs: DEFAULT_QUESTION_MAX_RECORD_MS,
+  });
+  const [isLocked, setIsLocked] = useState(false);
   const translateX = useRef(new Animated.Value(SCREEN_WIDTH)).current;
 
   useEffect(() => {
@@ -43,6 +59,36 @@ export const QuestionSidebar = ({
   const handlePresetPress = (prompt: string): void => {
     setQuestion(prompt);
   };
+
+  const handleHoldStart = (): void => {
+    if (!isLocked) {
+      startRecording();
+    }
+  };
+
+  const handleHoldEnd = (): void => {
+    if (!isLocked) {
+      stopRecording();
+    }
+  };
+
+  const handleToggleLock = (): void => {
+    setIsLocked((current) => {
+      const next = !current;
+      if (next) {
+        startRecording();
+      } else {
+        stopRecording();
+      }
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    if (!isRecording && isLocked) {
+      setIsLocked(false);
+    }
+  }, [isLocked, isRecording]);
 
   return (
     <Animated.View
@@ -111,11 +157,60 @@ export const QuestionSidebar = ({
               onChangeText={setQuestion}
               multiline
               numberOfLines={4}
-              placeholder="Type your question here… (voice input coming soon)"
+              placeholder="Type your question here, or use the microphone."
               placeholderTextColor="#9ca3af"
               style={styles.textInput}
               textAlignVertical="top"
             />
+            <View style={styles.recordingControls}>
+              <Pressable
+                onPressIn={handleHoldStart}
+                onPressOut={handleHoldEnd}
+                disabled={isLocked}
+                accessibilityRole="button"
+                accessibilityLabel="Hold to record question"
+                style={({ pressed }) => [
+                  styles.micButton,
+                  isRecording && styles.micButtonRecording,
+                  pressed && !isLocked && styles.micButtonPressed,
+                  isLocked && styles.micButtonLocked,
+                ]}
+              >
+                <Text style={[styles.micGlyph, isRecording && styles.micGlyphRecording]}>
+                  {isRecording ? "■" : "●"}
+                </Text>
+                <Text style={[styles.micButtonLabel, isRecording && styles.micButtonLabelRecording]}>
+                  {isRecording ? "Recording" : "Hold to speak"}
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={handleToggleLock}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  isLocked ? "Unlock question recording" : "Lock question recording on"
+                }
+                accessibilityState={{ selected: isLocked }}
+                style={({ pressed }) => [
+                  styles.lockButton,
+                  isLocked && styles.lockButtonActive,
+                  pressed && styles.lockButtonPressed,
+                ]}
+              >
+                <Text style={[styles.lockButtonLabel, isLocked && styles.lockButtonLabelActive]}>
+                  {isLocked ? "Unlock" : "Lock on"}
+                </Text>
+              </Pressable>
+            </View>
+            <Text style={styles.recordingHint}>
+              {isRecording
+                ? `Listening live. Recording stops automatically after ${Math.round(DEFAULT_QUESTION_MAX_RECORD_MS / 1000)} seconds.`
+                : "Hold the mic, or lock recording on for hands-free input."}
+            </Text>
+            {error ? (
+              <Text accessibilityRole="alert" style={styles.errorText}>
+                {error}
+              </Text>
+            ) : null}
           </View>
         </ScrollView>
 
@@ -266,6 +361,87 @@ const styles = StyleSheet.create({
     color: "#111827",
     minHeight: 100,
     backgroundColor: "#ffffff",
+  },
+  recordingControls: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 4,
+  },
+  micButton: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 9999,
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    backgroundColor: "#ffffff",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingHorizontal: 14,
+  },
+  micButtonRecording: {
+    borderColor: "#fecaca",
+    backgroundColor: "#fef2f2",
+  },
+  micButtonPressed: {
+    borderColor: "#1D9E75",
+    backgroundColor: "#f0fdf9",
+  },
+  micButtonLocked: {
+    opacity: 0.8,
+  },
+  micGlyph: {
+    fontSize: 14,
+    lineHeight: 16,
+    color: "#1D9E75",
+  },
+  micGlyphRecording: {
+    color: "#dc2626",
+  },
+  micButtonLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#374151",
+  },
+  micButtonLabelRecording: {
+    color: "#991b1b",
+  },
+  lockButton: {
+    minHeight: 44,
+    borderRadius: 9999,
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    backgroundColor: "#ffffff",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 14,
+  },
+  lockButtonActive: {
+    borderColor: "#1D9E75",
+    backgroundColor: "#E1F5EE",
+  },
+  lockButtonPressed: {
+    backgroundColor: "#f0fdf9",
+  },
+  lockButtonLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#374151",
+  },
+  lockButtonLabelActive: {
+    color: "#085041",
+  },
+  recordingHint: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: "#6b7280",
+  },
+  errorText: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: "#dc2626",
   },
   footer: {
     paddingHorizontal: 20,

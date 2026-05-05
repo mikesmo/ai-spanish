@@ -61,7 +61,11 @@ const IS_FINAL_COMMIT_DEBOUNCE_MS = 800;
  * `react-native-deepgram`’s `stopListening` returns before recording fully stops;
  * a short settle before `startListening` avoids "session already active".
  */
-export function useSTT(): SpeechToTextHandle {
+interface UseSttOptions {
+  language?: string;
+}
+
+export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
   const [caption, setCaption] = useState('');
   const [isFinal, setIsFinalState] = useState(false);
   const [words, setWords] = useState<SpokenWord[]>([]);
@@ -247,7 +251,9 @@ export function useSTT(): SpeechToTextHandle {
       }
     },
     onError: (err: unknown) => console.error('[Deepgram STT]', err),
-    live: DEEPGRAM_LIVE_OPTIONS,
+    live: hookOptions?.language
+      ? { ...DEEPGRAM_LIVE_OPTIONS, language: hookOptions.language }
+      : DEEPGRAM_LIVE_OPTIONS,
   });
 
   stopListeningRef.current = stopListening;

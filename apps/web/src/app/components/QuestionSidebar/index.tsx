@@ -1,7 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { LEARNER_QUESTION_PRESET_PROMPTS } from "@ai-spanish/logic";
+import { useSTT } from "@ai-spanish/ai";
+import {
+  DEFAULT_QUESTION_MAX_RECORD_MS,
+  LEARNER_QUESTION_PRESET_PROMPTS,
+  useQuestionInput,
+} from "@ai-spanish/logic";
 
 export interface QuestionSidebarProps {
   isOpen: boolean;
@@ -17,7 +21,17 @@ export const QuestionSidebar = ({
   englishText,
   spanishText,
 }: QuestionSidebarProps): JSX.Element => {
-  const [question, setQuestion] = useState("");
+  const stt = useSTT({ language: "multi" });
+  const {
+    text: question,
+    setText: setQuestion,
+    isRecording,
+    startRecording,
+    stopRecording,
+    error,
+  } = useQuestionInput(stt, {
+    maxRecordMs: DEFAULT_QUESTION_MAX_RECORD_MS,
+  });
 
   const handlePresetClick = (prompt: string): void => {
     setQuestion(prompt);
@@ -118,9 +132,40 @@ export const QuestionSidebar = ({
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
             rows={4}
-            placeholder="Type your question here… (voice input coming soon)"
+            placeholder="Type your question here, or use the microphone."
             className="w-full resize-none rounded-xl border border-gray-200 px-3 py-3 text-[14px] text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1D9E75]/40 focus:border-[#1D9E75] transition-colors"
           />
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={isRecording ? stopRecording : startRecording}
+              aria-pressed={isRecording}
+              aria-label={isRecording ? "Stop recording question" : "Record question"}
+              className={`inline-flex h-10 items-center gap-2 rounded-full border px-4 text-[13px] font-medium transition-colors ${
+                isRecording
+                  ? "border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
+                  : "border-gray-200 bg-white text-gray-700 hover:border-[#1D9E75] hover:text-[#085041]"
+              }`}
+            >
+              <span
+                aria-hidden="true"
+                className={`flex h-5 w-5 items-center justify-center rounded-full ${
+                  isRecording ? "bg-red-500 text-white animate-pulse" : "bg-[#E1F5EE] text-[#1D9E75]"
+                }`}
+              >
+                {isRecording ? "■" : "●"}
+              </span>
+              {isRecording ? "Stop" : "Record"}
+            </button>
+            <span className="text-[12px] text-gray-400">
+              {isRecording ? "Listening…" : "Live dictation"}
+            </span>
+          </div>
+          {error ? (
+            <p className="text-[12px] text-red-600" role="alert">
+              {error}
+            </p>
+          ) : null}
         </div>
       </div>
 
