@@ -1,4 +1,5 @@
 import type { PartOfSpeech } from './weights';
+import type { LearnerLastAttempt } from './learnerQuestionPrompt';
 
 export type Language = 'en' | 'es';
 
@@ -250,6 +251,12 @@ export type PhraseDisplayAPI = {
    * attempt of the current phrase completes.
    */
   lastScoreBreakdown: ScoreBreakdown | null;
+  /**
+   * The learner's most recent spoken attempt detail (transcript + missing/extra
+   * words). Set after every attempt or practice-attempt; reset on phrase change.
+   * Passed to the QuestionSidebar so Claude can answer "why was I wrong?".
+   */
+  lastAttemptDetail: LearnerLastAttempt | null;
   /**
    * True after an `explain` clip finishes, while the learner must acknowledge
    * (Say that again / auto-advance). Cleared by `handleExplainAckOkay` (or on phrase navigation).

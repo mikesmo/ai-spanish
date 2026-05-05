@@ -45,6 +45,7 @@ import type {
   TTSAdapter,
   UIStatus,
 } from './types';
+import type { LearnerLastAttempt } from './learnerQuestionPrompt';
 
 const PLAYBACK_RATES: Record<'1x' | 'slow', number> = { '1x': 1.0, slow: 0.5 };
 
@@ -146,6 +147,8 @@ export function usePhraseDisplay(
   const [speed, setSpeed] = useState<'1x' | 'slow'>('1x');
   const [lastScoreBreakdown, setLastScoreBreakdown] =
     useState<ScoreBreakdown | null>(null);
+  const [lastAttemptDetail, setLastAttemptDetail] =
+    useState<LearnerLastAttempt | null>(null);
   const [hasUsedTryAgainOnCurrentCard, setHasUsedTryAgainOnCurrentCard] =
     useState(false);
   const [isFirstSessionPresentationOfCurrentPhrase, setIsFirstOfCurrentPhrase] =
@@ -369,6 +372,11 @@ export function usePhraseDisplay(
           mastery,
           isAccuracySuccess: accuracySucceeded,
         });
+        setLastAttemptDetail({
+          userTranscript: finalCaption,
+          missingWords: alignment.missing.map((w) => w.word),
+          extraWords: alignment.extra.map((w) => w.word),
+        });
       }
 
       const attempt: Attempt = {
@@ -439,6 +447,11 @@ export function usePhraseDisplay(
         accuracyBreakdown: accuracy,
         fluencyBreakdown: fluency,
       };
+      setLastAttemptDetail({
+        userTranscript: finalCaption,
+        missingWords: alignment.missing.map((w) => w.word),
+        extraWords: alignment.extra.map((w) => w.word),
+      });
       attemptEmittedRef.current = true;
       onPhraseEventRef.current?.(practice);
     },
@@ -670,6 +683,7 @@ export function usePhraseDisplay(
     setStatus('loading');
     setIsAudioPlaying(false);
     setLastScoreBreakdown(null);
+    setLastAttemptDetail(null);
     setHasUsedTryAgainOnCurrentCard(false);
     setIsExplainAckOpen(false);
     setIsExplainAckReplayPlaying(false);
@@ -1465,6 +1479,7 @@ export function usePhraseDisplay(
     hasUsedTryAgainOnCurrentCard,
     isFirstSessionPresentationOfCurrentPhrase,
     lastScoreBreakdown,
+    lastAttemptDetail,
     isExplainAckOpen,
     isExplainAckReplayPlaying,
     handleExplainAckOkay,

@@ -224,8 +224,13 @@ export const PhraseDisplay = ({
       <QuestionSidebar
         isOpen={learnerQuestionPause.isActive}
         onClose={learnerQuestionPause.dismiss}
+        phraseId={display.currentPhrase.name}
         englishText={display.currentPhrase.English.question}
         spanishText={display.spanishText}
+        grammar={display.currentPhrase.Spanish.grammar}
+        newGrammar={display.currentPhrase.Spanish.newGrammar}
+        newWords={display.currentPhrase.Spanish.newWords}
+        lastAttempt={display.lastAttemptDetail}
       />
     </div>
   );

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
@@ -11,19 +11,27 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { useState } from "react";
 import { useSTT } from "@ai-spanish/ai";
 import {
   DEFAULT_QUESTION_MAX_RECORD_MS,
   LEARNER_QUESTION_PRESET_PROMPTS,
+  useLearnerQuestion,
   useQuestionInput,
+  type LearnerLastAttempt,
 } from "@ai-spanish/logic";
+import { postLearnerQuestion } from "../../services/learnerQuestion.service";
+import { LearnerQuestionAnswerMarkdown } from "./LearnerQuestionAnswerMarkdown";
 
 export interface QuestionSidebarProps {
   isOpen: boolean;
   onClose: () => void;
+  phraseId: string;
   englishText: string;
   spanishText: string;
+  grammar: string;
+  newGrammar?: string;
+  newWords?: string;
+  lastAttempt?: LearnerLastAttempt | null;
 }
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
@@ -31,8 +39,13 @@ const SCREEN_WIDTH = Dimensions.get("window").width;
 export const QuestionSidebar = ({
   isOpen,
   onClose,
+  phraseId,
   englishText,
   spanishText,
+  grammar,
+  newGrammar,
+  newWords,
+  lastAttempt,
 }: QuestionSidebarProps): JSX.Element => {
   const stt = useSTT({ language: "multi" });
   const {
@@ -41,13 +54,22 @@ export const QuestionSidebar = ({
     isRecording,
     startRecording,
     stopRecording,
-    error,
+    error: sttError,
   } = useQuestionInput(stt, {
     maxRecordMs: DEFAULT_QUESTION_MAX_RECORD_MS,
   });
   const [isLocked, setIsLocked] = useState(false);
+  const [showCompose, setShowCompose] = useState(true);
   const translateX = useRef(new Animated.Value(SCREEN_WIDTH)).current;
+  const scrollViewRef = useRef<ScrollView>(null);
 
+  const chat = useLearnerQuestion({
+    context: { spanishText, englishText, grammar, newGrammar, newWords, lastAttempt },
+    resetKey: phraseId,
+    fetchAnswerStream: postLearnerQuestion,
+  });
+
+  // Slide animation.
   useEffect(() => {
     Animated.timing(translateX, {
       toValue: isOpen ? 0 : SCREEN_WIDTH,
@@ -56,20 +78,49 @@ export const QuestionSidebar = ({
     }).start();
   }, [isOpen, translateX]);
 
+  // Reset compose row when the phrase changes (thread cleared).
+  useEffect(() => {
+    if (chat.turns.length === 0) {
+      setShowCompose(true);
+      setQuestion("");
+    }
+  }, [chat.turns.length, setQuestion]);
+
+  // Auto-scroll to end while streaming.
+  const lastTurnAnswer = chat.turns[chat.turns.length - 1]?.answer ?? "";
+  useEffect(() => {
+    if (!chat.isStreaming) return;
+    scrollViewRef.current?.scrollToEnd({ animated: true });
+  }, [chat.isStreaming, lastTurnAnswer]);
+
   const handlePresetPress = (prompt: string): void => {
     setQuestion(prompt);
   };
 
-  const handleHoldStart = (): void => {
-    if (!isLocked) {
-      startRecording();
+  const handleSend = useCallback(async (): Promise<void> => {
+    // Commit live STT caption first to avoid sending stale text.
+    if (isRecording) {
+      stopRecording();
+      await new Promise<void>((r) => setTimeout(r, 0));
     }
+    const q = question.trim();
+    if (!q) return;
+    setQuestion("");
+    setShowCompose(false);
+    await chat.sendQuestion(q);
+  }, [isRecording, stopRecording, question, setQuestion, chat]);
+
+  const handleAskAnother = (): void => {
+    setQuestion("");
+    setShowCompose(true);
+  };
+
+  const handleHoldStart = (): void => {
+    if (!isLocked) startRecording();
   };
 
   const handleHoldEnd = (): void => {
-    if (!isLocked) {
-      stopRecording();
-    }
+    if (!isLocked) stopRecording();
   };
 
   const handleToggleLock = (): void => {
@@ -89,6 +140,9 @@ export const QuestionSidebar = ({
       setIsLocked(false);
     }
   }, [isLocked, isRecording]);
+
+  const lastTurn = chat.turns[chat.turns.length - 1];
+  const lastTurnDone = lastTurn && !lastTurn.isStreaming;
 
   return (
     <Animated.View
@@ -114,122 +168,175 @@ export const QuestionSidebar = ({
           </Pressable>
         </View>
 
+        {/* Sticky phrase block */}
+        <View style={styles.phraseBlock}>
+          <Text style={styles.sectionLabel}>Current phrase</Text>
+          <Text style={styles.spanishText}>{spanishText}</Text>
+          <Text style={styles.englishText}>{englishText}</Text>
+        </View>
+
+        {/* Scrollable thread + compose */}
         <ScrollView
+          ref={scrollViewRef}
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Phrase block */}
-          <View style={styles.phraseBlock}>
-            <Text style={styles.sectionLabel}>Current phrase</Text>
-            <Text style={styles.spanishText}>{spanishText}</Text>
-            <Text style={styles.englishText}>{englishText}</Text>
-          </View>
+          {/* Q&A thread */}
+          {chat.turns.map((turn) => (
+            <View key={turn.id} style={styles.turnContainer}>
+              {/* User question bubble */}
+              <View style={styles.userBubbleWrap}>
+                <View style={styles.userBubble}>
+                  <Text style={styles.userBubbleText}>{turn.question}</Text>
+                </View>
+              </View>
 
-          {/* Preset chips */}
-          <View style={styles.presetsSection}>
-            <Text style={styles.sectionLabel}>Quick questions</Text>
-            <View style={styles.chipsWrap}>
-              {LEARNER_QUESTION_PRESET_PROMPTS.map((prompt) => (
-                <Pressable
-                  key={prompt}
-                  onPress={() => handlePresetPress(prompt)}
-                  accessibilityRole="button"
-                  style={({ pressed }) => [
-                    styles.chip,
-                    question === prompt && styles.chipActive,
-                    pressed && styles.chipPressed,
-                  ]}
-                >
-                  <Text style={[styles.chipLabel, question === prompt && styles.chipLabelActive]}>
-                    {prompt}
+              {/* Answer bubble */}
+              <View style={styles.answerBubbleWrap}>
+                <View style={styles.answerBubble}>
+                  {turn.error ? (
+                    <Text accessibilityRole="alert" style={styles.errorBubbleText}>
+                      {turn.error}
+                    </Text>
+                  ) : (
+                    <LearnerQuestionAnswerMarkdown
+                      isStreaming={turn.isStreaming}
+                      streamingCursorStyle={styles.streamingCursor}
+                    >
+                      {turn.answer}
+                    </LearnerQuestionAnswerMarkdown>
+                  )}
+                </View>
+              </View>
+            </View>
+          ))}
+
+          {/* "Ask another question" button */}
+          {lastTurnDone && !showCompose && (
+            <View style={styles.askAnotherWrap}>
+              <Pressable
+                onPress={handleAskAnother}
+                accessibilityRole="button"
+                style={({ pressed }) => [
+                  styles.askAnotherButton,
+                  pressed && styles.askAnotherButtonPressed,
+                ]}
+              >
+                <Text style={styles.askAnotherLabel}>Ask another question</Text>
+              </Pressable>
+            </View>
+          )}
+
+          {/* Compose row */}
+          {showCompose && (
+            <View style={styles.composeContainer}>
+              {/* Preset chips — only on first question */}
+              {chat.turns.length === 0 && (
+                <View style={styles.presetsSection}>
+                  <Text style={styles.sectionLabel}>Quick questions</Text>
+                  <View style={styles.chipsWrap}>
+                    {LEARNER_QUESTION_PRESET_PROMPTS.map((prompt) => (
+                      <Pressable
+                        key={prompt}
+                        onPress={() => handlePresetPress(prompt)}
+                        accessibilityRole="button"
+                        style={({ pressed }) => [
+                          styles.chip,
+                          question === prompt && styles.chipActive,
+                          pressed && styles.chipPressed,
+                        ]}
+                      >
+                        <Text style={[styles.chipLabel, question === prompt && styles.chipLabelActive]}>
+                          {prompt}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+              )}
+
+              {/* Text input */}
+              <View style={styles.inputSection}>
+                <Text style={styles.sectionLabel}>
+                  {chat.turns.length === 0 ? "Your question" : "Follow-up question"}
+                </Text>
+                <TextInput
+                  value={question}
+                  onChangeText={setQuestion}
+                  multiline
+                  numberOfLines={3}
+                  placeholder="Type your question here, or use the microphone."
+                  placeholderTextColor="#9ca3af"
+                  style={styles.textInput}
+                  textAlignVertical="top"
+                />
+                <View style={styles.recordingControls}>
+                  <Pressable
+                    onPressIn={handleHoldStart}
+                    onPressOut={handleHoldEnd}
+                    disabled={isLocked}
+                    accessibilityRole="button"
+                    accessibilityLabel="Hold to record question"
+                    style={({ pressed }) => [
+                      styles.micButton,
+                      isRecording && styles.micButtonRecording,
+                      pressed && !isLocked && styles.micButtonPressed,
+                      isLocked && styles.micButtonLocked,
+                    ]}
+                  >
+                    <Text style={[styles.micGlyph, isRecording && styles.micGlyphRecording]}>
+                      {isRecording ? "■" : "●"}
+                    </Text>
+                    <Text style={[styles.micButtonLabel, isRecording && styles.micButtonLabelRecording]}>
+                      {isRecording ? "Recording" : "Hold to speak"}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={handleToggleLock}
+                    accessibilityRole="button"
+                    accessibilityLabel={isLocked ? "Unlock question recording" : "Lock question recording on"}
+                    accessibilityState={{ selected: isLocked }}
+                    style={({ pressed }) => [
+                      styles.lockButton,
+                      isLocked && styles.lockButtonActive,
+                      pressed && styles.lockButtonPressed,
+                    ]}
+                  >
+                    <Text style={[styles.lockButtonLabel, isLocked && styles.lockButtonLabelActive]}>
+                      {isLocked ? "Unlock" : "Lock on"}
+                    </Text>
+                  </Pressable>
+                </View>
+                <Text style={styles.recordingHint}>
+                  {isRecording
+                    ? `Listening live. Recording stops automatically after ${Math.round(DEFAULT_QUESTION_MAX_RECORD_MS / 1000)} seconds.`
+                    : "Hold the mic, or lock recording on for hands-free input."}
+                </Text>
+                {sttError ? (
+                  <Text accessibilityRole="alert" style={styles.errorText}>
+                    {sttError}
                   </Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
+                ) : null}
+              </View>
 
-          {/* Text input */}
-          <View style={styles.inputSection}>
-            <Text style={styles.sectionLabel}>Your question</Text>
-            <TextInput
-              value={question}
-              onChangeText={setQuestion}
-              multiline
-              numberOfLines={4}
-              placeholder="Type your question here, or use the microphone."
-              placeholderTextColor="#9ca3af"
-              style={styles.textInput}
-              textAlignVertical="top"
-            />
-            <View style={styles.recordingControls}>
+              {/* Send button */}
               <Pressable
-                onPressIn={handleHoldStart}
-                onPressOut={handleHoldEnd}
-                disabled={isLocked}
+                onPress={() => void handleSend()}
+                disabled={question.trim() === "" || chat.isStreaming}
                 accessibilityRole="button"
-                accessibilityLabel="Hold to record question"
+                accessibilityLabel="Send question"
                 style={({ pressed }) => [
-                  styles.micButton,
-                  isRecording && styles.micButtonRecording,
-                  pressed && !isLocked && styles.micButtonPressed,
-                  isLocked && styles.micButtonLocked,
+                  styles.sendButton,
+                  (question.trim() === "" || chat.isStreaming) && styles.sendButtonDisabled,
+                  pressed && question.trim() !== "" && !chat.isStreaming && styles.sendButtonPressed,
                 ]}
               >
-                <Text style={[styles.micGlyph, isRecording && styles.micGlyphRecording]}>
-                  {isRecording ? "■" : "●"}
-                </Text>
-                <Text style={[styles.micButtonLabel, isRecording && styles.micButtonLabelRecording]}>
-                  {isRecording ? "Recording" : "Hold to speak"}
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={handleToggleLock}
-                accessibilityRole="button"
-                accessibilityLabel={
-                  isLocked ? "Unlock question recording" : "Lock question recording on"
-                }
-                accessibilityState={{ selected: isLocked }}
-                style={({ pressed }) => [
-                  styles.lockButton,
-                  isLocked && styles.lockButtonActive,
-                  pressed && styles.lockButtonPressed,
-                ]}
-              >
-                <Text style={[styles.lockButtonLabel, isLocked && styles.lockButtonLabelActive]}>
-                  {isLocked ? "Unlock" : "Lock on"}
-                </Text>
+                <Text style={styles.sendButtonLabel}>Send question</Text>
               </Pressable>
             </View>
-            <Text style={styles.recordingHint}>
-              {isRecording
-                ? `Listening live. Recording stops automatically after ${Math.round(DEFAULT_QUESTION_MAX_RECORD_MS / 1000)} seconds.`
-                : "Hold the mic, or lock recording on for hands-free input."}
-            </Text>
-            {error ? (
-              <Text accessibilityRole="alert" style={styles.errorText}>
-                {error}
-              </Text>
-            ) : null}
-          </View>
+          )}
         </ScrollView>
-
-        {/* Footer */}
-        <View style={styles.footer}>
-          <Pressable
-            onPress={() => {}}
-            disabled={question.trim() === ""}
-            accessibilityRole="button"
-            accessibilityLabel="Send question"
-            style={({ pressed }) => [
-              styles.sendButton,
-              question.trim() === "" && styles.sendButtonDisabled,
-              pressed && question.trim() !== "" && styles.sendButtonPressed,
-            ]}
-          >
-            <Text style={styles.sendButtonLabel}>Send question</Text>
-          </Pressable>
-        </View>
       </KeyboardAvoidingView>
     </Animated.View>
   );
@@ -280,22 +387,25 @@ const styles = StyleSheet.create({
     lineHeight: 28,
     color: "#6b7280",
   },
+  phraseBlock: {
+    marginHorizontal: 20,
+    marginTop: 12,
+    marginBottom: 4,
+    backgroundColor: "#f9fafb",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#e5e7eb",
+    borderRadius: 12,
+    padding: 14,
+    gap: 4,
+  },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 16,
-    gap: 24,
-  },
-  phraseBlock: {
-    backgroundColor: "#f9fafb",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#e5e7eb",
-    borderRadius: 12,
-    padding: 16,
-    gap: 6,
+    paddingTop: 16,
+    paddingBottom: 24,
+    gap: 16,
   },
   sectionLabel: {
     fontSize: 10,
@@ -316,8 +426,75 @@ const styles = StyleSheet.create({
     color: "#6b7280",
     lineHeight: 20,
   },
+  turnContainer: {
+    gap: 8,
+  },
+  userBubbleWrap: {
+    alignItems: "flex-end",
+  },
+  userBubble: {
+    maxWidth: "85%",
+    backgroundColor: "#f3f4f6",
+    borderRadius: 16,
+    borderTopRightRadius: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  userBubbleText: {
+    fontSize: 13,
+    color: "#1f2937",
+    lineHeight: 20,
+  },
+  answerBubbleWrap: {
+    alignItems: "flex-start",
+  },
+  answerBubble: {
+    maxWidth: "90%",
+    backgroundColor: "#E8F7F2",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#C2E8D9",
+    borderRadius: 16,
+    borderTopLeftRadius: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  answerBubbleText: {
+    fontSize: 13,
+    color: "#0D4433",
+    lineHeight: 20,
+  },
+  streamingCursor: {
+    color: "#1D9E75",
+  },
+  errorBubbleText: {
+    fontSize: 13,
+    color: "#dc2626",
+    lineHeight: 20,
+  },
+  askAnotherWrap: {
+    alignItems: "center",
+    paddingVertical: 4,
+  },
+  askAnotherButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 9999,
+    borderWidth: 1,
+    borderColor: "#1D9E75",
+  },
+  askAnotherButtonPressed: {
+    backgroundColor: "#E8F7F2",
+  },
+  askAnotherLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#1D9E75",
+  },
+  composeContainer: {
+    gap: 12,
+  },
   presetsSection: {
-    gap: 10,
+    gap: 8,
   },
   chipsWrap: {
     flexDirection: "row",
@@ -359,7 +536,7 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     fontSize: 14,
     color: "#111827",
-    minHeight: 100,
+    minHeight: 80,
     backgroundColor: "#ffffff",
   },
   recordingControls: {
@@ -442,13 +619,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
     color: "#dc2626",
-  },
-  footer: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 32,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "#e5e7eb",
   },
   sendButton: {
     height: 52,

@@ -157,4 +157,16 @@ export {
   type UseQuestionInputOptions,
   type UseQuestionInputResult,
 } from './useQuestionInput';
+export {
+  buildLearnerQuestionSystemPrompt,
+  type LearnerLastAttempt,
+  type LearnerQuestionContext,
+} from './learnerQuestionPrompt';
+export {
+  useLearnerQuestion,
+  type LearnerQuestionTurn,
+  type LearnerQuestionRequestBody,
+  type UseLearnerQuestionOptions,
+  type UseLearnerQuestionResult,
+} from './useLearnerQuestion';
 export { usePhraseDisplayWithDeck } from './usePhraseDisplayWithDeck';

@@ -9,9 +9,10 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.75",
     "@ai-spanish/ai": "*",
-    "@ai-spanish/audio-verify": "*",
     "@ai-spanish/assets": "*",
+    "@ai-spanish/audio-verify": "*",
     "@ai-spanish/logic": "*",
     "@aws-sdk/client-s3": "^3.1032.0",
     "@aws-sdk/s3-request-presigner": "^3.1032.0",
@@ -21,10 +22,14 @@
     "@supabase/supabase-js": "^2.105.1",
     "@tailwindcss/postcss": "^4",
     "@tanstack/react-query": "^5.90.5",
+    "ai": "^6.0.175",
     "next": "15.3.8",
     "p-limit": "^6.2.0",
     "react": "19.2.5",
     "react-dom": "19.2.5",
+    "react-markdown": "^10.1.0",
+    "rehype-sanitize": "^6.0.0",
+    "remark-gfm": "^4.0.1",
     "tailwindcss": "^4",
     "zod": "^4.1.12"
   },
