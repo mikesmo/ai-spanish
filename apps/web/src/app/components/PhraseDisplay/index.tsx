@@ -204,6 +204,7 @@ export const PhraseDisplay = ({
         queueVersion={session.presentationVersion}
         remainingInSession={session.remaining}
         completedLessonCount={session.completedLessonCount}
+        incorrectPhraseRecords={session.incorrectPhraseRecords}
       />
     </div>
   );

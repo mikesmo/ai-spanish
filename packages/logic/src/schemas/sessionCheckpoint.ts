@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { incorrectPhraseRecordSchema } from './incorrectPhraseRecord';
 
 export const phraseProgressSchema = z.object({
   phraseId: z.string(),
@@ -27,6 +28,13 @@ export const sessionCheckpointSchema = z.object({
    * checkpoints that were built with a different deck version.
    */
   deckFingerprint: z.string().optional(),
+  /**
+   * Incorrect-phrase redemption records for this session. Retained for the
+   * full session lifetime (including fully-resolved records) so the history
+   * sidebar and future analytics can always access the complete resolution
+   * trail. Optional for backward compatibility with older checkpoints.
+   */
+  incorrectPhraseRecords: z.array(incorrectPhraseRecordSchema).optional(),
 });
 
 export type SessionCheckpointParsed = z.infer<typeof sessionCheckpointSchema>;

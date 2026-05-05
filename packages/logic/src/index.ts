@@ -65,6 +65,12 @@ export type {
   UseLessonSessionOptions,
   UseLessonSessionResult,
 } from './useLessonSession';
+export { createIncorrectPhraseTracker } from './incorrectPhraseTracker';
+export type {
+  IncorrectPhraseRecord,
+  IncorrectPhraseTracker,
+  ResolvedWordEntry,
+} from './incorrectPhraseTracker';
 export { useSessionHistory } from './useSessionHistory';
 export type {
   HistoryEntry,

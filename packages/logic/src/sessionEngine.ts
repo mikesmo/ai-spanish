@@ -72,6 +72,13 @@ export interface SessionEngine {
    */
   getQueuePosition(phraseId: string): number | null;
   /**
+   * Remove the phrase from the remaining queue and cap its reinsert count so
+   * it cannot be reinserted again this session. No-op if the phrase is not in
+   * the queue. Called when a previously failed phrase is "redeemed" by
+   * subsequent correct attempts on other phrases.
+   */
+  removeAndPreventRequeue(phraseId: string): void;
+  /**
    * Produce a serializable snapshot of engine + store state that can be
    * persisted and later passed back as `initialCheckpoint` to recreate
    * an identical engine via `createSessionEngine`.
@@ -208,6 +215,11 @@ export function createSessionEngine(
         next.stabilityScore,
       );
       if (slots !== null) reinsert(phrase, slots);
+    },
+
+    removeAndPreventRequeue(phraseId) {
+      queue = queue.filter((p) => p.name !== phraseId);
+      reinsertCount.set(phraseId, MAX_REINSERTS_PER_PHRASE_PER_SESSION);
     },
 
     remaining() {

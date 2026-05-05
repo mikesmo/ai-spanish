@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { type HistoryEntry } from "@ai-spanish/logic";
+import { type HistoryEntry, type IncorrectPhraseRecord } from "@ai-spanish/logic";
 import {
   SessionHistoryLogView,
   SessionHistoryStatsBar,
@@ -16,6 +16,7 @@ interface HistorySidebarProps {
   queueVersion: number;
   remainingInSession: number;
   completedLessonCount: number;
+  incorrectPhraseRecords: readonly IncorrectPhraseRecord[];
 }
 
 const MIN_WIDTH = 320;
@@ -45,6 +46,7 @@ export const HistorySidebar = ({
   queueVersion,
   remainingInSession,
   completedLessonCount,
+  incorrectPhraseRecords,
 }: HistorySidebarProps): JSX.Element => {
   const [width, setWidth] = useState<number>(DEFAULT_WIDTH);
   const [isResizing, setIsResizing] = useState(false);
@@ -184,6 +186,7 @@ export const HistorySidebar = ({
             getLiveSlotsAhead={getLiveSlotsAhead}
             queueVersion={queueVersion}
             completedLessonCount={completedLessonCount}
+            incorrectPhraseRecords={incorrectPhraseRecords}
           />
         </div>
       </aside>

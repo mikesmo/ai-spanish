@@ -31,6 +31,7 @@ import {
   type Attempt,
   type FluencyBreakdown,
   type HistoryEntry,
+  type IncorrectPhraseRecord,
   type PracticeAttempt,
   type ScoreSummary,
   type StabilityBreakdownSnapshot,
@@ -160,19 +161,30 @@ interface WordAlignmentRow {
   type: string;
   weight: number;
   status: "matched" | "missing";
+  /** Phrase index of the phrase that resolved this missing word, if resolved. */
+  resolvedByPhraseIndex?: number;
 }
 
 const buildAlignmentRows = (
   words: WordMeta[],
   missingWords: string[],
+  record?: IncorrectPhraseRecord,
 ): WordAlignmentRow[] => {
   const missingSet = new Set(missingWords.map((w) => normalizeStr(w)));
-  return words.map((w) => ({
-    word: w.word,
-    type: w.type,
-    weight: w.weight,
-    status: missingSet.has(normalizeStr(w.word)) ? "missing" : "matched",
-  }));
+  const resolvedMap = new Map<string, number>(
+    record?.resolvedWords.map((r) => [r.word, r.resolvedByPhraseIndex]) ?? [],
+  );
+  return words.map((w) => {
+    const normalized = normalizeStr(w.word);
+    const isMissing = missingSet.has(normalized);
+    return {
+      word: w.word,
+      type: w.type,
+      weight: w.weight,
+      status: isMissing ? "missing" : "matched",
+      resolvedByPhraseIndex: isMissing ? resolvedMap.get(normalized) : undefined,
+    };
+  });
 };
 
 const fmt = (n: number, digits = 3): string => n.toFixed(digits);
@@ -448,9 +460,11 @@ type ScoredEntry = HistoryEntry & {
 const ScoredEventDetail = ({
   entry,
   isPractice,
+  incorrectPhraseRecord,
 }: {
   entry: ScoredEntry;
   isPractice: boolean;
+  incorrectPhraseRecord: IncorrectPhraseRecord | undefined;
 }): JSX.Element => {
   const { event, phrase, scoreSummary, stabilityBreakdown } = entry;
   const ab = event.accuracyBreakdown;
@@ -463,7 +477,7 @@ const ScoredEventDetail = ({
   const { rows, extraWordsDisplay } = useMemo(() => {
     if (event.eventType === "attempt") {
       return {
-        rows: buildAlignmentRows(phrase.Spanish.words, event.missingWords),
+        rows: buildAlignmentRows(phrase.Spanish.words, event.missingWords, incorrectPhraseRecord),
         extraWordsDisplay: event.extraWords,
       };
     }
@@ -475,10 +489,10 @@ const ScoredEventDetail = ({
     const alignment = alignWords(phrase.Spanish.words, spokenStub);
     const missingWords = alignment.missing.map((w) => w.word);
     return {
-      rows: buildAlignmentRows(phrase.Spanish.words, missingWords),
+      rows: buildAlignmentRows(phrase.Spanish.words, missingWords, incorrectPhraseRecord),
       extraWordsDisplay: alignment.extra.map((w) => w.word),
     };
-  }, [event, phrase.Spanish.words]);
+  }, [event, phrase.Spanish.words, incorrectPhraseRecord]);
 
   return (
     <div className="bg-gray-50 border-t border-gray-200 px-3 py-3 space-y-4 text-[11px]">
@@ -510,6 +524,7 @@ const ScoredEventDetail = ({
               <th className="py-1 pr-2 font-medium">POS</th>
               <th className="py-1 pr-2 font-medium">Weight</th>
               <th className="py-1 pr-2 font-medium">Status</th>
+              <th className="py-1 pr-2 font-medium">Resolved</th>
             </tr>
           </thead>
           <tbody>
@@ -537,11 +552,50 @@ const ScoredEventDetail = ({
                 >
                   {r.status}
                 </td>
+                <td className="py-1 pr-2">
+                  {r.status === "missing" && r.resolvedByPhraseIndex != null ? (
+                    <span className="text-emerald-600 font-mono">
+                      #{r.resolvedByPhraseIndex}
+                    </span>
+                  ) : (
+                    <span className="text-gray-400">—</span>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {incorrectPhraseRecord && (
+        <div>
+          <div className="font-semibold text-gray-700 mb-1">Grammar</div>
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="text-left text-gray-500 border-b border-gray-200">
+                <th className="py-1 pr-2 font-medium">Rule</th>
+                <th className="py-1 pr-2 font-medium">Resolved</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-b border-gray-100">
+                <td className="py-1 pr-2 text-gray-900">
+                  {incorrectPhraseRecord.incorrectGrammar}
+                </td>
+                <td className="py-1 pr-2">
+                  {incorrectPhraseRecord.grammarResolvedByPhraseIndex != null ? (
+                    <span className="text-emerald-600 font-mono">
+                      #{incorrectPhraseRecord.grammarResolvedByPhraseIndex}
+                    </span>
+                  ) : (
+                    <span className="text-gray-400">—</span>
+                  )}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {extraWordsDisplay.length > 0 && (
         <div>
@@ -620,6 +674,8 @@ interface RowProps {
    * blanked out — a later entry for the same phrase supersedes these values.
    */
   isLatestForPhrase: boolean;
+  /** Incorrect-phrase redemption record for this entry's phrase, if any. */
+  incorrectPhraseRecord: IncorrectPhraseRecord | undefined;
 }
 
 const HistoryRow = ({
@@ -628,6 +684,7 @@ const HistoryRow = ({
   liveSlotsAhead,
   completedLessonCount,
   isLatestForPhrase,
+  incorrectPhraseRecord,
 }: RowProps): JSX.Element => {
   const [expanded, setExpanded] = useState(false);
   const { event, phrase, scoreSummary } = entry;
@@ -708,20 +765,16 @@ const HistoryRow = ({
               )}
             </span>
             <span
-              title={
-                isLatestForPhrase
-                  ? "In-session distance captured at the moment this event was logged. Mirrors the session engine's Pimsleur requeue: REPEAT_SOON for weak attempts/reveals, REPEAT_LATER for stabilizing attempts, '—' for mastered (dropped) or practice."
-                  : "Superseded — a later entry exists for this phrase in this session"
-              }
+              title="In-session distance captured at the moment this event was logged. Mirrors the session engine's Pimsleur requeue: REPEAT_SOON for weak attempts/reveals, REPEAT_LATER for stabilizing attempts, '—' for mastered (dropped), practice, or phrase not yet reinserted. Always retained for analytics — shows the engine's reinsert decision at event time even after the phrase is later redeemed or superseded."
               className="text-[10px] text-gray-500 tabular-nums"
             >
               session (log):{" "}
-              {isLatestForPhrase ? formatSlotsAhead(entry.slotsAheadAtEvent) : "—"}
+              {formatSlotsAhead(entry.slotsAheadAtEvent)}
             </span>
             <span
               title={
                 isLatestForPhrase
-                  ? "Current distance to this phrase in the remaining session queue. Ticks down as cards play and goes to '—' once the phrase is re-drawn or dropped."
+                  ? "Current distance to this phrase in the remaining session queue. Ticks down as cards play and goes to '—' once the phrase is re-drawn, dropped, or redeemed."
                   : "Superseded — a later entry exists for this phrase in this session"
               }
               className="text-[10px] text-gray-500 tabular-nums"
@@ -779,6 +832,7 @@ const HistoryRow = ({
               <ScoredEventDetail
                 entry={entry as ScoredEntry}
                 isPractice={event.eventType === "practice"}
+                incorrectPhraseRecord={incorrectPhraseRecord}
               />
             )}
           </td>
@@ -1129,6 +1183,8 @@ export interface SessionHistoryLogViewProps {
   getLiveSlotsAhead: (phraseId: string) => number | null;
   queueVersion: number;
   completedLessonCount: number;
+  /** Incorrect-phrase redemption records for the current session. */
+  incorrectPhraseRecords?: readonly IncorrectPhraseRecord[];
   emptyStateMessage?: string;
   className?: string;
 }
@@ -1138,6 +1194,7 @@ export const SessionHistoryLogView = ({
   getLiveSlotsAhead,
   queueVersion,
   completedLessonCount,
+  incorrectPhraseRecords,
   emptyStateMessage,
   className,
 }: SessionHistoryLogViewProps): JSX.Element => {
@@ -1161,6 +1218,14 @@ export const SessionHistoryLogView = ({
     }
     return map;
   }, [history]);
+
+  const incorrectRecordsByPhraseId = useMemo(() => {
+    const map = new Map<string, IncorrectPhraseRecord>();
+    for (const record of incorrectPhraseRecords ?? []) {
+      map.set(record.phraseId, record);
+    }
+    return map;
+  }, [incorrectPhraseRecords]);
 
   return (
     <div className={className}>
@@ -1191,6 +1256,7 @@ export const SessionHistoryLogView = ({
                 liveSlotsAhead={liveSlotsByPhraseId.get(entry.phrase.name) ?? null}
                 completedLessonCount={completedLessonCount}
                 isLatestForPhrase={latestEntryIdByPhraseId.get(entry.phrase.name) === entry.id}
+                incorrectPhraseRecord={incorrectRecordsByPhraseId.get(entry.phrase.name)}
               />
             ))}
           </tbody>

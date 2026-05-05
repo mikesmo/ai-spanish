@@ -14,6 +14,10 @@ import { createInMemoryProgressStore } from './progressStore';
 import type { Phrase } from './types';
 import type { PhraseEvent } from './events';
 import type { SessionCheckpointParsed } from './schemas/sessionCheckpoint';
+import {
+  createIncorrectPhraseTracker,
+  type IncorrectPhraseRecord,
+} from './incorrectPhraseTracker';
 
 /**
  * Emitted with `onEvent` after `engine.onEvent` so consumers do not rely on a
@@ -103,12 +107,19 @@ export interface UseLessonSessionResult {
    * Snapshot of the current engine + progress store state. Pass back as
    * `initialCheckpoint` to resume the session from this point.
    * `deckFingerprint` is auto-computed from `deck` if not overridden.
+   * Includes `incorrectPhraseRecords` for persistence and analytics.
    */
   getSessionCheckpoint: (meta: {
     lessonId: string;
     completedLessonCount: number;
     deckFingerprint?: string;
   }) => SessionCheckpointParsed;
+  /**
+   * Live snapshot of all incorrect-phrase records for this session, including
+   * fully-resolved ones. Updates reactively after every Attempt event.
+   * Consumed by the web history sidebar to display resolution info.
+   */
+  incorrectPhraseRecords: readonly IncorrectPhraseRecord[];
 }
 
 /**
@@ -136,6 +147,7 @@ export const useLessonSession = (
   // need to switch decks should remount this component.
   const storeRef = useRef(createInMemoryProgressStore());
   const engineRef = useRef<SessionEngine | null>(null);
+  const trackerRef = useRef(createIncorrectPhraseTracker());
   if (engineRef.current === null) {
     engineRef.current = createSessionEngine(deck, storeRef.current, {
       getCompletedLessonCount: () => completedLessonCountRef.current,
@@ -195,6 +207,9 @@ export const useLessonSession = (
   const [remaining, setRemaining] = useState<number>(() =>
     engineRef.current!.remaining(),
   );
+  const [incorrectPhraseRecords, setIncorrectPhraseRecords] = useState<
+    readonly IncorrectPhraseRecord[]
+  >(() => trackerRef.current.getAllRecords());
 
   const onEventRef = useRef<typeof onEvent>(onEvent);
   onEventRef.current = onEvent;
@@ -218,7 +233,23 @@ export const useLessonSession = (
     const liveSlotsAhead = engine.getQueuePosition(event.phraseId);
     onEventRef.current?.(event, { slotsAheadAtEvent, liveSlotsAhead });
     setRemaining(engine.remaining());
-  }, []);
+
+    if (event.eventType === 'attempt') {
+      const phrase = deckById.get(event.phraseId);
+      if (phrase) {
+        const newlyResolved = trackerRef.current.recordAttempt(
+          event.phraseId,
+          phrase,
+          event.missingWords,
+          event.isAccuracySuccess,
+        );
+        for (const resolvedId of newlyResolved) {
+          engine.removeAndPreventRequeue(resolvedId);
+        }
+        setIncorrectPhraseRecords(trackerRef.current.getAllRecords());
+      }
+    }
+  }, [deckById]);
 
   const advance = useCallback((): void => {
     const engine = engineRef.current;
@@ -248,10 +279,14 @@ export const useLessonSession = (
   const getSessionCheckpoint = useCallback(
     (meta: { lessonId: string; completedLessonCount: number; deckFingerprint?: string }) => {
       const engine = engineRef.current!;
-      return engine.exportCheckpoint({
+      const checkpoint = engine.exportCheckpoint({
         ...meta,
         deckFingerprint: meta.deckFingerprint ?? buildDeckFingerprint(deck),
       });
+      return {
+        ...checkpoint,
+        incorrectPhraseRecords: trackerRef.current.getAllRecords() as IncorrectPhraseRecord[],
+      };
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [deck],
@@ -275,5 +310,6 @@ export const useLessonSession = (
     isComplete,
     getLiveSlotsAhead,
     getSessionCheckpoint,
+    incorrectPhraseRecords,
   };
 };
