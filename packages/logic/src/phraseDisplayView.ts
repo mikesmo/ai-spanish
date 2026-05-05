@@ -1,5 +1,21 @@
 import type { Phrase, PhraseLessonType, UIStatus } from './types';
 
+export interface LearnerQuestionPauseProps {
+  isActive: boolean;
+  toggle: () => void;
+}
+
+/**
+ * Preset question prompts the learner can tap in the question sidebar.
+ * Keep aligned with any translations / localisation needs in the future.
+ */
+export const LEARNER_QUESTION_PRESET_PROMPTS: readonly string[] = [
+  'Explain to me the grammar being taught here',
+  'Is there another way to say this?',
+  'How would I make this negative?',
+  'Can you give me an example sentence?',
+] as const;
+
 /**
  * Props for AISpeaking on web and mobile — derived from
  * {@link getAisSpeakingViewModel}; keep presentation logic in one place.
@@ -131,6 +147,8 @@ export type UserRecordingViewProps = {
   showNextPhraseInsteadOfAnswer?: boolean;
   /** Called when learner taps the plain "Next phrase" on the recording screen. */
   onNextPhrase?: () => void;
+  /** Shared pause state; drives both the pill appearance and the question sidebar. */
+  learnerQuestionPause?: LearnerQuestionPauseProps;
 };
 
 export type UserFeedbackViewProps = {
@@ -154,4 +172,6 @@ export type UserFeedbackViewProps = {
   handleExplainSayAgain: () => void;
   /** After interrupting feedback explain chain, reopen explain ack pills. */
   onExplainInterrupted?: () => void;
+  /** Shared pause state; drives both the pill appearance and the question sidebar. */
+  learnerQuestionPause?: LearnerQuestionPauseProps;
 };

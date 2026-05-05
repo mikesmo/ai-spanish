@@ -194,43 +194,13 @@ export const UserFeedback = ({
   isExplainAckOpen,
   isExplainAckReplayPlaying,
   handleExplainSayAgain,
+  learnerQuestionPause,
 }: UserFeedbackProps): JSX.Element => {
-  const [isQuestionActive, setIsQuestionActive] = useState(false);
-  const audioWasInterrupted = useRef(false);
-  const wasExplainAckOpenRef = useRef(false);
   const diff = transcription.trim() ? diffWords(transcription, spanishPhrase) : null;
   const explainAckDisabled = isAudioPlaying || isExplainAckReplayPlaying;
 
-  useEffect(() => {
-    if (!isCorrect) {
-      setIsQuestionActive(false);
-      audioWasInterrupted.current = false;
-    }
-  }, [isCorrect]);
-
-  useEffect(() => {
-    if (wasExplainAckOpenRef.current && !isExplainAckOpen) {
-      setIsQuestionActive(false);
-      audioWasInterrupted.current = false;
-    }
-    wasExplainAckOpenRef.current = isExplainAckOpen;
-  }, [isExplainAckOpen]);
-
-  const handleQuestionToggle = () => {
-    if (!isQuestionActive) {
-      if (isAudioPlaying) {
-        onStopAnswerAudio();
-        audioWasInterrupted.current = true;
-      }
-      setIsQuestionActive(true);
-    } else {
-      if (audioWasInterrupted.current) {
-        onExplainInterrupted?.();
-        audioWasInterrupted.current = false;
-      }
-      setIsQuestionActive(false);
-    }
-  };
+  const isQuestionActive = learnerQuestionPause?.isActive ?? false;
+  const handleQuestionToggle = learnerQuestionPause?.toggle ?? (() => {});
 
   const explainAckActions =
     isExplainAckOpen ? (

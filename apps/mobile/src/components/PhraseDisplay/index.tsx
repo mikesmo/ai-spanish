@@ -7,6 +7,7 @@ import {
   getUserRecordingViewModel,
   runPhraseFeedbackNext,
   s3LessonFolderForTranscriptLessonId,
+  useLearnerQuestionPause,
   useLessonSessionWithHistory,
   usePhraseDisplayWithDeck,
 } from "@ai-spanish/logic";
@@ -17,6 +18,7 @@ import type { PhraseDisplayProps } from "./PhraseDisplay.types";
 import { AISpeaking } from "./components/AISpeaking";
 import { UserFeedback } from "./components/UserFeedback";
 import { UserRecording } from "./components/UserRecording";
+import { QuestionSidebar } from "../QuestionSidebar";
 
 export const PhraseDisplay = ({
   phrases,
@@ -40,6 +42,15 @@ export const PhraseDisplay = ({
   useEffect(() => {
     bindCurrentPhrase(display.currentPhrase);
   }, [display.currentPhrase, bindCurrentPhrase]);
+
+  const learnerQuestionPause = useLearnerQuestionPause({
+    isCorrect: display.isCorrect,
+    isExplainAckOpen: display.isExplainAckOpen,
+    isAudioPlaying: display.isAudioPlaying,
+    onStopAnswerAudio: display.stopAnswerAudio,
+    onExplainInterrupted: display.handleExplainInterrupted,
+    resetKey: `${display.currentPhrase.name}-${display.status}`,
+  });
 
   useEffect(() => {
     if (!display.isExplainAckOpen) return;
@@ -98,37 +109,38 @@ export const PhraseDisplay = ({
     display.status === "answer" && !display.isCorrect && !session.isComplete;
 
   return (
-    <View style={styles.container}>
-      <View style={[styles.header, isIncorrectAnswerFeedback && styles.headerNoMarginBelow]}>
-        <Pressable
-          onPress={onExit}
-          style={({ pressed }) => [styles.headerClose, pressed && styles.pressed]}
-          accessibilityRole="button"
-          accessibilityLabel="Exit lesson"
-        >
-          <Text style={styles.closeGlyph}>×</Text>
-        </Pressable>
-        <Text style={styles.headerTitle} numberOfLines={1}>
-          {lessonTitle}
-        </Text>
-        <Text style={styles.headerCounter} numberOfLines={1}>
-          {session.isComplete ? "session complete" : `${session.remaining} left`}
-        </Text>
-      </View>
+    <View style={styles.root}>
+      <View style={styles.container}>
+        <View style={[styles.header, isIncorrectAnswerFeedback && styles.headerNoMarginBelow]}>
+          <Pressable
+            onPress={onExit}
+            style={({ pressed }) => [styles.headerClose, pressed && styles.pressed]}
+            accessibilityRole="button"
+            accessibilityLabel="Exit lesson"
+          >
+            <Text style={styles.closeGlyph}>×</Text>
+          </Pressable>
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            {lessonTitle}
+          </Text>
+          <Text style={styles.headerCounter} numberOfLines={1}>
+            {session.isComplete ? "session complete" : `${session.remaining} left`}
+          </Text>
+        </View>
 
-      <View style={styles.contentStage}>
-        {(display.status === "loading" ||
-          display.status === "idle" ||
-          display.status === "pronunciationExample") && (
-          <AISpeaking
+        <View style={styles.contentStage}>
+          {(display.status === "loading" ||
+            display.status === "idle" ||
+            display.status === "pronunciationExample") && (
+            <AISpeaking
             isLoading={ais.isLoading}
             isAudioPlaying={ais.isAudioPlaying}
             englishQuestion={ais.englishQuestion}
             spanishLine={ais.spanishLine}
-          />
-        )}
+            />
+          )}
 
-        {(display.status === "recording" ||
+          {(display.status === "recording" ||
           display.status === "recordingPriming" ||
           display.status === "tryAgain") && (
           <UserRecording
@@ -147,6 +159,7 @@ export const PhraseDisplay = ({
             onStopAnswerAudio={display.stopAnswerAudio}
             onExplainInterrupted={display.handleExplainInterrupted}
             showNextPhraseInsteadOfAnswer={showNextPhraseInsteadOfAnswer}
+            learnerQuestionPause={learnerQuestionPause}
             onNextPhrase={() => {
               display.stopAnswerAudio();
               runPhraseFeedbackNext(display, session);
@@ -172,9 +185,9 @@ export const PhraseDisplay = ({
                 : undefined
             }
           />
-        )}
+          )}
 
-        {display.status === "answer" && !session.isComplete && (
+          {display.status === "answer" && !session.isComplete && (
           <UserFeedback
             transcription={display.caption}
             spanishPhrase={display.spanishText}
@@ -192,17 +205,31 @@ export const PhraseDisplay = ({
             onStopAnswerAudio={display.stopAnswerAudio}
             onExplainInterrupted={display.handleExplainInterrupted}
             onTryAgain={display.handleTryAgain}
+            learnerQuestionPause={learnerQuestionPause}
             onNext={() => {
               runPhraseFeedbackNext(display, session);
             }}
           />
-        )}
+          )}
+        </View>
       </View>
+      <QuestionSidebar
+        isOpen={learnerQuestionPause.isActive}
+        onClose={learnerQuestionPause.dismiss}
+        englishText={display.currentPhrase.English.question}
+        spanishText={display.spanishText}
+      />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    width: "100%",
+    position: "relative",
+    backgroundColor: "#ffffff",
+  },
   container: {
     flex: 1,
     alignItems: "center",

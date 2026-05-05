@@ -17,6 +17,8 @@ interface HistorySidebarProps {
   remainingInSession: number;
   completedLessonCount: number;
   incorrectPhraseRecords: readonly IncorrectPhraseRecord[];
+  /** Called on mount and whenever the sidebar's width changes (e.g. after drag-resize). */
+  onWidthChange?: (width: number) => void;
 }
 
 const MIN_WIDTH = 320;
@@ -47,18 +49,24 @@ export const HistorySidebar = ({
   remainingInSession,
   completedLessonCount,
   incorrectPhraseRecords,
+  onWidthChange,
 }: HistorySidebarProps): JSX.Element => {
   const [width, setWidth] = useState<number>(DEFAULT_WIDTH);
   const [isResizing, setIsResizing] = useState(false);
   const resizingRef = useRef(false);
+  const onWidthChangeRef = useRef(onWidthChange);
+  onWidthChangeRef.current = onWidthChange;
 
   useEffect(() => {
-    setWidth(getInitialWidth());
+    const initial = getInitialWidth();
+    setWidth(initial);
+    onWidthChangeRef.current?.(initial);
   }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     window.localStorage.setItem(STORAGE_KEY, String(width));
+    onWidthChangeRef.current?.(width);
   }, [width]);
 
   useEffect(() => {

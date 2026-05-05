@@ -8,6 +8,7 @@ import {
   getLessonTitle,
   runPhraseFeedbackNext,
   s3LessonFolderForTranscriptLessonId,
+  useLearnerQuestionPause,
   useLessonSessionWithHistory,
   usePhraseDisplayWithDeck,
 } from "@ai-spanish/logic";
@@ -17,6 +18,7 @@ import { AISpeaking } from "./components/AISpeaking";
 import { UserFeedback } from "./components/UserFeedback";
 import { UserRecording } from "./components/UserRecording";
 import { HistorySidebar, HistoryToggle } from "../HistorySidebar";
+import { QuestionSidebar } from "../QuestionSidebar";
 import type { PhraseDisplayProps } from "./PhraseDisplay.types";
 
 export const PhraseDisplay = ({
@@ -41,6 +43,15 @@ export const PhraseDisplay = ({
   useEffect(() => {
     bindCurrentPhrase(display.currentPhrase);
   }, [display.currentPhrase, bindCurrentPhrase]);
+
+  const learnerQuestionPause = useLearnerQuestionPause({
+    isCorrect: display.isCorrect,
+    isExplainAckOpen: display.isExplainAckOpen,
+    isAudioPlaying: display.isAudioPlaying,
+    onStopAnswerAudio: display.stopAnswerAudio,
+    onExplainInterrupted: display.handleExplainInterrupted,
+    resetKey: `${display.currentPhrase.name}-${display.status}`,
+  });
 
   const ais = getAisSpeakingViewModel({
     status: display.status,
@@ -71,7 +82,8 @@ export const PhraseDisplay = ({
     display.status === "answer" && !display.isCorrect && !session.isComplete;
 
   return (
-    <div className="w-full max-w-[390px] mx-auto bg-white flex flex-col min-h-[100dvh] py-16 px-8">
+    <div className="relative flex min-h-[100dvh] w-full max-w-[390px] flex-col mx-auto bg-white px-8 py-16">
+      <div className="relative z-[35] isolate flex min-h-0 flex-1 flex-col">
       <header
         className={`relative flex min-h-10 w-full shrink-0 items-center ${
           isIncorrectAnswerFeedback ? "mb-0" : "mb-6"
@@ -139,6 +151,7 @@ export const PhraseDisplay = ({
           onStopAnswerAudio={display.stopAnswerAudio}
           onExplainInterrupted={display.handleExplainInterrupted}
           showNextPhraseInsteadOfAnswer={showNextPhraseInsteadOfAnswer}
+          learnerQuestionPause={learnerQuestionPause}
           onNextPhrase={() => {
             display.stopAnswerAudio();
             runPhraseFeedbackNext(display, session);
@@ -184,11 +197,13 @@ export const PhraseDisplay = ({
           onStopAnswerAudio={display.stopAnswerAudio}
           onExplainInterrupted={display.handleExplainInterrupted}
           onTryAgain={display.handleTryAgain}
+          learnerQuestionPause={learnerQuestionPause}
           onNext={() => {
             runPhraseFeedbackNext(display, session);
           }}
         />
       )}
+      </div>
       </div>
 
       <HistoryToggle
@@ -205,6 +220,12 @@ export const PhraseDisplay = ({
         remainingInSession={session.remaining}
         completedLessonCount={session.completedLessonCount}
         incorrectPhraseRecords={session.incorrectPhraseRecords}
+      />
+      <QuestionSidebar
+        isOpen={learnerQuestionPause.isActive}
+        onClose={learnerQuestionPause.dismiss}
+        englishText={display.currentPhrase.English.question}
+        spanishText={display.spanishText}
       />
     </div>
   );

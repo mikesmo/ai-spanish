@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import type { UserRecordingProps } from "../PhraseDisplay.types";
 import { SayThatAgainAckButton } from "./SayThatAgainAckButton";
 
+
 const QUESTION_PLACEHOLDER_LABEL = "I have a question";
 
 const showAnswerPillClassName =
@@ -36,28 +37,12 @@ export const UserRecording = ({
   onExplainInterrupted,
   showNextPhraseInsteadOfAnswer = false,
   onNextPhrase,
+  learnerQuestionPause,
 }: UserRecordingProps): JSX.Element => {
-  const [isQuestionActive, setIsQuestionActive] = useState(false);
   const [nextPhraseSliderKey, setNextPhraseSliderKey] = useState(0);
-  const audioWasInterrupted = useRef(false);
-  const wasExplainAckOpenRef = useRef(false);
   const wasQuestionActiveRef = useRef(false);
 
-  useEffect(() => {
-    if (!isCorrect) {
-      setIsQuestionActive(false);
-      audioWasInterrupted.current = false;
-    }
-  }, [isCorrect]);
-
-  useEffect(() => {
-    const isOpen = explainAck?.isOpen === true;
-    if (wasExplainAckOpenRef.current && !isOpen) {
-      setIsQuestionActive(false);
-      audioWasInterrupted.current = false;
-    }
-    wasExplainAckOpenRef.current = isOpen;
-  }, [explainAck?.isOpen]);
+  const isQuestionActive = learnerQuestionPause?.isActive ?? false;
 
   useEffect(() => {
     if (wasQuestionActiveRef.current && !isQuestionActive) {
@@ -239,21 +224,7 @@ export const UserRecording = ({
           {showNewPhraseQuestionButton ? (
             <button
               type="button"
-              onClick={() => {
-                if (!isQuestionActive) {
-                  if (isAudioPlaying) {
-                    onStopAnswerAudio?.();
-                    audioWasInterrupted.current = true;
-                  }
-                  setIsQuestionActive(true);
-                } else {
-                  if (audioWasInterrupted.current) {
-                    onExplainInterrupted?.();
-                    audioWasInterrupted.current = false;
-                  }
-                  setIsQuestionActive(false);
-                }
-              }}
+              onClick={learnerQuestionPause?.toggle}
               className={showAnswerPillClassName}
             >
               <span className="relative z-10 text-[16px] font-medium text-gray-900">

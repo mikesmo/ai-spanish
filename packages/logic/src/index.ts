@@ -136,7 +136,9 @@ export {
   getAisSpeakingViewModel,
   getFirstNLessonOrdersInDeck,
   getUserRecordingViewModel,
+  LEARNER_QUESTION_PRESET_PROMPTS,
   type AisSpeakingViewModel,
+  type LearnerQuestionPauseProps,
   type PhraseDisplayHostProps,
   type UserFeedbackViewProps,
   type UserRecordingViewModel,
@@ -144,4 +146,9 @@ export {
   type UserRecordingExplainAckViewProps,
   type UserRecordingReplaySpanishMediumProps,
 } from './phraseDisplayView';
+export {
+  useLearnerQuestionPause,
+  type UseLearnerQuestionPauseOptions,
+  type LearnerQuestionPauseHandle,
+} from './useLearnerQuestionPause';
 export { usePhraseDisplayWithDeck } from './usePhraseDisplayWithDeck';
