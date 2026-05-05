@@ -234,14 +234,18 @@ export const useLessonSession = (
     onEventRef.current?.(event, { slotsAheadAtEvent, liveSlotsAhead });
     setRemaining(engine.remaining());
 
-    if (event.eventType === 'attempt') {
+    if (event.eventType === 'attempt' || event.eventType === 'reveal') {
       const phrase = deckById.get(event.phraseId);
       if (phrase) {
+        const missingWords =
+          event.eventType === 'attempt'
+            ? event.missingWords
+            : phrase.Spanish.words.map((w) => w.word);
         const newlyResolved = trackerRef.current.recordAttempt(
           event.phraseId,
           phrase,
-          event.missingWords,
-          event.isAccuracySuccess,
+          missingWords,
+          event.eventType === 'attempt' && event.isAccuracySuccess,
         );
         for (const resolvedId of newlyResolved) {
           engine.removeAndPreventRequeue(resolvedId);
