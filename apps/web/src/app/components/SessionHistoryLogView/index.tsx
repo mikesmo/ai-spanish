@@ -32,6 +32,7 @@ import {
   type FluencyBreakdown,
   type HistoryEntry,
   type IncorrectPhraseRecord,
+  type Phrase,
   type PracticeAttempt,
   type ScoreSummary,
   type StabilityBreakdownSnapshot,
@@ -194,6 +195,37 @@ const SESSION_GRADUATION_PCT = Math.round(MASTERY_STABILIZING_CEIL * 100);
 // ---------------------------------------------------------------------------
 // Sub-components (detail panels + legend)
 // ---------------------------------------------------------------------------
+
+const PhraseGrammarFromLesson = ({
+  phrase,
+}: {
+  phrase: Phrase;
+}): JSX.Element | null => {
+  const grammar = phrase.Spanish.grammar.trim();
+  const newGrammar = phrase.Spanish.newGrammar?.trim() ?? "";
+  const newWords = phrase.Spanish.newWords?.trim() ?? "";
+  if (!grammar && !newGrammar && !newWords) return null;
+  return (
+    <div>
+      <div className="font-semibold text-gray-700 mb-1">Grammar practised</div>
+      <div className="text-gray-900 space-y-1.5 normal-case">
+        {grammar ? <div>{grammar}</div> : null}
+        {newGrammar ? (
+          <div>
+            <span className="text-gray-500 text-[10px]">New grammar: </span>
+            {newGrammar}
+          </div>
+        ) : null}
+        {newWords ? (
+          <div>
+            <span className="text-gray-500 text-[10px]">New words: </span>
+            {newWords}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+};
 
 const SessionRequeueHint = ({
   masteryAfter,
@@ -508,6 +540,8 @@ const ScoredEventDetail = ({
         <div className="text-gray-900 italic">{phrase.Spanish.answer}</div>
       </div>
 
+      <PhraseGrammarFromLesson phrase={phrase} />
+
       <div>
         <div className="font-semibold text-gray-700 mb-1">Transcript</div>
         <div className="text-gray-900">
@@ -638,6 +672,9 @@ const RevealEventDetail = ({ entry }: { entry: HistoryEntry }): JSX.Element => {
         <div className="font-semibold text-gray-700 mb-1">Target phrase</div>
         <div className="text-gray-900 italic">{phrase.Spanish.answer}</div>
       </div>
+
+      <PhraseGrammarFromLesson phrase={phrase} />
+
       <div className="rounded border border-red-100 bg-red-50/80 px-2 py-1.5 text-red-900 text-[10px]">
         Show Answer — applies reveal decay in the reducer; phrase state becomes
         learning.
