@@ -166,6 +166,80 @@ interface WordAlignmentRow {
   resolvedByPhraseIndex?: number;
 }
 
+type PhraseGrammarTaughtRow = {
+  category: "Grammar" | "New grammar" | "New words";
+  item: string;
+};
+
+const splitCommaPhraseList = (raw: string): string[] =>
+  raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+
+/** Rows for the session-history "Grammar" table: one row per taught item (comma lists expanded). */
+const buildPhraseGrammarTaughtRows = (phrase: Phrase): PhraseGrammarTaughtRow[] => {
+  const rows: PhraseGrammarTaughtRow[] = [];
+  for (const item of splitCommaPhraseList(phrase.Spanish.grammar)) {
+    rows.push({ category: "Grammar", item });
+  }
+  const newGrammar = phrase.Spanish.newGrammar?.trim() ?? "";
+  if (newGrammar) {
+    for (const item of splitCommaPhraseList(newGrammar)) {
+      rows.push({ category: "New grammar", item });
+    }
+  }
+  const newWords = phrase.Spanish.newWords?.trim() ?? "";
+  if (newWords) {
+    for (const item of splitCommaPhraseList(newWords)) {
+      rows.push({ category: "New words", item });
+    }
+  }
+  return rows;
+};
+
+const PhraseGrammarTaughtSection = ({
+  phrase,
+}: {
+  phrase: Phrase;
+}): JSX.Element => {
+  const rows = useMemo(() => buildPhraseGrammarTaughtRows(phrase), [phrase]);
+  return (
+    <div>
+      <div className="font-semibold text-gray-700 mb-1">Grammar</div>
+      <table className="w-full border-collapse">
+        <thead>
+          <tr className="text-left text-gray-500 border-b border-gray-200">
+            <th className="py-1 pr-2 font-medium">Category</th>
+            <th className="py-1 pr-2 font-medium">Item</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.length === 0 ? (
+            <tr className="border-b border-gray-100">
+              <td
+                colSpan={2}
+                className="py-1 pr-2 text-gray-500 normal-case"
+              >
+                —
+              </td>
+            </tr>
+          ) : (
+            rows.map((r, i) => (
+              <tr key={`${r.category}-${r.item}-${i}`} className="border-b border-gray-100">
+                <td className="py-1 pr-2 text-gray-600 whitespace-nowrap">
+                  {r.category}
+                </td>
+                <td className="py-1 pr-2 text-gray-900 normal-case">{r.item}</td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+};
+
 const buildAlignmentRows = (
   words: WordMeta[],
   missingWords: string[],
@@ -195,37 +269,6 @@ const SESSION_GRADUATION_PCT = Math.round(MASTERY_STABILIZING_CEIL * 100);
 // ---------------------------------------------------------------------------
 // Sub-components (detail panels + legend)
 // ---------------------------------------------------------------------------
-
-const PhraseGrammarFromLesson = ({
-  phrase,
-}: {
-  phrase: Phrase;
-}): JSX.Element | null => {
-  const grammar = phrase.Spanish.grammar.trim();
-  const newGrammar = phrase.Spanish.newGrammar?.trim() ?? "";
-  const newWords = phrase.Spanish.newWords?.trim() ?? "";
-  if (!grammar && !newGrammar && !newWords) return null;
-  return (
-    <div>
-      <div className="font-semibold text-gray-700 mb-1">Grammar practised</div>
-      <div className="text-gray-900 space-y-1.5 normal-case">
-        {grammar ? <div>{grammar}</div> : null}
-        {newGrammar ? (
-          <div>
-            <span className="text-gray-500 text-[10px]">New grammar: </span>
-            {newGrammar}
-          </div>
-        ) : null}
-        {newWords ? (
-          <div>
-            <span className="text-gray-500 text-[10px]">New words: </span>
-            {newWords}
-          </div>
-        ) : null}
-      </div>
-    </div>
-  );
-};
 
 const SessionRequeueHint = ({
   masteryAfter,
@@ -540,8 +583,6 @@ const ScoredEventDetail = ({
         <div className="text-gray-900 italic">{phrase.Spanish.answer}</div>
       </div>
 
-      <PhraseGrammarFromLesson phrase={phrase} />
-
       <div>
         <div className="font-semibold text-gray-700 mb-1">Transcript</div>
         <div className="text-gray-900">
@@ -601,9 +642,13 @@ const ScoredEventDetail = ({
         </table>
       </div>
 
+      <PhraseGrammarTaughtSection phrase={phrase} />
+
       {incorrectPhraseRecord && (
         <div>
-          <div className="font-semibold text-gray-700 mb-1">Grammar</div>
+          <div className="font-semibold text-gray-700 mb-1">
+            Grammar tracking
+          </div>
           <table className="w-full border-collapse">
             <thead>
               <tr className="text-left text-gray-500 border-b border-gray-200">
@@ -663,7 +708,13 @@ const ScoredEventDetail = ({
   );
 };
 
-const RevealEventDetail = ({ entry }: { entry: HistoryEntry }): JSX.Element => {
+const RevealEventDetail = ({
+  entry,
+  incorrectPhraseRecord,
+}: {
+  entry: HistoryEntry;
+  incorrectPhraseRecord: IncorrectPhraseRecord | undefined;
+}): JSX.Element => {
   const { phrase, stabilityBreakdown, masteryBefore, masteryAfter } = entry;
   const blendedM = masteryBefore * REVEAL_MASTERY_DECAY;
   return (
@@ -673,7 +724,39 @@ const RevealEventDetail = ({ entry }: { entry: HistoryEntry }): JSX.Element => {
         <div className="text-gray-900 italic">{phrase.Spanish.answer}</div>
       </div>
 
-      <PhraseGrammarFromLesson phrase={phrase} />
+      <PhraseGrammarTaughtSection phrase={phrase} />
+
+      {incorrectPhraseRecord && (
+        <div>
+          <div className="font-semibold text-gray-700 mb-1">
+            Grammar tracking
+          </div>
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="text-left text-gray-500 border-b border-gray-200">
+                <th className="py-1 pr-2 font-medium">Rule</th>
+                <th className="py-1 pr-2 font-medium">Resolved</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-b border-gray-100">
+                <td className="py-1 pr-2 text-gray-900">
+                  {incorrectPhraseRecord.incorrectGrammar}
+                </td>
+                <td className="py-1 pr-2">
+                  {incorrectPhraseRecord.grammarResolvedByPhraseIndex != null ? (
+                    <span className="text-emerald-600 font-mono">
+                      #{incorrectPhraseRecord.grammarResolvedByPhraseIndex}
+                    </span>
+                  ) : (
+                    <span className="text-gray-400">—</span>
+                  )}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
 
       <div className="rounded border border-red-100 bg-red-50/80 px-2 py-1.5 text-red-900 text-[10px]">
         Show Answer — applies reveal decay in the reducer; phrase state becomes
@@ -864,7 +947,10 @@ const HistoryRow = ({
         <tr>
           <td colSpan={7} className="p-0">
             {event.eventType === "reveal" ? (
-              <RevealEventDetail entry={entry} />
+              <RevealEventDetail
+                entry={entry}
+                incorrectPhraseRecord={incorrectPhraseRecord}
+              />
             ) : (
               <ScoredEventDetail
                 entry={entry as ScoredEntry}
