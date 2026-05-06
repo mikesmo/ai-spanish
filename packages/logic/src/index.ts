@@ -78,6 +78,10 @@ export type {
   StabilityBreakdownSnapshot,
   UseSessionHistoryResult,
 } from './useSessionHistory';
+export {
+  buildPresentationOrdinalByEntryId,
+  type PresentationOrdinalHistorySlice,
+} from './sessionHistoryPresentationOrdinals';
 export { useLessonSessionWithHistory } from './useLessonSessionWithHistory';
 export type {
   UseLessonSessionWithHistoryResult,

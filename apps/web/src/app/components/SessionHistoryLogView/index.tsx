@@ -25,6 +25,7 @@ import {
   REVEAL_STABILITY_DECAY,
   STABILITY_EMA_ALPHA,
   alignWords,
+  buildPresentationOrdinalByEntryId,
   fluencyForMastery,
   normalizeStr,
   type AccuracyBreakdown,
@@ -143,6 +144,10 @@ const formatSlotsAhead = (slots: number | null): string => {
   const cards = slots + 1;
   return cards === 1 ? "next card" : `in ${cards} cards`;
 };
+
+/** Shared with revisit — transcript phrase lesson kind (`new` / `composite`). */
+const PHRASE_LESSON_KIND_BADGE_CLASS =
+  "inline-block w-fit text-[10px] px-1.5 py-0.5 rounded border bg-indigo-50 text-indigo-700 border-indigo-200";
 
 type ResultBadge = { label: string; className: string; title: string };
 
@@ -862,6 +867,12 @@ interface RowProps {
    * of this phrase (matches the table’s # column for that referenced row).
    */
   revisitRefDisplay?: number;
+  /**
+   * 1-based count of this phrase’s presentation blocks in chronological session history
+   * (derived from contiguous same-phrase segments). Used with `MAX_REINSERTS_PER_PHRASE_PER_SESSION`
+   * for the revisit badge `(n/T)`.
+   */
+  sessionPresentationOrdinal: number;
 }
 
 const HistoryRow = ({
@@ -873,6 +884,7 @@ const HistoryRow = ({
   incorrectPhraseRecord,
   allIncorrectPhraseRecords,
   revisitRefDisplay,
+  sessionPresentationOrdinal,
 }: RowProps): JSX.Element => {
   const [expanded, setExpanded] = useState(false);
   const { event, phrase, scoreSummary } = entry;
@@ -909,6 +921,9 @@ const HistoryRow = ({
         ? "py-2 px-1 text-right tabular-nums align-top text-red-600"
         : "py-2 px-1 text-right tabular-nums align-top text-emerald-700";
 
+  const revisitCountDisplay = Math.max(0, sessionPresentationOrdinal - 1);
+  const revisitFractionLabel = `(${revisitCountDisplay}/${MAX_REINSERTS_PER_PHRASE_PER_SESSION})`;
+
   return (
     <>
       <tr
@@ -934,18 +949,34 @@ const HistoryRow = ({
                 {badge.label}
               </span>
             )}
+            {phrase.type === "new" && (
+              <span
+                title="Lesson card kind from transcript (type: new). The first in-session presentation of this phrase may show a Spanish pronunciation example; revisits skip that phase."
+                className={PHRASE_LESSON_KIND_BADGE_CLASS}
+              >
+                New
+              </span>
+            )}
+            {phrase.type === "composite" && (
+              <span
+                title='Lesson card kind from transcript (type: composite). Other teaching cards; legacy JSON value "combination" is normalized to composite.'
+                className={PHRASE_LESSON_KIND_BADGE_CLASS}
+              >
+                Composite
+              </span>
+            )}
             {entry.isRepeatedPresentation && (
               <span
                 title={
                   revisitRefDisplay != null
-                    ? `Revisit — this phrase was presented again in the same session (e.g. Pimsleur requeue or deck wrap). #${revisitRefDisplay} is the last event (# column) from the previous time this phrase was shown in this session.`
-                    : "Revisit — this phrase was presented again in the same session (e.g. Pimsleur requeue or deck wrap)"
+                    ? `Revisit — this phrase was presented again in the same session (e.g. Pimsleur requeue or deck wrap). #${revisitRefDisplay} is the last event (# column) from the previous time this phrase was shown in this session. ${revisitFractionLabel} is how many times this phrase has been re-presented so far versus the max mastery-driven requeues (${MAX_REINSERTS_PER_PHRASE_PER_SESSION}) this lesson; at (${MAX_REINSERTS_PER_PHRASE_PER_SESSION}/${MAX_REINSERTS_PER_PHRASE_PER_SESSION}) the session engine will not schedule another such repeat. Decks with duplicate phrase ids could repeat without using that counter.`
+                    : `Revisit — this phrase was presented again in the same session (e.g. Pimsleur requeue or deck wrap). ${revisitFractionLabel} is revisit count vs max mastery-driven requeues (${MAX_REINSERTS_PER_PHRASE_PER_SESSION}) this lesson. Decks with duplicate phrase ids could repeat without using that counter.`
                 }
-                className="inline-block w-fit text-[10px] px-1.5 py-0.5 rounded border bg-indigo-50 text-indigo-700 border-indigo-200"
+                className={PHRASE_LESSON_KIND_BADGE_CLASS}
               >
                 {revisitRefDisplay != null
-                  ? `revisit #${revisitRefDisplay}`
-                  : "revisit"}
+                  ? `revisit #${revisitRefDisplay} ${revisitFractionLabel}`
+                  : `revisit ${revisitFractionLabel}`}
               </span>
             )}
             <span
@@ -1082,8 +1113,17 @@ const EVENT_LEGEND: LegendItem[] = [
   },
   {
     term: "revisit",
+    description: `This phrase was presented again in the current session — e.g. a Pimsleur requeue after a weak attempt, or a deck wrap. The badge applies to every event (attempt, retry, reveal) logged for that revisit card and is orthogonal to the scored-vs-practice distinction. When shown as revisit #n, n is the # column of the last event from the previous time that phrase was shown in this session. The parenthetical (n/T) counts how many times this phrase has been re-presented after its first showing versus ${MAX_REINSERTS_PER_PHRASE_PER_SESSION} (mastery-driven requeues per lesson); at (T/T) the engine will not schedule another repeat for that reason. Duplicate phrase ids in the deck could still repeat without consuming that counter.`,
+  },
+  {
+    term: "New",
     description:
-      "This phrase was presented again in the current session — e.g. a Pimsleur requeue after a weak attempt, or a deck wrap. The badge applies to every event (attempt, retry, reveal) logged for that revisit card and is orthogonal to the scored-vs-practice distinction. When shown as revisit #n, n is the # column of the last event from the previous time that phrase was shown in this session.",
+      'Indigo badge — phrase lesson kind from transcript JSON (`type: "new"`). The first in-session presentation may include a Spanish pronunciation example; revisits skip that phase.',
+  },
+  {
+    term: "Composite",
+    description:
+      'Indigo badge — phrase lesson kind from transcript JSON (`type: "composite"`). Other teaching cards; legacy `"combination"` is normalized to composite.',
   },
   {
     term: "next",
@@ -1430,6 +1470,11 @@ export const SessionHistoryLogView = ({
     [history],
   );
 
+  const presentationOrdinalByEntryId = useMemo(
+    () => buildPresentationOrdinalByEntryId(history),
+    [history],
+  );
+
   return (
     <div className={className}>
       {history.length === 0 ? (
@@ -1462,6 +1507,9 @@ export const SessionHistoryLogView = ({
                 incorrectPhraseRecord={incorrectRecordsByPhraseId.get(entry.phrase.name)}
                 allIncorrectPhraseRecords={incorrectPhraseRecords ?? []}
                 revisitRefDisplay={revisitRefDisplayByEntryId.get(entry.id)}
+                sessionPresentationOrdinal={
+                  presentationOrdinalByEntryId.get(entry.id) ?? 1
+                }
               />
             ))}
           </tbody>
