@@ -41,6 +41,12 @@ export interface PhraseEventContext {
    * `IncorrectPhraseRecord` resolution cross-references.
    */
   eventSeq: number;
+  /**
+   * Sorted unique `failedAtEventSeq` values for incorrect-phrase records that
+   * became `isFullyResolved` on this event (attempt/reveal with tracker run).
+   * Empty when none; omitted or empty for practice.
+   */
+  incorrectPhraseRecordsFullyResolvedFailedAtEventSeqs?: readonly number[];
 }
 
 export interface UseLessonSessionOptions {
@@ -247,8 +253,11 @@ export const useLessonSession = (
     const eventSeq = ++eventSeqRef.current;
     const slotsAheadAtEvent = engine.getQueuePosition(event.phraseId);
     const liveSlotsAhead = engine.getQueuePosition(event.phraseId);
-    onEventRef.current?.(event, { slotsAheadAtEvent, liveSlotsAhead, eventSeq });
-    setRemaining(engine.remaining());
+
+    let incorrectPhraseRecordsFullyResolvedFailedAtEventSeqs:
+      | readonly number[]
+      | undefined;
+    let newlyResolvedPhraseIds: string[] = [];
 
     if (event.eventType === 'attempt' || event.eventType === 'reveal') {
       const phrase = deckById.get(event.phraseId);
@@ -262,7 +271,7 @@ export const useLessonSession = (
         // cannot resolve other phrases.
         const visitCount = visitCountsRef.current.get(event.phraseId) ?? 0;
         const canResolve = !(phrase.type === 'new' && visitCount <= 1);
-        const newlyResolved = trackerRef.current.recordAttempt(
+        newlyResolvedPhraseIds = trackerRef.current.recordAttempt(
           event.phraseId,
           phrase,
           missingWords,
@@ -270,11 +279,30 @@ export const useLessonSession = (
           eventSeq,
           canResolve,
         );
-        for (const resolvedId of newlyResolved) {
-          engine.removeAndPreventRequeue(resolvedId);
+        const fullySeqSet = new Set<number>();
+        for (const resolvedId of newlyResolvedPhraseIds) {
+          const rec = trackerRef.current.getRecord(resolvedId);
+          if (rec) fullySeqSet.add(rec.failedAtEventSeq);
+        }
+        if (fullySeqSet.size > 0) {
+          incorrectPhraseRecordsFullyResolvedFailedAtEventSeqs = Array.from(
+            fullySeqSet,
+          ).sort((a, b) => a - b);
         }
         setIncorrectPhraseRecords(trackerRef.current.getAllRecords());
       }
+    }
+
+    onEventRef.current?.(event, {
+      slotsAheadAtEvent,
+      liveSlotsAhead,
+      eventSeq,
+      incorrectPhraseRecordsFullyResolvedFailedAtEventSeqs,
+    });
+    setRemaining(engine.remaining());
+
+    for (const resolvedId of newlyResolvedPhraseIds) {
+      engine.removeAndPreventRequeue(resolvedId);
     }
   }, [deckById]);
 

@@ -88,6 +88,9 @@ export const historyEntrySchema = z.object({
    * compatibility with entries persisted before this field was added.
    */
   eventSeq: z.number().int().positive().optional(),
+  incorrectPhraseRecordsFullyResolvedFailedAtEventSeqs: z
+    .array(z.number().int().positive())
+    .optional(),
 });
 
 export type HistoryEntryParsed = z.infer<typeof historyEntrySchema>;

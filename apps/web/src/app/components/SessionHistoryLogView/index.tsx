@@ -607,12 +607,10 @@ const ScoredEventDetail = ({
   entry,
   isPractice,
   incorrectPhraseRecord,
-  allIncorrectPhraseRecords,
 }: {
   entry: ScoredEntry;
   isPractice: boolean;
   incorrectPhraseRecord: IncorrectPhraseRecord | undefined;
-  allIncorrectPhraseRecords: readonly IncorrectPhraseRecord[];
 }): JSX.Element => {
   const { event, phrase, scoreSummary, stabilityBreakdown } = entry;
   const ab = event.accuracyBreakdown;
@@ -642,32 +640,8 @@ const ScoredEventDetail = ({
     };
   }, [event, phrase.Spanish.words, incorrectPhraseRecord]);
 
-  /**
-   * Compute the set of failed-phrase event IDs that this event resolved.
-   * A record was resolved by this event if any of its resolvedWords point at
-   * this eventSeq, or its grammarResolvedByEventSeq matches.
-   * Only meaningful when this event is an accuracy success and eventSeq is
-   * present (live session — not available for legacy persisted entries).
-   */
-  const resolvedFailedEventSeqs = useMemo((): number[] => {
-    if (
-      event.eventType !== "attempt" ||
-      !scoreSummary.isAccuracySuccess ||
-      entry.eventSeq == null
-    ) {
-      return [];
-    }
-    const seq = entry.eventSeq;
-    const seqSet = new Set<number>();
-    for (const record of allIncorrectPhraseRecords) {
-      const byWord = record.resolvedWords.some((r) => r.resolvedByEventSeq === seq);
-      const byGrammar = record.grammarResolvedByEventSeq === seq;
-      if (byWord || byGrammar) {
-        seqSet.add(record.failedAtEventSeq);
-      }
-    }
-    return Array.from(seqSet).sort((a, b) => a - b);
-  }, [event, scoreSummary, entry.eventSeq, allIncorrectPhraseRecords]);
+  const fullyRedeemedFailedAtEventSeqs =
+    entry.incorrectPhraseRecordsFullyResolvedFailedAtEventSeqs ?? [];
 
   /** Successful revisit: word rows are all matched (—); hide grammar self-seq too. */
   const suppressGrammarResolvedDisplay =
@@ -756,14 +730,14 @@ const ScoredEventDetail = ({
         suppressResolvedDisplay={suppressGrammarResolvedDisplay}
       />
 
-      {resolvedFailedEventSeqs.length > 0 && (
+      {fullyRedeemedFailedAtEventSeqs.length > 0 && (
         <div
           className="text-emerald-700 normal-case"
-          title="Event IDs of previously-failed phrases that this successful attempt resolved (words and/or grammar)"
+          title="Event # values for failed attempts whose incorrect-phrase records became fully resolved (all missing words and matching grammar) on this successful attempt. Omitted for legacy log rows without this field."
         >
-          <span className="font-semibold">This triggered the resolution of events:</span>{" "}
+          <span className="font-semibold">Fully redeemed incorrect-phrase failure events:</span>{" "}
           <span className="font-mono">
-            {resolvedFailedEventSeqs.map((seq) => `#${seq}`).join(", ")}
+            {fullyRedeemedFailedAtEventSeqs.map((seq) => `#${seq}`).join(", ")}
           </span>
         </div>
       )}
@@ -860,8 +834,6 @@ interface RowProps {
   isLatestForPhrase: boolean;
   /** Incorrect-phrase redemption record for this entry's phrase, if any. */
   incorrectPhraseRecord: IncorrectPhraseRecord | undefined;
-  /** All incorrect-phrase records for the session, for resolver lookups. */
-  allIncorrectPhraseRecords: readonly IncorrectPhraseRecord[];
   /**
    * When this row is a revisit, the # of the last event from the prior presentation
    * of this phrase (matches the table’s # column for that referenced row).
@@ -882,7 +854,6 @@ const HistoryRow = ({
   completedLessonCount,
   isLatestForPhrase,
   incorrectPhraseRecord,
-  allIncorrectPhraseRecords,
   revisitRefDisplay,
   sessionPresentationOrdinal,
 }: RowProps): JSX.Element => {
@@ -1061,7 +1032,6 @@ const HistoryRow = ({
                 entry={entry as ScoredEntry}
                 isPractice={event.eventType === "practice"}
                 incorrectPhraseRecord={incorrectPhraseRecord}
-                allIncorrectPhraseRecords={allIncorrectPhraseRecords}
               />
             )}
           </td>
@@ -1505,7 +1475,6 @@ export const SessionHistoryLogView = ({
                 completedLessonCount={completedLessonCount}
                 isLatestForPhrase={latestEntryIdByPhraseId.get(entry.phrase.name) === entry.id}
                 incorrectPhraseRecord={incorrectRecordsByPhraseId.get(entry.phrase.name)}
-                allIncorrectPhraseRecords={incorrectPhraseRecords ?? []}
                 revisitRefDisplay={revisitRefDisplayByEntryId.get(entry.id)}
                 sessionPresentationOrdinal={
                   presentationOrdinalByEntryId.get(entry.id) ?? 1

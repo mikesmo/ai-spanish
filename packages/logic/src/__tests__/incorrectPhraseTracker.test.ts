@@ -69,4 +69,26 @@ describe('createIncorrectPhraseTracker', () => {
     expect(recordB.resolvedWords.some((r) => r.word === normalizeStr('hello'))).toBe(true);
     expect(recordB.isFullyResolved).toBe(true);
   });
+
+  it('does not mark fully resolved when all missing words propagate but grammar strings differ', () => {
+    const tracker = createIncorrectPhraseTracker();
+    const phraseLong = phraseBase('p-long', 'polite address, negative reply', [
+      ['hello', 1],
+      ['world', 1],
+    ]);
+    const phraseShort = phraseBase('p-short', 'polite address', [
+      ['hello', 1],
+      ['world', 1],
+    ]);
+
+    tracker.recordAttempt(phraseLong.name, phraseLong, ['hello'], false, 1, true);
+    tracker.recordAttempt(phraseShort.name, phraseShort, [], true, 2, true);
+
+    const recordLong = tracker.getRecord(phraseLong.name)!;
+    expect(recordLong.resolvedWords).toEqual([
+      { word: normalizeStr('hello'), resolvedByEventSeq: 2 },
+    ]);
+    expect(recordLong.grammarResolvedByEventSeq).toBeNull();
+    expect(recordLong.isFullyResolved).toBe(false);
+  });
 });

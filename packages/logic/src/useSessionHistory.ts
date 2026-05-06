@@ -67,6 +67,12 @@ export interface HistoryEntry {
    * field was added (e.g. mobile session log viewer).
    */
   eventSeq?: number;
+  /**
+   * `failedAtEventSeq` values for incorrect-phrase records that became fully
+   * resolved (words + grammar per tracker) on this event. Omitted when none or
+   * for legacy persisted rows.
+   */
+  incorrectPhraseRecordsFullyResolvedFailedAtEventSeqs?: number[];
 }
 
 export interface UseSessionHistoryResult {
@@ -222,6 +228,14 @@ export const useSessionHistory = (
         dueOnLessonSessionIndex: nextProgress.dueOnLessonSessionIndex,
         slotsAheadAtEvent,
         eventSeq,
+        ...(ctx.incorrectPhraseRecordsFullyResolvedFailedAtEventSeqs != null &&
+        ctx.incorrectPhraseRecordsFullyResolvedFailedAtEventSeqs.length > 0
+          ? {
+              incorrectPhraseRecordsFullyResolvedFailedAtEventSeqs: [
+                ...ctx.incorrectPhraseRecordsFullyResolvedFailedAtEventSeqs,
+              ],
+            }
+          : {}),
       };
 
       setHistory((prev) => [...prev, entry]);
