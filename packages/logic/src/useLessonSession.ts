@@ -34,6 +34,13 @@ export interface PhraseEventContext {
    * `slotsAheadAtEvent` (sidebar "session (now)" uses the same lookup later).
    */
   liveSlotsAhead: number | null;
+  /**
+   * Per-session monotonic event sequence number (1-based). Increments once
+   * per PhraseEvent (attempt / practice / reveal). Used as the stable
+   * reference ID surfaced in the history sidebar `#` column and in
+   * `IncorrectPhraseRecord` resolution cross-references.
+   */
+  eventSeq: number;
 }
 
 export interface UseLessonSessionOptions {
@@ -148,6 +155,14 @@ export const useLessonSession = (
   const storeRef = useRef(createInMemoryProgressStore());
   const engineRef = useRef<SessionEngine | null>(null);
   const trackerRef = useRef(createIncorrectPhraseTracker());
+  /** Monotonic per-session event counter. Increments once per PhraseEvent. */
+  const eventSeqRef = useRef(0);
+  /**
+   * Per-phrase presentation visit count. Incremented by the wrapped
+   * `onPresentationStart` so `onPhraseEvent` can detect first presentations
+   * of `type="new"` phrases and set `canResolve = false`.
+   */
+  const visitCountsRef = useRef(new Map<string, number>());
   if (engineRef.current === null) {
     engineRef.current = createSessionEngine(deck, storeRef.current, {
       getCompletedLessonCount: () => completedLessonCountRef.current,
@@ -229,9 +244,10 @@ export const useLessonSession = (
         currentPresentedPhraseId: engine.getCurrentPresentedPhraseId()!,
       });
     }
+    const eventSeq = ++eventSeqRef.current;
     const slotsAheadAtEvent = engine.getQueuePosition(event.phraseId);
     const liveSlotsAhead = engine.getQueuePosition(event.phraseId);
-    onEventRef.current?.(event, { slotsAheadAtEvent, liveSlotsAhead });
+    onEventRef.current?.(event, { slotsAheadAtEvent, liveSlotsAhead, eventSeq });
     setRemaining(engine.remaining());
 
     if (event.eventType === 'attempt' || event.eventType === 'reveal') {
@@ -241,11 +257,18 @@ export const useLessonSession = (
           event.eventType === 'attempt'
             ? event.missingWords
             : phrase.Spanish.words.map((w) => w.word);
+        const isSuccess = event.eventType === 'attempt' && event.isAccuracySuccess;
+        // First presentation of a type="new" phrase is a practice run and
+        // cannot resolve other phrases.
+        const visitCount = visitCountsRef.current.get(event.phraseId) ?? 0;
+        const canResolve = !(phrase.type === 'new' && visitCount <= 1);
         const newlyResolved = trackerRef.current.recordAttempt(
           event.phraseId,
           phrase,
           missingWords,
-          event.eventType === 'attempt' && event.isAccuracySuccess,
+          isSuccess,
+          eventSeq,
+          canResolve,
         );
         for (const resolvedId of newlyResolved) {
           engine.removeAndPreventRequeue(resolvedId);
@@ -280,6 +303,19 @@ export const useLessonSession = (
     return engineRef.current?.getQueuePosition(phraseId) ?? null;
   }, []);
 
+  const onPresentationStartRef = useRef<typeof onPresentationStart>(onPresentationStart);
+  onPresentationStartRef.current = onPresentationStart;
+
+  /**
+   * Wrapped presentation-start callback: increments the local visit count for
+   * `canResolve` detection before delegating to the host's callback.
+   */
+  const wrappedOnPresentationStart = useCallback((phrase: Phrase): void => {
+    const prev = visitCountsRef.current.get(phrase.name) ?? 0;
+    visitCountsRef.current.set(phrase.name, prev + 1);
+    onPresentationStartRef.current?.(phrase);
+  }, []);
+
   const getSessionCheckpoint = useCallback(
     (meta: { lessonId: string; completedLessonCount: number; deckFingerprint?: string }) => {
       const engine = engineRef.current!;
@@ -308,7 +344,7 @@ export const useLessonSession = (
     phrases: phrasesRef.current,
     presentationVersion,
     onPhraseEvent,
-    onPresentationStart,
+    onPresentationStart: wrappedOnPresentationStart,
     advance,
     remaining,
     isComplete,

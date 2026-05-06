@@ -59,6 +59,14 @@ export interface HistoryEntry {
    * `getLiveSlotsAhead` for “session (now)”.
    */
   slotsAheadAtEvent: number | null;
+  /**
+   * Per-session monotonic event sequence number (1-based). Stable identifier
+   * for this event — displayed in the sidebar `#` column and stored in
+   * `IncorrectPhraseRecord` resolution cross-references. Optional for
+   * backward-compatibility with entries fetched from persistence before this
+   * field was added (e.g. mobile session log viewer).
+   */
+  eventSeq?: number;
 }
 
 export interface UseSessionHistoryResult {
@@ -185,6 +193,7 @@ export const useSessionHistory = (
       }
 
       const slotsAheadAtEvent = ctx.slotsAheadAtEvent;
+      const eventSeq = ctx.eventSeq;
 
       if (getDefaultLearningPipelineDebug()) {
         const transcriptStr =
@@ -212,6 +221,7 @@ export const useSessionHistory = (
         isRepeatedPresentation: currentIsRepeatRef.current,
         dueOnLessonSessionIndex: nextProgress.dueOnLessonSessionIndex,
         slotsAheadAtEvent,
+        eventSeq,
       };
 
       setHistory((prev) => [...prev, entry]);

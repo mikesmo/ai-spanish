@@ -162,13 +162,14 @@ interface WordAlignmentRow {
   type: string;
   weight: number;
   status: "matched" | "missing";
-  /** Phrase index of the phrase that resolved this missing word, if resolved. */
-  resolvedByPhraseIndex?: number;
+  /** Per-session event seq of the event that resolved this missing word, if resolved. */
+  resolvedByEventSeq?: number;
 }
 
-type PhraseGrammarTaughtRow = {
-  category: "Grammar" | "New grammar" | "New words";
+type GrammarRow = {
   item: string;
+  /** True when this item comes from Spanish.grammar (tracked for resolution). */
+  isTracked: boolean;
 };
 
 const splitCommaPhraseList = (raw: string): string[] =>
@@ -177,60 +178,71 @@ const splitCommaPhraseList = (raw: string): string[] =>
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
 
-/** Rows for the session-history "Grammar" table: one row per taught item (comma lists expanded). */
-const buildPhraseGrammarTaughtRows = (phrase: Phrase): PhraseGrammarTaughtRow[] => {
-  const rows: PhraseGrammarTaughtRow[] = [];
+/** Rows for the unified Grammar table. Items from Spanish.grammar are resolution-tracked. */
+const buildGrammarRows = (phrase: Phrase): GrammarRow[] => {
+  const rows: GrammarRow[] = [];
   for (const item of splitCommaPhraseList(phrase.Spanish.grammar)) {
-    rows.push({ category: "Grammar", item });
+    rows.push({ item, isTracked: true });
   }
   const newGrammar = phrase.Spanish.newGrammar?.trim() ?? "";
   if (newGrammar) {
     for (const item of splitCommaPhraseList(newGrammar)) {
-      rows.push({ category: "New grammar", item });
+      rows.push({ item, isTracked: false });
     }
   }
   const newWords = phrase.Spanish.newWords?.trim() ?? "";
   if (newWords) {
     for (const item of splitCommaPhraseList(newWords)) {
-      rows.push({ category: "New words", item });
+      rows.push({ item, isTracked: false });
     }
   }
   return rows;
 };
 
-const PhraseGrammarTaughtSection = ({
+/**
+ * Unified Grammar section showing all grammar/new-grammar/new-words items with
+ * a Resolved column. Items from `Spanish.grammar` show the resolving event seq
+ * when an `IncorrectPhraseRecord` exists for this phrase; other items show —.
+ */
+const GrammarSection = ({
   phrase,
+  incorrectPhraseRecord,
 }: {
   phrase: Phrase;
+  incorrectPhraseRecord: IncorrectPhraseRecord | undefined;
 }): JSX.Element => {
-  const rows = useMemo(() => buildPhraseGrammarTaughtRows(phrase), [phrase]);
+  const rows = useMemo(() => buildGrammarRows(phrase), [phrase]);
+  const resolvedSeq = incorrectPhraseRecord?.grammarResolvedByEventSeq ?? null;
   return (
     <div>
       <div className="font-semibold text-gray-700 mb-1">Grammar</div>
       <table className="w-full border-collapse">
         <thead>
           <tr className="text-left text-gray-500 border-b border-gray-200">
-            <th className="py-1 pr-2 font-medium">Category</th>
-            <th className="py-1 pr-2 font-medium">Item</th>
+            <th className="py-1 pr-2 font-medium">Grammar</th>
+            <th className="py-1 pr-2 font-medium">Resolved</th>
           </tr>
         </thead>
         <tbody>
           {rows.length === 0 ? (
             <tr className="border-b border-gray-100">
-              <td
-                colSpan={2}
-                className="py-1 pr-2 text-gray-500 normal-case"
-              >
+              <td colSpan={2} className="py-1 pr-2 text-gray-500 normal-case">
                 —
               </td>
             </tr>
           ) : (
             rows.map((r, i) => (
-              <tr key={`${r.category}-${r.item}-${i}`} className="border-b border-gray-100">
-                <td className="py-1 pr-2 text-gray-600 whitespace-nowrap">
-                  {r.category}
-                </td>
+              <tr key={`${r.item}-${i}`} className="border-b border-gray-100">
                 <td className="py-1 pr-2 text-gray-900 normal-case">{r.item}</td>
+                <td className="py-1 pr-2">
+                  {r.isTracked && resolvedSeq != null ? (
+                    <span className="text-emerald-600 font-mono">
+                      #{resolvedSeq}
+                    </span>
+                  ) : (
+                    <span className="text-gray-400">—</span>
+                  )}
+                </td>
               </tr>
             ))
           )}
@@ -247,7 +259,7 @@ const buildAlignmentRows = (
 ): WordAlignmentRow[] => {
   const missingSet = new Set(missingWords.map((w) => normalizeStr(w)));
   const resolvedMap = new Map<string, number>(
-    record?.resolvedWords.map((r) => [r.word, r.resolvedByPhraseIndex]) ?? [],
+    record?.resolvedWords.map((r) => [r.word, r.resolvedByEventSeq]) ?? [],
   );
   return words.map((w) => {
     const normalized = normalizeStr(w.word);
@@ -257,7 +269,7 @@ const buildAlignmentRows = (
       type: w.type,
       weight: w.weight,
       status: isMissing ? "missing" : "matched",
-      resolvedByPhraseIndex: isMissing ? resolvedMap.get(normalized) : undefined,
+      resolvedByEventSeq: isMissing ? resolvedMap.get(normalized) : undefined,
     };
   });
 };
@@ -536,10 +548,12 @@ const ScoredEventDetail = ({
   entry,
   isPractice,
   incorrectPhraseRecord,
+  allIncorrectPhraseRecords,
 }: {
   entry: ScoredEntry;
   isPractice: boolean;
   incorrectPhraseRecord: IncorrectPhraseRecord | undefined;
+  allIncorrectPhraseRecords: readonly IncorrectPhraseRecord[];
 }): JSX.Element => {
   const { event, phrase, scoreSummary, stabilityBreakdown } = entry;
   const ab = event.accuracyBreakdown;
@@ -568,6 +582,33 @@ const ScoredEventDetail = ({
       extraWordsDisplay: alignment.extra.map((w) => w.word),
     };
   }, [event, phrase.Spanish.words, incorrectPhraseRecord]);
+
+  /**
+   * Compute the set of failed-phrase event IDs that this event resolved.
+   * A record was resolved by this event if any of its resolvedWords point at
+   * this eventSeq, or its grammarResolvedByEventSeq matches.
+   * Only meaningful when this event is an accuracy success and eventSeq is
+   * present (live session — not available for legacy persisted entries).
+   */
+  const resolvedFailedEventSeqs = useMemo((): number[] => {
+    if (
+      event.eventType !== "attempt" ||
+      !scoreSummary.isAccuracySuccess ||
+      entry.eventSeq == null
+    ) {
+      return [];
+    }
+    const seq = entry.eventSeq;
+    const seqSet = new Set<number>();
+    for (const record of allIncorrectPhraseRecords) {
+      const byWord = record.resolvedWords.some((r) => r.resolvedByEventSeq === seq);
+      const byGrammar = record.grammarResolvedByEventSeq === seq;
+      if (byWord || byGrammar) {
+        seqSet.add(record.failedAtEventSeq);
+      }
+    }
+    return Array.from(seqSet).sort((a, b) => a - b);
+  }, [event, scoreSummary, entry.eventSeq, allIncorrectPhraseRecords]);
 
   return (
     <div className="bg-gray-50 border-t border-gray-200 px-3 py-3 space-y-4 text-[11px]">
@@ -628,9 +669,9 @@ const ScoredEventDetail = ({
                   {r.status}
                 </td>
                 <td className="py-1 pr-2">
-                  {r.status === "missing" && r.resolvedByPhraseIndex != null ? (
+                  {r.status === "missing" && r.resolvedByEventSeq != null ? (
                     <span className="text-emerald-600 font-mono">
-                      #{r.resolvedByPhraseIndex}
+                      #{r.resolvedByEventSeq}
                     </span>
                   ) : (
                     <span className="text-gray-400">—</span>
@@ -642,37 +683,17 @@ const ScoredEventDetail = ({
         </table>
       </div>
 
-      <PhraseGrammarTaughtSection phrase={phrase} />
+      <GrammarSection phrase={phrase} incorrectPhraseRecord={incorrectPhraseRecord} />
 
-      {incorrectPhraseRecord && (
-        <div>
-          <div className="font-semibold text-gray-700 mb-1">
-            Grammar tracking
-          </div>
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="text-left text-gray-500 border-b border-gray-200">
-                <th className="py-1 pr-2 font-medium">Rule</th>
-                <th className="py-1 pr-2 font-medium">Resolved</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="border-b border-gray-100">
-                <td className="py-1 pr-2 text-gray-900">
-                  {incorrectPhraseRecord.incorrectGrammar}
-                </td>
-                <td className="py-1 pr-2">
-                  {incorrectPhraseRecord.grammarResolvedByPhraseIndex != null ? (
-                    <span className="text-emerald-600 font-mono">
-                      #{incorrectPhraseRecord.grammarResolvedByPhraseIndex}
-                    </span>
-                  ) : (
-                    <span className="text-gray-400">—</span>
-                  )}
-                </td>
-              </tr>
-            </tbody>
-          </table>
+      {resolvedFailedEventSeqs.length > 0 && (
+        <div
+          className="text-emerald-700 normal-case"
+          title="Event IDs of previously-failed phrases that this successful attempt resolved (words and/or grammar)"
+        >
+          <span className="font-semibold">This triggered the resolution of events:</span>{" "}
+          <span className="font-mono">
+            {resolvedFailedEventSeqs.map((seq) => `#${seq}`).join(", ")}
+          </span>
         </div>
       )}
 
@@ -724,39 +745,7 @@ const RevealEventDetail = ({
         <div className="text-gray-900 italic">{phrase.Spanish.answer}</div>
       </div>
 
-      <PhraseGrammarTaughtSection phrase={phrase} />
-
-      {incorrectPhraseRecord && (
-        <div>
-          <div className="font-semibold text-gray-700 mb-1">
-            Grammar tracking
-          </div>
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="text-left text-gray-500 border-b border-gray-200">
-                <th className="py-1 pr-2 font-medium">Rule</th>
-                <th className="py-1 pr-2 font-medium">Resolved</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="border-b border-gray-100">
-                <td className="py-1 pr-2 text-gray-900">
-                  {incorrectPhraseRecord.incorrectGrammar}
-                </td>
-                <td className="py-1 pr-2">
-                  {incorrectPhraseRecord.grammarResolvedByPhraseIndex != null ? (
-                    <span className="text-emerald-600 font-mono">
-                      #{incorrectPhraseRecord.grammarResolvedByPhraseIndex}
-                    </span>
-                  ) : (
-                    <span className="text-gray-400">—</span>
-                  )}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      )}
+      <GrammarSection phrase={phrase} incorrectPhraseRecord={incorrectPhraseRecord} />
 
       <div className="rounded border border-red-100 bg-red-50/80 px-2 py-1.5 text-red-900 text-[10px]">
         Show Answer — applies reveal decay in the reducer; phrase state becomes
@@ -784,8 +773,10 @@ const RevealEventDetail = ({
 };
 
 interface RowProps {
-  index: number;
   entry: HistoryEntry;
+  /** 1-based ordinal position in the history list; used as a fallback display
+   *  number when `entry.eventSeq` is absent (e.g. mobile log viewer). */
+  ordinal: number;
   liveSlotsAhead: number | null;
   completedLessonCount: number;
   /**
@@ -796,15 +787,18 @@ interface RowProps {
   isLatestForPhrase: boolean;
   /** Incorrect-phrase redemption record for this entry's phrase, if any. */
   incorrectPhraseRecord: IncorrectPhraseRecord | undefined;
+  /** All incorrect-phrase records for the session, for resolver lookups. */
+  allIncorrectPhraseRecords: readonly IncorrectPhraseRecord[];
 }
 
 const HistoryRow = ({
-  index,
   entry,
+  ordinal,
   liveSlotsAhead,
   completedLessonCount,
   isLatestForPhrase,
   incorrectPhraseRecord,
+  allIncorrectPhraseRecords,
 }: RowProps): JSX.Element => {
   const [expanded, setExpanded] = useState(false);
   const { event, phrase, scoreSummary } = entry;
@@ -851,7 +845,7 @@ const HistoryRow = ({
         }}
       >
         <td className="py-2 pl-3 pr-1 text-gray-400 tabular-nums align-top">
-          {index}
+          {entry.eventSeq ?? ordinal}
         </td>
         <td className="py-2 px-1 align-top">
           <div className="flex flex-col gap-0.5">
@@ -956,6 +950,7 @@ const HistoryRow = ({
                 entry={entry as ScoredEntry}
                 isPractice={event.eventType === "practice"}
                 incorrectPhraseRecord={incorrectPhraseRecord}
+                allIncorrectPhraseRecords={allIncorrectPhraseRecords}
               />
             )}
           </td>
@@ -1374,12 +1369,13 @@ export const SessionHistoryLogView = ({
             {reversed.map((entry, i) => (
               <HistoryRow
                 key={entry.id}
-                index={history.length - i}
                 entry={entry}
+                ordinal={history.length - i}
                 liveSlotsAhead={liveSlotsByPhraseId.get(entry.phrase.name) ?? null}
                 completedLessonCount={completedLessonCount}
                 isLatestForPhrase={latestEntryIdByPhraseId.get(entry.phrase.name) === entry.id}
                 incorrectPhraseRecord={incorrectRecordsByPhraseId.get(entry.phrase.name)}
+                allIncorrectPhraseRecords={incorrectPhraseRecords ?? []}
               />
             ))}
           </tbody>

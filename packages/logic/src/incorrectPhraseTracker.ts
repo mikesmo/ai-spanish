@@ -4,8 +4,8 @@ import type { Phrase } from './types';
 export interface ResolvedWordEntry {
   /** Normalized word string. */
   word: string;
-  /** `phrase.index` of the phrase where this word was correctly spoken. */
-  resolvedByPhraseIndex: number;
+  /** Per-session event sequence number of the resolver event. */
+  resolvedByEventSeq: number;
 }
 
 /**
@@ -22,8 +22,8 @@ export interface IncorrectPhraseRecord {
   incorrectWords: string[];
   /**
    * One entry per resolved word — the analytics audit trail.
-   * `resolvedByPhraseIndex` identifies which subsequent phrase demonstrated
-   * that word correctly.
+   * `resolvedByEventSeq` is the per-session event sequence number of the
+   * event that demonstrated this word correctly.
    */
   resolvedWords: ResolvedWordEntry[];
   /**
@@ -32,13 +32,19 @@ export interface IncorrectPhraseRecord {
    */
   incorrectGrammar: string;
   /**
-   * `phrase.index` of the fully-passed phrase that shared the same
-   * `Spanish.grammar` string, or null when not yet resolved.
+   * Per-session event sequence number of the fully-passed event that shared
+   * the same `Spanish.grammar` string, or null when not yet resolved.
    */
-  grammarResolvedByPhraseIndex: number | null;
+  grammarResolvedByEventSeq: number | null;
+  /**
+   * Per-session event sequence number of the most recent failed Attempt that
+   * produced (or last updated) this record. Used by the resolver event's
+   * detail panel to list which failed-phrase events it resolved.
+   */
+  failedAtEventSeq: number;
   /**
    * True when every word in `incorrectWords` has a corresponding entry in
-   * `resolvedWords` AND `grammarResolvedByPhraseIndex` is non-null.
+   * `resolvedWords` AND `grammarResolvedByEventSeq` is non-null.
    * Once true, the phrase is removed from the session re-test queue.
    */
   isFullyResolved: boolean;
@@ -54,6 +60,10 @@ export interface IncorrectPhraseTracker {
    * Records are never deleted — they persist for the session lifetime so the
    * history sidebar and future analytics always have the full resolution trail.
    *
+   * @param eventSeq Per-session monotonic event sequence number for this event.
+   * @param canResolve When false (first presentation of a `type="new"` phrase),
+   *   the event is skipped entirely — no upserts, no self-resolution, and no
+   *   propagation to other records.
    * @returns phraseIds of records newly marked `isFullyResolved` by this
    *   attempt. The caller is responsible for calling
    *   `engine.removeAndPreventRequeue` for each returned id.
@@ -63,6 +73,8 @@ export interface IncorrectPhraseTracker {
     phrase: Phrase,
     missingWords: string[],
     isAccuracySuccess: boolean,
+    eventSeq: number,
+    canResolve: boolean,
   ): string[];
 
   /** Returns the record for a phrase, or undefined if it has never failed. */
@@ -83,7 +95,7 @@ export function createIncorrectPhraseTracker(): IncorrectPhraseTracker {
   const records = new Map<string, IncorrectPhraseRecord>();
 
   const checkFullyResolved = (record: IncorrectPhraseRecord): boolean => {
-    if (record.grammarResolvedByPhraseIndex === null) return false;
+    if (record.grammarResolvedByEventSeq === null) return false;
     const resolvedWordSet = new Set(record.resolvedWords.map((r) => r.word));
     return record.incorrectWords.every((w) => resolvedWordSet.has(w));
   };
@@ -91,19 +103,19 @@ export function createIncorrectPhraseTracker(): IncorrectPhraseTracker {
   const applyCorrectWords = (
     record: IncorrectPhraseRecord,
     correctWordSet: ReadonlySet<string>,
-    resolverPhraseIndex: number,
+    resolverEventSeq: number,
   ): void => {
     const alreadyResolved = new Set(record.resolvedWords.map((r) => r.word));
     for (const word of record.incorrectWords) {
       if (correctWordSet.has(word) && !alreadyResolved.has(word)) {
-        record.resolvedWords.push({ word, resolvedByPhraseIndex: resolverPhraseIndex });
+        record.resolvedWords.push({ word, resolvedByEventSeq: resolverEventSeq });
         alreadyResolved.add(word);
       }
     }
   };
 
   return {
-    recordAttempt(phraseId, phrase, missingWords, isAccuracySuccess) {
+    recordAttempt(phraseId, phrase, missingWords, isAccuracySuccess, eventSeq, canResolve) {
       const normalizedMissingSet = new Set(missingWords.map((w) => normalizeStr(w)));
 
       const correctWordSet = new Set(
@@ -112,22 +124,22 @@ export function createIncorrectPhraseTracker(): IncorrectPhraseTracker {
           .filter((w) => !normalizedMissingSet.has(w)),
       );
 
-      const phraseIndex = phrase.index;
       const newlyResolved: string[] = [];
 
+      // Always upsert the current phrase's record on failure, and always
+      // self-resolve on success. This runs even for type="new" first
+      // presentations so the failed phrase still appears in tracking.
       if (!isAccuracySuccess) {
-        // Upsert record for the current phrase, resetting resolution progress
-        // since the user just failed again.
         records.set(phraseId, {
           phraseId,
           incorrectWords: Array.from(normalizedMissingSet),
           resolvedWords: [],
           incorrectGrammar: phrase.Spanish.grammar,
-          grammarResolvedByPhraseIndex: null,
+          grammarResolvedByEventSeq: null,
+          failedAtEventSeq: eventSeq,
           isFullyResolved: false,
         });
       } else {
-        // The current phrase passed — self-resolve its record if present.
         const ownRecord = records.get(phraseId);
         if (ownRecord && !ownRecord.isFullyResolved) {
           ownRecord.isFullyResolved = true;
@@ -135,25 +147,28 @@ export function createIncorrectPhraseTracker(): IncorrectPhraseTracker {
         }
       }
 
-      // Apply correctly-spoken words (and grammar on success) to all OTHER
-      // non-resolved records. Grammar resolution only happens on a full pass
-      // since a failed attempt doesn't prove the grammar was applied correctly.
-      for (const [id, record] of records) {
-        if (id === phraseId || record.isFullyResolved) continue;
+      // Propagation to OTHER records is only allowed when canResolve is true.
+      // First presentation of a type="new" phrase is a practice run — the
+      // user can reveal the answer, so it does not count as a real test and
+      // cannot credit resolution of other phrases.
+      if (canResolve) {
+        for (const [id, record] of records) {
+          if (id === phraseId || record.isFullyResolved) continue;
 
-        applyCorrectWords(record, correctWordSet, phraseIndex);
+          applyCorrectWords(record, correctWordSet, eventSeq);
 
-        if (
-          isAccuracySuccess &&
-          record.grammarResolvedByPhraseIndex === null &&
-          record.incorrectGrammar === phrase.Spanish.grammar
-        ) {
-          record.grammarResolvedByPhraseIndex = phraseIndex;
-        }
+          if (
+            isAccuracySuccess &&
+            record.grammarResolvedByEventSeq === null &&
+            record.incorrectGrammar === phrase.Spanish.grammar
+          ) {
+            record.grammarResolvedByEventSeq = eventSeq;
+          }
 
-        if (checkFullyResolved(record)) {
-          record.isFullyResolved = true;
-          newlyResolved.push(id);
+          if (checkFullyResolved(record)) {
+            record.isFullyResolved = true;
+            newlyResolved.push(id);
+          }
         }
       }
 

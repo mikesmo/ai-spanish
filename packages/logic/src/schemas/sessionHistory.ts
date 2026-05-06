@@ -83,6 +83,11 @@ export const historyEntrySchema = z.object({
   isRepeatedPresentation: z.boolean(),
   dueOnLessonSessionIndex: z.number(),
   slotsAheadAtEvent: z.number().nullable(),
+  /**
+   * Per-session monotonic event sequence number. Optional for backward
+   * compatibility with entries persisted before this field was added.
+   */
+  eventSeq: z.number().int().positive().optional(),
 });
 
 export type HistoryEntryParsed = z.infer<typeof historyEntrySchema>;
