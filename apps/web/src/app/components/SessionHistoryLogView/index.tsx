@@ -89,6 +89,32 @@ export const computeStats = (history: HistoryEntry[]): SessionStats => {
   };
 };
 
+/**
+ * For each revisit row (`isRepeatedPresentation`), the # of the last event from the
+ * previous presentation of that phrase (chronological `history`): walk backward,
+ * skip other phrases, use the closest same-phrase row with `!isRepeatedPresentation`.
+ * Display matches the # column: `eventSeq ?? (1-based chronological index)`.
+ */
+export const buildRevisitRefDisplayByEntryId = (
+  history: HistoryEntry[],
+): Map<string, number> => {
+  const m = new Map<string, number>();
+  for (let i = 0; i < history.length; i++) {
+    const entry = history[i];
+    if (!entry.isRepeatedPresentation) continue;
+    const pid = entry.phrase.name;
+    for (let j = i - 1; j >= 0; j--) {
+      const prev = history[j];
+      if (prev.phrase.name !== pid) continue;
+      if (!prev.isRepeatedPresentation) {
+        m.set(entry.id, prev.eventSeq ?? j + 1);
+        break;
+      }
+    }
+  }
+  return m;
+};
+
 export const formatPct = (n: number | null): string =>
   n == null ? "—" : `${Math.round(n * 100)}%`;
 
@@ -208,7 +234,7 @@ const GrammarSection = ({
         <thead>
           <tr className="text-left text-gray-500 border-b border-gray-200">
             <th className="py-1 pr-2 font-medium">Grammar</th>
-            <th className="py-1 pr-2 font-medium">Resolved</th>
+            <th className="py-1 pr-2 font-medium">Resolved by</th>
           </tr>
         </thead>
         <tbody>
@@ -676,7 +702,7 @@ const ScoredEventDetail = ({
               <th className="py-1 pr-2 font-medium">POS</th>
               <th className="py-1 pr-2 font-medium">Weight</th>
               <th className="py-1 pr-2 font-medium">Status</th>
-              <th className="py-1 pr-2 font-medium">Resolved</th>
+              <th className="py-1 pr-2 font-medium">Resolved by</th>
             </tr>
           </thead>
           <tbody>
@@ -831,6 +857,11 @@ interface RowProps {
   incorrectPhraseRecord: IncorrectPhraseRecord | undefined;
   /** All incorrect-phrase records for the session, for resolver lookups. */
   allIncorrectPhraseRecords: readonly IncorrectPhraseRecord[];
+  /**
+   * When this row is a revisit, the # of the last event from the prior presentation
+   * of this phrase (matches the table’s # column for that referenced row).
+   */
+  revisitRefDisplay?: number;
 }
 
 const HistoryRow = ({
@@ -841,6 +872,7 @@ const HistoryRow = ({
   isLatestForPhrase,
   incorrectPhraseRecord,
   allIncorrectPhraseRecords,
+  revisitRefDisplay,
 }: RowProps): JSX.Element => {
   const [expanded, setExpanded] = useState(false);
   const { event, phrase, scoreSummary } = entry;
@@ -904,10 +936,16 @@ const HistoryRow = ({
             )}
             {entry.isRepeatedPresentation && (
               <span
-                title="Revisit — this phrase was presented again in the same session (e.g. Pimsleur requeue or deck wrap)"
+                title={
+                  revisitRefDisplay != null
+                    ? `Revisit — this phrase was presented again in the same session (e.g. Pimsleur requeue or deck wrap). #${revisitRefDisplay} is the last event (# column) from the previous time this phrase was shown in this session.`
+                    : "Revisit — this phrase was presented again in the same session (e.g. Pimsleur requeue or deck wrap)"
+                }
                 className="inline-block w-fit text-[10px] px-1.5 py-0.5 rounded border bg-indigo-50 text-indigo-700 border-indigo-200"
               >
-                revisit
+                {revisitRefDisplay != null
+                  ? `revisit #${revisitRefDisplay}`
+                  : "revisit"}
               </span>
             )}
             <span
@@ -1045,7 +1083,7 @@ const EVENT_LEGEND: LegendItem[] = [
   {
     term: "revisit",
     description:
-      "This phrase was presented again in the current session — e.g. a Pimsleur requeue after a weak attempt, or a deck wrap. The badge applies to every event (attempt, retry, reveal) logged for that revisit card and is orthogonal to the scored-vs-practice distinction.",
+      "This phrase was presented again in the current session — e.g. a Pimsleur requeue after a weak attempt, or a deck wrap. The badge applies to every event (attempt, retry, reveal) logged for that revisit card and is orthogonal to the scored-vs-practice distinction. When shown as revisit #n, n is the # column of the last event from the previous time that phrase was shown in this session.",
   },
   {
     term: "next",
@@ -1387,6 +1425,11 @@ export const SessionHistoryLogView = ({
     return map;
   }, [incorrectPhraseRecords]);
 
+  const revisitRefDisplayByEntryId = useMemo(
+    () => buildRevisitRefDisplayByEntryId(history),
+    [history],
+  );
+
   return (
     <div className={className}>
       {history.length === 0 ? (
@@ -1418,6 +1461,7 @@ export const SessionHistoryLogView = ({
                 isLatestForPhrase={latestEntryIdByPhraseId.get(entry.phrase.name) === entry.id}
                 incorrectPhraseRecord={incorrectRecordsByPhraseId.get(entry.phrase.name)}
                 allIncorrectPhraseRecords={incorrectPhraseRecords ?? []}
+                revisitRefDisplay={revisitRefDisplayByEntryId.get(entry.id)}
               />
             ))}
           </tbody>
