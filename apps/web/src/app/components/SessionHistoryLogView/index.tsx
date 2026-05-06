@@ -240,6 +240,46 @@ const GrammarSection = ({
   );
 };
 
+/** Teaching highlights from transcript JSON (`newGrammar` / `newWords`), comma-split like `Spanish.grammar`. */
+const NewTeachingContentSection = ({ phrase }: { phrase: Phrase }): JSX.Element => {
+  const grammarItems = useMemo(
+    () => splitCommaPhraseList(phrase.Spanish.newGrammar ?? ""),
+    [phrase.Spanish.newGrammar],
+  );
+  const wordItems = useMemo(
+    () => splitCommaPhraseList(phrase.Spanish.newWords ?? ""),
+    [phrase.Spanish.newWords],
+  );
+  return (
+    <div className="space-y-3">
+      <div>
+        <div className="font-semibold text-gray-700 mb-1">New words</div>
+        <div
+          className={
+            wordItems.length === 0
+              ? "text-gray-500 normal-case"
+              : "text-gray-900 normal-case"
+          }
+        >
+          {wordItems.length === 0 ? "—" : wordItems.join(", ")}
+        </div>
+      </div>
+      <div>
+        <div className="font-semibold text-gray-700 mb-1">New grammar</div>
+        <div
+          className={
+            grammarItems.length === 0
+              ? "text-gray-500 normal-case"
+              : "text-gray-900 normal-case"
+          }
+        >
+          {grammarItems.length === 0 ? "—" : grammarItems.join(", ")}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const buildAlignmentRows = (
   words: WordMeta[],
   missingWords: string[],
@@ -618,6 +658,8 @@ const ScoredEventDetail = ({
         <div className="text-gray-900 italic">{phrase.Spanish.answer}</div>
       </div>
 
+      <NewTeachingContentSection phrase={phrase} />
+
       <div>
         <div className="font-semibold text-gray-700 mb-1">Transcript</div>
         <div className="text-gray-900">
@@ -742,6 +784,8 @@ const RevealEventDetail = ({
         <div className="font-semibold text-gray-700 mb-1">Target phrase</div>
         <div className="text-gray-900 italic">{phrase.Spanish.answer}</div>
       </div>
+
+      <NewTeachingContentSection phrase={phrase} />
 
       <GrammarSection phrase={phrase} incorrectPhraseRecord={incorrectPhraseRecord} />
 
