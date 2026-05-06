@@ -184,16 +184,23 @@ const buildGrammarRows = (phrase: Phrase): GrammarRow[] =>
  * Grammar section: `Spanish.grammar` tags only. Resolved column shows the
  * per-session event seq when `incorrectPhraseRecord.grammarResolvedByEventSeq`
  * is set for this phrase.
+ *
+ * When `suppressResolvedDisplay` is true (successful scored revisit), the
+ * Resolved column stays "—" so the row does not point at the current event.
  */
 const GrammarSection = ({
   phrase,
   incorrectPhraseRecord,
+  suppressResolvedDisplay = false,
 }: {
   phrase: Phrase;
   incorrectPhraseRecord: IncorrectPhraseRecord | undefined;
+  suppressResolvedDisplay?: boolean;
 }): JSX.Element => {
   const rows = useMemo(() => buildGrammarRows(phrase), [phrase]);
-  const resolvedSeq = incorrectPhraseRecord?.grammarResolvedByEventSeq ?? null;
+  const resolvedSeq = suppressResolvedDisplay
+    ? null
+    : (incorrectPhraseRecord?.grammarResolvedByEventSeq ?? null);
   return (
     <div>
       <div className="font-semibold text-gray-700 mb-1">Grammar</div>
@@ -591,6 +598,12 @@ const ScoredEventDetail = ({
     return Array.from(seqSet).sort((a, b) => a - b);
   }, [event, scoreSummary, entry.eventSeq, allIncorrectPhraseRecords]);
 
+  /** Successful revisit: word rows are all matched (—); hide grammar self-seq too. */
+  const suppressGrammarResolvedDisplay =
+    entry.isRepeatedPresentation &&
+    !isPractice &&
+    scoreSummary.isAccuracySuccess;
+
   return (
     <div className="bg-gray-50 border-t border-gray-200 px-3 py-3 space-y-4 text-[11px]">
       {isPractice && (
@@ -664,7 +677,11 @@ const ScoredEventDetail = ({
         </table>
       </div>
 
-      <GrammarSection phrase={phrase} incorrectPhraseRecord={incorrectPhraseRecord} />
+      <GrammarSection
+        phrase={phrase}
+        incorrectPhraseRecord={incorrectPhraseRecord}
+        suppressResolvedDisplay={suppressGrammarResolvedDisplay}
+      />
 
       {resolvedFailedEventSeqs.length > 0 && (
         <div
