@@ -321,6 +321,7 @@ export const UserFeedback = ({
           <div className="flex w-full flex-col items-center">
             <div className="flex flex-col items-center gap-8 w-full">
               <div className="flex flex-col items-center gap-2">
+                <p className="text-[11px] text-gray-400 uppercase tracking-wide">You said</p>
                 <p className="text-[18px] text-center leading-relaxed">{renderSpokenWords(diff)}</p>
               </div>
 
