@@ -10,11 +10,37 @@ export interface LearnerQuestionPauseProps {
  * Keep aligned with any translations / localisation needs in the future.
  */
 export const LEARNER_QUESTION_PRESET_PROMPTS: readonly string[] = [
+  'Explain to me why I got this wrong',
   'Explain to me the grammar being taught here',
   'Is there another way to say this?',
   'How would I make this negative?',
   'Can you give me an example sentence?',
 ] as const;
+
+/** Minimal turn shape for preset consumption checks (avoids coupling to hook types). */
+export interface LearnerQuestionTurnForPresets {
+  question: string;
+  isStreaming: boolean;
+  error: string | null;
+}
+
+/**
+ * Returns preset prompts not yet used successfully this phrase. A preset is
+ * consumed when a completed (non-streaming), non-errored turn’s question text
+ * matches it exactly.
+ */
+export function getAvailableLearnerQuestionPresets(
+  turns: ReadonlyArray<LearnerQuestionTurnForPresets>,
+): readonly string[] {
+  const consumed = new Set<string>();
+  for (const t of turns) {
+    if (t.isStreaming || t.error != null) continue;
+    for (const p of LEARNER_QUESTION_PRESET_PROMPTS) {
+      if (t.question === p) consumed.add(p);
+    }
+  }
+  return LEARNER_QUESTION_PRESET_PROMPTS.filter((p) => !consumed.has(p));
+}
 
 /**
  * Props for AISpeaking on web and mobile — derived from

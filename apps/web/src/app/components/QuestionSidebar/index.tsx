@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSTT } from "@ai-spanish/ai";
 import {
   DEFAULT_QUESTION_MAX_RECORD_MS,
-  LEARNER_QUESTION_PRESET_PROMPTS,
+  getAvailableLearnerQuestionPresets,
   useLearnerQuestion,
   useQuestionInput,
   type LearnerLastAttempt,
@@ -53,6 +53,11 @@ export const QuestionSidebar = ({
     resetKey: phraseId,
     fetchAnswerStream: postLearnerQuestion,
   });
+
+  const availablePresets = useMemo(
+    () => getAvailableLearnerQuestionPresets(chat.turns),
+    [chat.turns],
+  );
 
   // Whether the compose row is currently visible.
   const [showCompose, setShowCompose] = useState(true);
@@ -214,14 +219,14 @@ export const QuestionSidebar = ({
           {/* Compose row */}
           {showCompose && (
             <div className="flex flex-col gap-3 pt-1">
-              {/* Preset chips — only on first question */}
-              {chat.turns.length === 0 && (
+              {/* Preset chips — remaining presets whenever compose is open */}
+              {availablePresets.length > 0 && (
                 <div className="flex flex-col gap-2">
                   <p className="text-[11px] font-medium uppercase tracking-widest text-gray-400">
                     Quick questions
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    {LEARNER_QUESTION_PRESET_PROMPTS.map((prompt) => (
+                    {availablePresets.map((prompt) => (
                       <button
                         key={prompt}
                         type="button"

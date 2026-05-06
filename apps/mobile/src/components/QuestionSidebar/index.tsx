@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
@@ -14,7 +14,7 @@ import {
 import { useSTT } from "@ai-spanish/ai";
 import {
   DEFAULT_QUESTION_MAX_RECORD_MS,
-  LEARNER_QUESTION_PRESET_PROMPTS,
+  getAvailableLearnerQuestionPresets,
   useLearnerQuestion,
   useQuestionInput,
   type LearnerLastAttempt,
@@ -68,6 +68,11 @@ export const QuestionSidebar = ({
     resetKey: phraseId,
     fetchAnswerStream: postLearnerQuestion,
   });
+
+  const availablePresets = useMemo(
+    () => getAvailableLearnerQuestionPresets(chat.turns),
+    [chat.turns],
+  );
 
   // Slide animation.
   useEffect(() => {
@@ -231,12 +236,12 @@ export const QuestionSidebar = ({
           {/* Compose row */}
           {showCompose && (
             <View style={styles.composeContainer}>
-              {/* Preset chips — only on first question */}
-              {chat.turns.length === 0 && (
+              {/* Preset chips — remaining presets whenever compose is open */}
+              {availablePresets.length > 0 && (
                 <View style={styles.presetsSection}>
                   <Text style={styles.sectionLabel}>Quick questions</Text>
                   <View style={styles.chipsWrap}>
-                    {LEARNER_QUESTION_PRESET_PROMPTS.map((prompt) => (
+                    {availablePresets.map((prompt) => (
                       <Pressable
                         key={prompt}
                         onPress={() => handlePresetPress(prompt)}

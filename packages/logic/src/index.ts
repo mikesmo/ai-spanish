@@ -134,11 +134,13 @@ export {
 } from './lessonCatalog';
 export {
   getAisSpeakingViewModel,
+  getAvailableLearnerQuestionPresets,
   getFirstNLessonOrdersInDeck,
   getUserRecordingViewModel,
   LEARNER_QUESTION_PRESET_PROMPTS,
   type AisSpeakingViewModel,
   type LearnerQuestionPauseProps,
+  type LearnerQuestionTurnForPresets,
   type PhraseDisplayHostProps,
   type UserFeedbackViewProps,
   type UserRecordingViewModel,
