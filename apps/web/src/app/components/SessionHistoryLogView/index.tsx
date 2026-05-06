@@ -168,8 +168,6 @@ interface WordAlignmentRow {
 
 type GrammarRow = {
   item: string;
-  /** True when this item comes from Spanish.grammar (tracked for resolution). */
-  isTracked: boolean;
 };
 
 const splitCommaPhraseList = (raw: string): string[] =>
@@ -178,31 +176,14 @@ const splitCommaPhraseList = (raw: string): string[] =>
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
 
-/** Rows for the unified Grammar table. Items from Spanish.grammar are resolution-tracked. */
-const buildGrammarRows = (phrase: Phrase): GrammarRow[] => {
-  const rows: GrammarRow[] = [];
-  for (const item of splitCommaPhraseList(phrase.Spanish.grammar)) {
-    rows.push({ item, isTracked: true });
-  }
-  const newGrammar = phrase.Spanish.newGrammar?.trim() ?? "";
-  if (newGrammar) {
-    for (const item of splitCommaPhraseList(newGrammar)) {
-      rows.push({ item, isTracked: false });
-    }
-  }
-  const newWords = phrase.Spanish.newWords?.trim() ?? "";
-  if (newWords) {
-    for (const item of splitCommaPhraseList(newWords)) {
-      rows.push({ item, isTracked: false });
-    }
-  }
-  return rows;
-};
+/** Rows for the Grammar table: comma-split tokens from `Spanish.grammar` only. */
+const buildGrammarRows = (phrase: Phrase): GrammarRow[] =>
+  splitCommaPhraseList(phrase.Spanish.grammar).map((item) => ({ item }));
 
 /**
- * Unified Grammar section showing all grammar/new-grammar/new-words items with
- * a Resolved column. Items from `Spanish.grammar` show the resolving event seq
- * when an `IncorrectPhraseRecord` exists for this phrase; other items show —.
+ * Grammar section: `Spanish.grammar` tags only. Resolved column shows the
+ * per-session event seq when `incorrectPhraseRecord.grammarResolvedByEventSeq`
+ * is set for this phrase.
  */
 const GrammarSection = ({
   phrase,
@@ -235,7 +216,7 @@ const GrammarSection = ({
               <tr key={`${r.item}-${i}`} className="border-b border-gray-100">
                 <td className="py-1 pr-2 text-gray-900 normal-case">{r.item}</td>
                 <td className="py-1 pr-2">
-                  {r.isTracked && resolvedSeq != null ? (
+                  {resolvedSeq != null ? (
                     <span className="text-emerald-600 font-mono">
                       #{resolvedSeq}
                     </span>

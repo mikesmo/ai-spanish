@@ -142,8 +142,18 @@ export function createIncorrectPhraseTracker(): IncorrectPhraseTracker {
       } else {
         const ownRecord = records.get(phraseId);
         if (ownRecord && !ownRecord.isFullyResolved) {
-          ownRecord.isFullyResolved = true;
-          newlyResolved.push(phraseId);
+          applyCorrectWords(ownRecord, correctWordSet, eventSeq);
+          if (
+            isAccuracySuccess &&
+            ownRecord.grammarResolvedByEventSeq === null &&
+            ownRecord.incorrectGrammar === phrase.Spanish.grammar
+          ) {
+            ownRecord.grammarResolvedByEventSeq = eventSeq;
+          }
+          if (checkFullyResolved(ownRecord)) {
+            ownRecord.isFullyResolved = true;
+            newlyResolved.push(phraseId);
+          }
         }
       }
 
