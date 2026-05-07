@@ -24,6 +24,8 @@ interface HistorySidebarProps {
    * meaningless.
    */
   hideClearButton?: boolean;
+  /** Number of attempt events still awaiting AI grammar classification. */
+  pendingGradingCount?: number;
 }
 
 const MIN_WIDTH = 320;
@@ -55,6 +57,7 @@ export const HistorySidebar = ({
   incorrectPhraseRecords,
   onWidthChange,
   hideClearButton = false,
+  pendingGradingCount = 0,
 }: HistorySidebarProps): JSX.Element => {
   const [width, setWidth] = useState<number>(DEFAULT_WIDTH);
   const [isResizing, setIsResizing] = useState(false);
@@ -170,6 +173,7 @@ export const HistorySidebar = ({
             history={history}
             remainingInSession={remainingInSession}
             variant="dark"
+            pendingGradingCount={pendingGradingCount}
             actions={
               <div className="flex items-center gap-2">
                 {hideClearButton ? null : (
@@ -201,6 +205,7 @@ export const HistorySidebar = ({
             getLiveSlotsAhead={getLiveSlotsAhead}
             queueVersion={queueVersion}
             incorrectPhraseRecords={incorrectPhraseRecords}
+            pendingGradingCount={pendingGradingCount}
           />
         </div>
       </aside>

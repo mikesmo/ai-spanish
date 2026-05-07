@@ -71,6 +71,13 @@ export const stabilityBreakdownSchema = z.object({
   emaInput: z.union([z.literal(0), z.literal(1)]).optional(),
 });
 
+const grammarGradingResultSchema = z.object({
+  failedGrammarItems: z.array(
+    z.object({ item: z.string(), rationale: z.string() }),
+  ),
+  wordMistakes: z.array(z.string()),
+});
+
 export const historyEntrySchema = z.object({
   id: z.string(),
   event: phraseEventSchema,
@@ -91,6 +98,17 @@ export const historyEntrySchema = z.object({
   incorrectPhraseRecordsFullyResolvedFailedAtEventSeqs: z
     .array(z.number().int().positive())
     .optional(),
+  /**
+   * Lifecycle status of the async AI grammar grading call for this event.
+   * Optional for backward compatibility with entries persisted before AI
+   * grading was introduced. Absent entries are treated as 'n/a'.
+   */
+  gradingStatus: z.enum(['pending', 'success', 'failed', 'n/a']).optional(),
+  /**
+   * The AI grammar classification result for this event. Only set when
+   * `gradingStatus === 'success'`. Optional for backward compatibility.
+   */
+  aiClassification: grammarGradingResultSchema.optional(),
 });
 
 export type HistoryEntryParsed = z.infer<typeof historyEntrySchema>;

@@ -22,6 +22,7 @@ import { useS3TTS, useSTT } from "@ai-spanish/ai";
 import { playSuccessChime } from "@/lib/playSuccessChime";
 import { postLessonCompletion } from "@/lib/postLessonCompletion";
 import { webLessonProgressFetcher } from "@/lib/lessonProgressApi";
+import { postGrammarGrading } from "@/lib/grammarGrading";
 import { AISpeaking } from "./components/AISpeaking";
 import { UserFeedback } from "./components/UserFeedback";
 import { UserRecording } from "./components/UserRecording";
@@ -41,6 +42,7 @@ export const PhraseDisplay = ({
   const stt = useSTT();
   const session = useLessonSessionWithHistory(phrases, {
     initialCheckpoint: initialSessionCheckpoint ?? undefined,
+    postGrammarGrading,
   });
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const lessonTitle = getLessonTitle(lessonId);
@@ -102,9 +104,28 @@ export const PhraseDisplay = ({
     flush({ keepalive: true });
   }, [flush, pathname]);
 
+  /**
+   * Tracks when the lesson first became complete so we can start the
+   * 30-second grading ceiling from that moment.
+   */
+  const completedAtMsRef = useRef<number | null>(null);
+
   /* eslint-disable react-hooks/exhaustive-deps -- useLessonSessionWithHistory returns a new object each render; list stable fields explicitly. */
   useEffect(() => {
     if (!session.isComplete || lessonCompletionSavedRef.current) return;
+
+    if (completedAtMsRef.current === null) {
+      completedAtMsRef.current = Date.now();
+    }
+
+    const pendingCount = session.pendingGradingCount;
+    const elapsedSinceComplete = Date.now() - completedAtMsRef.current;
+    const ceilingMs = 30_000;
+
+    if (pendingCount > 0 && elapsedSinceComplete < ceilingMs) {
+      return;
+    }
+
     lessonCompletionSavedRef.current = true;
     const checkpoint = session.getSessionCheckpoint({
       lessonId,
@@ -131,6 +152,8 @@ export const PhraseDisplay = ({
     session.getSessionCheckpoint,
     session.history,
     session.isComplete,
+    session.pendingGradingCount,
+    session.gradingVersion,
   ]);
   /* eslint-enable react-hooks/exhaustive-deps */
 
@@ -309,6 +332,7 @@ export const PhraseDisplay = ({
         queueVersion={session.presentationVersion}
         remainingInSession={session.remaining}
         incorrectPhraseRecords={session.incorrectPhraseRecords}
+        pendingGradingCount={session.pendingGradingCount}
       />
       <QuestionSidebar
         isOpen={learnerQuestionPause.isActive}

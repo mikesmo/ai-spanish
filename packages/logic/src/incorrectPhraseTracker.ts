@@ -1,4 +1,5 @@
 import { normalizeStr } from './comparison';
+import type { GrammarGradingResult } from './grammarGrading';
 import type { Phrase } from './types';
 
 export interface ResolvedWordEntry {
@@ -6,6 +7,24 @@ export interface ResolvedWordEntry {
   word: string;
   /** Per-session event sequence number of the resolver event. */
   resolvedByEventSeq: number;
+}
+
+/**
+ * Per-grammar-item tracking entry. One entry per comma-split token from
+ * `Spanish.grammar` that the AI (or fallback) classified as failed.
+ */
+export interface IncorrectGrammarItemEntry {
+  /** The individual grammar item string (one token from Spanish.grammar). */
+  item: string;
+  /** Per-session event sequence number of the failed attempt. */
+  failedAtEventSeq: number;
+  /**
+   * Per-session event sequence number of the event that demonstrated this
+   * grammar item correctly, or null when not yet resolved.
+   */
+  resolvedByEventSeq: number | null;
+  /** AI-generated one-sentence explanation for why this grammar rule was violated. */
+  rationale?: string;
 }
 
 /**
@@ -27,15 +46,19 @@ export interface IncorrectPhraseRecord {
    */
   resolvedWords: ResolvedWordEntry[];
   /**
-   * `Spanish.grammar` from the failed phrase. `Spanish.newGrammar` is only a
-   * highlighted subset and is not tracked separately.
+   * Per-item grammar tracking (populated by applyAiGrading / applyFallbackClassification).
+   * Empty while `grammarGradingStatus === 'pending'`.
+   * Contains only the items the AI (or fallback) classified as FAILED.
    */
-  incorrectGrammar: string;
+  incorrectGrammarItems: IncorrectGrammarItemEntry[];
   /**
-   * Per-session event sequence number of the fully-passed event that shared
-   * the same `Spanish.grammar` string, or null when not yet resolved.
+   * Lifecycle status of the AI grading call for the failed attempt.
+   *   - 'pending': AI request in-flight; `incorrectGrammarItems` not yet set.
+   *   - 'success': AI returned; `incorrectGrammarItems` is authoritative.
+   *   - 'failed': AI timed out/errored; fallback (whole-string item) was used.
+   *   - 'n/a': reveal event — immediate fallback, no AI call.
    */
-  grammarResolvedByEventSeq: number | null;
+  grammarGradingStatus: 'pending' | 'success' | 'failed' | 'n/a';
   /**
    * Per-session event sequence number of the most recent failed Attempt that
    * produced (or last updated) this record. Used by the resolver event's
@@ -44,7 +67,8 @@ export interface IncorrectPhraseRecord {
   failedAtEventSeq: number;
   /**
    * True when every word in `incorrectWords` has a corresponding entry in
-   * `resolvedWords` AND `grammarResolvedByEventSeq` is non-null.
+   * `resolvedWords` AND every item in `incorrectGrammarItems` has a non-null
+   * `resolvedByEventSeq` AND `grammarGradingStatus` is not 'pending'.
    * Once true, the phrase is removed from the session re-test queue.
    */
   isFullyResolved: boolean;
@@ -52,29 +76,62 @@ export interface IncorrectPhraseRecord {
 
 export interface IncorrectPhraseTracker {
   /**
-   * Process an Attempt event — call after every attempt regardless of
-   * pass/fail. Handles both upserting the current phrase's record (on fail)
-   * and propagating correctly-spoken words + grammar to all other active
-   * records (on every attempt).
+   * Creates (or refreshes) the incorrect-phrase record for a failed attempt
+   * WITHOUT grammar classification. Called synchronously at event time for
+   * `attempt` events only.
    *
-   * Records are never deleted — they persist for the session lifetime so the
-   * history sidebar and future analytics always have the full resolution trail.
+   * On a failed attempt: upserts the record with `incorrectWords` and sets
+   * `grammarGradingStatus = 'pending'`.
+   * On an accuracy success: resolves own words (not grammar — deferred to
+   * `applyAiGrading`). Does NOT propagate resolution to other records here;
+   * call `applyAiGrading` / `applyFallbackClassification` after AI returns.
    *
-   * @param eventSeq Per-session monotonic event sequence number for this event.
-   * @param canResolve When false (first presentation of a `type="new"` phrase),
-   *   the event is skipped entirely — no upserts, no self-resolution, and no
-   *   propagation to other records.
-   * @returns phraseIds of records newly marked `isFullyResolved` by this
-   *   attempt. The caller is responsible for calling
-   *   `engine.removeAndPreventRequeue` for each returned id.
+   * @returns Always an empty array — newly-resolved IDs are computed later
+   *   in `applyAiGrading` / `applyFallbackClassification`.
    */
-  recordAttempt(
+  recordMissingWords(
+    phraseId: string,
+    phrase: Phrase,
+    missingWords: string[],
+    isAccuracySuccess: boolean,
+    eventSeq: number,
+  ): void;
+
+  /**
+   * Applies the AI grammar classification result for a previously recorded
+   * attempt event. Sets `incorrectGrammarItems` from `result.failedGrammarItems`
+   * and propagates resolution of any "demonstrated correctly" grammar items
+   * to all other active records. Also propagates correct word usage to other
+   * records when `canResolve` is true.
+   *
+   * @returns phraseIds of records newly marked `isFullyResolved` by this call.
+   */
+  applyAiGrading(
+    phraseId: string,
+    phrase: Phrase,
+    result: GrammarGradingResult,
+    isAccuracySuccess: boolean,
+    eventSeq: number,
+    canResolve: boolean,
+  ): string[];
+
+  /**
+   * Fallback for when AI grading fails or for reveal events. Treats the entire
+   * `Spanish.grammar` string as a single item (preserves pre-AI behavior).
+   * Propagates correct word usage and grammar to other active records when
+   * `canResolve` is true.
+   *
+   * @param gradingStatus 'failed' for AI timeout, 'n/a' for reveal events.
+   * @returns phraseIds of records newly marked `isFullyResolved`.
+   */
+  applyFallbackClassification(
     phraseId: string,
     phrase: Phrase,
     missingWords: string[],
     isAccuracySuccess: boolean,
     eventSeq: number,
     canResolve: boolean,
+    gradingStatus: 'failed' | 'n/a',
   ): string[];
 
   /** Returns the record for a phrase, or undefined if it has never failed. */
@@ -95,9 +152,13 @@ export function createIncorrectPhraseTracker(): IncorrectPhraseTracker {
   const records = new Map<string, IncorrectPhraseRecord>();
 
   const checkFullyResolved = (record: IncorrectPhraseRecord): boolean => {
-    if (record.grammarResolvedByEventSeq === null) return false;
+    if (record.grammarGradingStatus === 'pending') return false;
     const resolvedWordSet = new Set(record.resolvedWords.map((r) => r.word));
-    return record.incorrectWords.every((w) => resolvedWordSet.has(w));
+    const allWordsResolved = record.incorrectWords.every((w) => resolvedWordSet.has(w));
+    const allGrammarResolved = record.incorrectGrammarItems.every(
+      (g) => g.resolvedByEventSeq !== null,
+    );
+    return allWordsResolved && allGrammarResolved;
   };
 
   const applyCorrectWords = (
@@ -114,71 +175,180 @@ export function createIncorrectPhraseTracker(): IncorrectPhraseTracker {
     }
   };
 
+  const applyCorrectGrammarItems = (
+    record: IncorrectPhraseRecord,
+    demonstratedCorrectItems: ReadonlySet<string>,
+    resolverEventSeq: number,
+  ): void => {
+    for (const entry of record.incorrectGrammarItems) {
+      if (entry.resolvedByEventSeq === null && demonstratedCorrectItems.has(entry.item)) {
+        entry.resolvedByEventSeq = resolverEventSeq;
+      }
+    }
+  };
+
+  const finalize = (
+    phraseId: string,
+    record: IncorrectPhraseRecord,
+    newlyResolved: string[],
+  ): void => {
+    if (!record.isFullyResolved && checkFullyResolved(record)) {
+      record.isFullyResolved = true;
+      newlyResolved.push(phraseId);
+    }
+  };
+
   return {
-    recordAttempt(phraseId, phrase, missingWords, isAccuracySuccess, eventSeq, canResolve) {
+    recordMissingWords(phraseId, phrase, missingWords, isAccuracySuccess, eventSeq) {
       const normalizedMissingSet = new Set(missingWords.map((w) => normalizeStr(w)));
 
-      const correctWordSet = new Set(
-        phrase.Spanish.words
-          .map((w) => normalizeStr(w.word))
-          .filter((w) => !normalizedMissingSet.has(w)),
-      );
-
-      const newlyResolved: string[] = [];
-
-      // Always upsert the current phrase's record on failure, and always
-      // self-resolve on success. This runs even for type="new" first
-      // presentations so the failed phrase still appears in tracking.
       if (!isAccuracySuccess) {
         records.set(phraseId, {
           phraseId,
           incorrectWords: Array.from(normalizedMissingSet),
           resolvedWords: [],
-          incorrectGrammar: phrase.Spanish.grammar,
-          grammarResolvedByEventSeq: null,
+          incorrectGrammarItems: [],
+          grammarGradingStatus: 'pending',
           failedAtEventSeq: eventSeq,
           isFullyResolved: false,
         });
       } else {
         const ownRecord = records.get(phraseId);
         if (ownRecord && !ownRecord.isFullyResolved) {
+          const correctWordSet = new Set(
+            phrase.Spanish.words
+              .map((w) => normalizeStr(w.word))
+              .filter((w) => !normalizedMissingSet.has(w)),
+          );
           applyCorrectWords(ownRecord, correctWordSet, eventSeq);
-          if (
-            isAccuracySuccess &&
-            ownRecord.grammarResolvedByEventSeq === null &&
-            ownRecord.incorrectGrammar === phrase.Spanish.grammar
-          ) {
-            ownRecord.grammarResolvedByEventSeq = eventSeq;
-          }
-          if (checkFullyResolved(ownRecord)) {
-            ownRecord.isFullyResolved = true;
-            newlyResolved.push(phraseId);
-          }
+        }
+      }
+    },
+
+    applyAiGrading(phraseId, phrase, result, isAccuracySuccess, eventSeq, canResolve) {
+      const newlyResolved: string[] = [];
+
+      const allGrammarItems = phrase.Spanish.grammar
+        .split(',')
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+      const failedMap = new Map(result.failedGrammarItems.map((f) => [f.item, f]));
+      const demonstratedCorrectItems = new Set(
+        allGrammarItems.filter((item) => !failedMap.has(item)),
+      );
+
+      const ownRecord = records.get(phraseId);
+      if (ownRecord && ownRecord.grammarGradingStatus === 'pending') {
+        ownRecord.grammarGradingStatus = 'success';
+        if (!isAccuracySuccess) {
+          ownRecord.incorrectGrammarItems = result.failedGrammarItems.map((f) => ({
+            item: f.item,
+            rationale: f.rationale,
+            failedAtEventSeq: ownRecord.failedAtEventSeq,
+            resolvedByEventSeq: null,
+          }));
+        } else {
+          ownRecord.incorrectGrammarItems = result.failedGrammarItems.map((f) => ({
+            item: f.item,
+            rationale: f.rationale,
+            failedAtEventSeq: ownRecord.failedAtEventSeq,
+            resolvedByEventSeq: eventSeq,
+          }));
+        }
+        finalize(phraseId, ownRecord, newlyResolved);
+      }
+
+      if (canResolve && isAccuracySuccess) {
+        const normalizedMissingSet = new Set<string>();
+        const correctWordSet = new Set(
+          phrase.Spanish.words
+            .map((w) => normalizeStr(w.word))
+            .filter((w) => !normalizedMissingSet.has(w)),
+        );
+
+        for (const [id, record] of records) {
+          if (id === phraseId || record.isFullyResolved) continue;
+          if (record.grammarGradingStatus === 'pending') continue;
+
+          applyCorrectWords(record, correctWordSet, eventSeq);
+          applyCorrectGrammarItems(record, demonstratedCorrectItems, eventSeq);
+          finalize(id, record, newlyResolved);
         }
       }
 
-      // Propagation to OTHER records is only allowed when canResolve is true.
-      // First presentation of a type="new" phrase is a practice run — the
-      // user can reveal the answer, so it does not count as a real test and
-      // cannot credit resolution of other phrases.
+      return newlyResolved;
+    },
+
+    applyFallbackClassification(
+      phraseId,
+      phrase,
+      missingWords,
+      isAccuracySuccess,
+      eventSeq,
+      canResolve,
+      gradingStatus,
+    ) {
+      const newlyResolved: string[] = [];
+      const normalizedMissingSet = new Set(missingWords.map((w) => normalizeStr(w)));
+      const correctWordSet = new Set(
+        phrase.Spanish.words
+          .map((w) => normalizeStr(w.word))
+          .filter((w) => !normalizedMissingSet.has(w)),
+      );
+      const wholeGrammarString = phrase.Spanish.grammar;
+
+      let ownRecord = records.get(phraseId);
+      if (!isAccuracySuccess) {
+        ownRecord = {
+          phraseId,
+          incorrectWords: Array.from(normalizedMissingSet),
+          resolvedWords: [],
+          incorrectGrammarItems: [
+            {
+              item: wholeGrammarString,
+              failedAtEventSeq: eventSeq,
+              resolvedByEventSeq: null,
+            },
+          ],
+          grammarGradingStatus: gradingStatus,
+          failedAtEventSeq: eventSeq,
+          isFullyResolved: false,
+        };
+        records.set(phraseId, ownRecord);
+      } else if (ownRecord && !ownRecord.isFullyResolved) {
+        if (ownRecord.grammarGradingStatus === 'pending') {
+          ownRecord.grammarGradingStatus = gradingStatus;
+          ownRecord.incorrectGrammarItems = [
+            {
+              item: wholeGrammarString,
+              failedAtEventSeq: ownRecord.failedAtEventSeq,
+              resolvedByEventSeq: null,
+            },
+          ];
+        }
+        applyCorrectWords(ownRecord, correctWordSet, eventSeq);
+        for (const entry of ownRecord.incorrectGrammarItems) {
+          if (entry.resolvedByEventSeq === null && entry.item === wholeGrammarString) {
+            entry.resolvedByEventSeq = eventSeq;
+          }
+        }
+        finalize(phraseId, ownRecord, newlyResolved);
+      }
+
       if (canResolve) {
+        const demonstratedCorrect = isAccuracySuccess
+          ? new Set([wholeGrammarString])
+          : new Set<string>();
+
         for (const [id, record] of records) {
           if (id === phraseId || record.isFullyResolved) continue;
+          if (record.grammarGradingStatus === 'pending') continue;
 
           applyCorrectWords(record, correctWordSet, eventSeq);
-
-          if (
-            isAccuracySuccess &&
-            record.grammarResolvedByEventSeq === null &&
-            record.incorrectGrammar === phrase.Spanish.grammar
-          ) {
-            record.grammarResolvedByEventSeq = eventSeq;
+          if (isAccuracySuccess) {
+            applyCorrectGrammarItems(record, demonstratedCorrect, eventSeq);
           }
-
-          if (checkFullyResolved(record)) {
-            record.isFullyResolved = true;
-            newlyResolved.push(id);
-          }
+          finalize(id, record, newlyResolved);
         }
       }
 

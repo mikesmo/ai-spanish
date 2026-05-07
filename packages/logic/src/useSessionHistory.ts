@@ -7,6 +7,7 @@ import {
   logSessionHistoryAppend,
 } from './learningPipelineDebug';
 import { reduceProgress } from './mastery';
+import type { GrammarGradingResult, GrammarGradingStatus } from './grammarGrading';
 import type { PhraseEvent } from './events';
 import type { Phrase, PhraseProgress } from './types';
 import type { PhraseEventContext } from './useLessonSession';
@@ -77,6 +78,18 @@ export interface HistoryEntry {
    * for legacy persisted rows.
    */
   incorrectPhraseRecordsFullyResolvedFailedAtEventSeqs?: number[];
+  /**
+   * Lifecycle status of the async AI grammar grading call for this event.
+   * 'pending' while the request is in-flight; updated to 'success' or 'failed'
+   * by `updateClassification`. Attempt events start as 'pending'; practice and
+   * reveal events are 'n/a'. Optional for backward compatibility with entries
+   * persisted before AI grading was introduced.
+   */
+  gradingStatus?: GrammarGradingStatus;
+  /**
+   * The AI grammar classification result. Set when `gradingStatus === 'success'`.
+   */
+  aiClassification?: GrammarGradingResult;
 }
 
 export interface UseSessionHistoryResult {
@@ -100,6 +113,35 @@ export interface UseSessionHistoryResult {
    */
   onPresentationStart: (phrase: Phrase) => void;
   clearHistory: () => void;
+  /**
+   * Updates the grading classification for a specific event entry.
+   * Called by `useLessonSessionWithHistory` when AI grading resolves.
+   *
+   * @param eventSeq The per-session event sequence number to update.
+   * @param status The resolved grading status ('success' or 'failed').
+   * @param result The AI classification result (only set on 'success').
+   * @param newlyResolvedFailedAtSeqs failedAtEventSeq values for records
+   *   newly made fully-resolved by this grading event, to surface in the
+   *   "fully redeemed failure events" panel of the sidebar.
+   */
+  updateClassification: (
+    eventSeq: number,
+    status: GrammarGradingStatus,
+    result?: GrammarGradingResult,
+    newlyResolvedFailedAtSeqs?: number[],
+  ) => void;
+  /**
+   * Monotonic version counter that increments whenever any grading result
+   * lands (success or failure). Used by `useLessonProgressPersistence` to
+   * re-arm the debounced checkpoint PUT after pending gradings resolve.
+   */
+  gradingVersion: number;
+  /**
+   * Number of attempt events currently awaiting AI grading results.
+   * Used by `useLessonProgressPersistence` to defer checkpoint PUTs
+   * until all gradings have settled.
+   */
+  pendingGradingCount: number;
 }
 
 const generateId = (): string => {
@@ -175,6 +217,7 @@ export const useSessionHistory = (
   const [history, setHistory] = useState<HistoryEntry[]>(
     () => seededRef.current!.history,
   );
+  const [gradingVersion, setGradingVersion] = useState(0);
   const phraseRef = useRef<Phrase | undefined>(undefined);
   /**
    * Per-phrase presentation counter. Incremented in `onPresentationStart`
@@ -264,6 +307,9 @@ export const useSessionHistory = (
         });
       }
 
+      const gradingStatus: GrammarGradingStatus =
+        event.eventType === 'attempt' ? 'pending' : 'n/a';
+
       const entry: HistoryEntry = {
         id: generateId(),
         event,
@@ -275,6 +321,7 @@ export const useSessionHistory = (
         isRepeatedPresentation: currentIsRepeatRef.current,
         slotsAheadAtEvent,
         eventSeq,
+        gradingStatus,
         ...(ctx.incorrectPhraseRecordsFullyResolvedFailedAtEventSeqs != null &&
         ctx.incorrectPhraseRecordsFullyResolvedFailedAtEventSeqs.length > 0
           ? {
@@ -286,6 +333,37 @@ export const useSessionHistory = (
       };
 
       setHistory((prev) => [...prev, entry]);
+    },
+    [],
+  );
+
+  const updateClassification = useCallback(
+    (
+      eventSeq: number,
+      status: GrammarGradingStatus,
+      result?: GrammarGradingResult,
+      newlyResolvedFailedAtSeqs?: number[],
+    ): void => {
+      setHistory((prev) =>
+        prev.map((entry) => {
+          if (entry.eventSeq !== eventSeq) return entry;
+          const updated: HistoryEntry = {
+            ...entry,
+            gradingStatus: status,
+            ...(result !== undefined ? { aiClassification: result } : {}),
+            ...(newlyResolvedFailedAtSeqs && newlyResolvedFailedAtSeqs.length > 0
+              ? {
+                  incorrectPhraseRecordsFullyResolvedFailedAtEventSeqs: [
+                    ...(entry.incorrectPhraseRecordsFullyResolvedFailedAtEventSeqs ?? []),
+                    ...newlyResolvedFailedAtSeqs,
+                  ],
+                }
+              : {}),
+          };
+          return updated;
+        }),
+      );
+      setGradingVersion((v) => v + 1);
     },
     [],
   );
@@ -311,11 +389,18 @@ export const useSessionHistory = (
     setHistory([]);
   }, []);
 
+  const pendingGradingCount = history.filter(
+    (e) => e.gradingStatus === 'pending',
+  ).length;
+
   return {
     history,
     onPhraseEvent,
     bindCurrentPhrase,
     onPresentationStart,
     clearHistory,
+    updateClassification,
+    gradingVersion,
+    pendingGradingCount,
   };
 };

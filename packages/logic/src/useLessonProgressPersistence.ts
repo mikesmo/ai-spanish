@@ -5,6 +5,11 @@ import {
   putLessonProgressCheckpoint,
   type LessonProgressFetcher,
 } from './lessonProgressClient';
+import {
+  getDefaultLearningPipelineDebug,
+  logCheckpointDeferred,
+  logCheckpointFlushing,
+} from './learningPipelineDebug';
 import type { UseLessonSessionWithHistoryResult } from './useLessonSessionWithHistory';
 
 export interface UseLessonProgressPersistenceOptions {
@@ -20,7 +25,10 @@ export interface UseLessonProgressPersistenceOptions {
 export interface UseLessonProgressPersistenceResult {
   /**
    * Immediately PUT the latest checkpoint without waiting for the debounce.
-   * Call from platform-specific exit/background listeners.
+   * Call from platform-specific exit/background listeners. Always fires
+   * regardless of pending grading count — we do not want to lose state on
+   * tab close. Pending entries serialize with `gradingStatus: 'pending'` and
+   * downgrade to `'failed'` on resume (alignment-based fallback is used).
    */
   flush: (options?: { keepalive?: boolean }) => void;
 }
@@ -31,8 +39,11 @@ export interface UseLessonProgressPersistenceResult {
  * piece is the `fetcher` transport.
  *
  * - Debounced PUT (450 ms) on every meaningful state change.
- * - Exposes `flush()` for immediate saves triggered by platform lifecycle
- *   events (browser `pagehide`, RN `AppState` background, exit button, etc.).
+ * - Skips the debounced PUT while `session.pendingGradingCount > 0` so the
+ *   checkpoint is not saved with unclassified grammar. Re-fires when
+ *   `session.gradingVersion` bumps (last grading result landed).
+ * - `flush()` always fires immediately (for lifecycle exit events) even with
+ *   pending gradings — we prefer a partial checkpoint over losing all state.
  * - No-ops once `session.isComplete` — the completion handler owns cleanup.
  */
 export function useLessonProgressPersistence({
@@ -68,8 +79,24 @@ export function useLessonProgressPersistence({
   }, [lessonId]);
 
   // Debounced PUT — fires 450 ms after any meaningful session change.
+  // Skipped while grading results are still pending so the checkpoint always
+  // contains fully-classified data. `gradingVersion` re-arms the timer when
+  // the last in-flight grading result arrives.
   useEffect(() => {
     if (session.isComplete) return;
+
+    const pendingCount = session.pendingGradingCount;
+    if (pendingCount > 0) {
+      if (getDefaultLearningPipelineDebug()) {
+        logCheckpointDeferred({ pendingGradingCount: pendingCount });
+      }
+      return;
+    }
+
+    if (getDefaultLearningPipelineDebug()) {
+      logCheckpointFlushing({ gradingVersion: session.gradingVersion });
+    }
+
     const tid = setTimeout(() => {
       flush();
     }, 450);
@@ -80,6 +107,8 @@ export function useLessonProgressPersistence({
     session.remaining,
     session.presentationVersion,
     session.isComplete,
+    session.pendingGradingCount,
+    session.gradingVersion,
   ]);
 
   return { flush };

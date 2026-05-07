@@ -3,6 +3,7 @@ import type { AccuracyBreakdown } from './accuracy';
 import { ACCURACY_SUCCESS_THRESHOLD } from './accuracy';
 import type { FluencyBreakdown } from './fluency';
 import { fluencyForMastery } from './mastery';
+import type { GrammarGradingRequest, GrammarGradingResult } from './grammarGrading';
 import type { SpokenWord, WordMeta } from './types';
 
 const PREFIX = '[ai-spanish/learn]';
@@ -452,4 +453,85 @@ export function logSessionEnginePhraseMismatch(ctx: {
     eventPhraseId: ctx.eventPhraseId,
     currentPresentedPhraseId: ctx.currentPresentedPhraseId,
   });
+}
+
+// ---------------------------------------------------------------------------
+// Grammar grading pipeline logs
+// ---------------------------------------------------------------------------
+
+/**
+ * Emitted at the moment a grammar grading request is fired (client side).
+ * Dumps the full system prompt, user prompt, and raw payload as a collapsed
+ * console group so all AI input is inspectable without scrolling.
+ */
+export function logGrammarGradingStarted(ctx: {
+  request: GrammarGradingRequest;
+  systemPrompt: string;
+  userPrompt: string;
+}): void {
+  console.groupCollapsed(
+    `${PREFIX} grammar-grading · started  eventSeq=${ctx.request.eventSeq} phraseId=${ctx.request.phraseId}`,
+  );
+  console.log('system prompt:\n' + ctx.systemPrompt);
+  console.log('user prompt:\n' + ctx.userPrompt);
+  console.log('payload', ctx.request);
+  console.groupEnd();
+}
+
+/**
+ * Emitted when the grammar grading API returns a successful result.
+ */
+export function logGrammarGradingResult(ctx: {
+  eventSeq: number;
+  phraseId: string;
+  result: GrammarGradingResult;
+  latencyMs: number;
+}): void {
+  console.log(
+    `${PREFIX} grammar-grading · result  eventSeq=${ctx.eventSeq} phraseId=${ctx.phraseId}`,
+    `latency=${ctx.latencyMs}ms`,
+    `failedGrammar=[${ctx.result.failedGrammarItems.map((f) => f.item).join(', ') || 'none'}]`,
+    `wordMistakes=[${ctx.result.wordMistakes.join(', ') || 'none'}]`,
+  );
+}
+
+/**
+ * Emitted when the grammar grading API fails or times out.
+ * Includes the request payload so the failure is reproducible.
+ */
+export function logGrammarGradingFailure(ctx: {
+  eventSeq: number;
+  phraseId: string;
+  error: unknown;
+  request: GrammarGradingRequest;
+  latencyMs: number;
+}): void {
+  console.warn(
+    `${PREFIX} grammar-grading · failure (fallback used)  eventSeq=${ctx.eventSeq} phraseId=${ctx.phraseId}`,
+    `latency=${ctx.latencyMs}ms`,
+    ctx.error instanceof Error ? ctx.error.message : String(ctx.error),
+  );
+  console.groupCollapsed(
+    `${PREFIX} grammar-grading · failure payload (for reproduction)  eventSeq=${ctx.eventSeq}`,
+  );
+  console.log('payload', ctx.request);
+  console.groupEnd();
+}
+
+/**
+ * Emitted when the checkpoint debounce skips a PUT because grading is pending.
+ */
+export function logCheckpointDeferred(ctx: { pendingGradingCount: number }): void {
+  console.log(
+    `${PREFIX} checkpoint deferred (pendingGrading=${ctx.pendingGradingCount})`,
+  );
+}
+
+/**
+ * Emitted when the checkpoint PUT fires after all pending gradings have resolved.
+ */
+export function logCheckpointFlushing(ctx: { gradingVersion: number }): void {
+  console.log(
+    `${PREFIX} checkpoint flushing (gradingVersion=${ctx.gradingVersion})`,
+  );
 }

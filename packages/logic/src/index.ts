@@ -55,12 +55,14 @@ export type { UsePhraseDisplayOptions } from './usePhraseDisplay';
 export { runPhraseFeedbackNext } from './phraseFeedbackNext';
 export { useLessonSession } from './useLessonSession';
 export type {
+  ApplyGradingResultReturn,
   PhraseEventContext,
   UseLessonSessionOptions,
   UseLessonSessionResult,
 } from './useLessonSession';
 export { createIncorrectPhraseTracker } from './incorrectPhraseTracker';
 export type {
+  IncorrectGrammarItemEntry,
   IncorrectPhraseRecord,
   IncorrectPhraseTracker,
   ResolvedWordEntry,
@@ -103,6 +105,11 @@ export {
   logSttMicStop,
   logSttSegment,
   logSttUtteranceEnd,
+  logGrammarGradingStarted,
+  logGrammarGradingResult,
+  logGrammarGradingFailure,
+  logCheckpointDeferred,
+  logCheckpointFlushing,
 } from './learningPipelineDebug';
 export {
   POST_SUCCESS_EXTRA_PAUSE_MS,
@@ -166,6 +173,23 @@ export {
   type LearnerLastAttempt,
   type LearnerQuestionContext,
 } from './learnerQuestionPrompt';
+export type {
+  GrammarGradingRequest,
+  GrammarGradingResult,
+  GrammarGradingStatus,
+  PendingGradingEventInfo,
+  FailedGrammarItem,
+} from './grammarGrading';
+export {
+  buildGrammarGradingPrompts,
+  type GrammarGradingPrompts,
+} from './grammarGradingPrompt';
+export {
+  useGrammarGrading,
+  type PostGrammarGrading,
+  type UseGrammarGradingOptions,
+  type UseGrammarGradingResult,
+} from './useGrammarGrading';
 export {
   useLearnerQuestion,
   type LearnerQuestionTurn,

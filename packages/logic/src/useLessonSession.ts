@@ -18,6 +18,7 @@ import {
   createIncorrectPhraseTracker,
   type IncorrectPhraseRecord,
 } from './incorrectPhraseTracker';
+import type { GrammarGradingResult, PendingGradingEventInfo } from './grammarGrading';
 
 /**
  * Emitted with `onEvent` after `engine.onEvent` so consumers do not rely on a
@@ -72,6 +73,15 @@ export interface UseLessonSessionOptions {
   initialCheckpoint?: SessionCheckpointParsed | null;
 }
 
+export interface ApplyGradingResultReturn {
+  /**
+   * `failedAtEventSeq` values for incorrect-phrase records that became fully
+   * resolved as a result of this grading call. Used by the session-with-history
+   * layer to update the history entry's "fully redeemed" panel.
+   */
+  newlyResolvedFailedAtSeqs: number[];
+}
+
 export interface UseLessonSessionResult {
   /**
    * The phrase currently on screen. Stays on the last-drawn phrase after
@@ -123,10 +133,25 @@ export interface UseLessonSessionResult {
   }) => SessionCheckpointParsed;
   /**
    * Live snapshot of all incorrect-phrase records for this session, including
-   * fully-resolved ones. Updates reactively after every Attempt event.
+   * fully-resolved ones. Updates reactively after every Attempt event and
+   * after each grading result lands.
    * Consumed by the web history sidebar to display resolution info.
    */
   incorrectPhraseRecords: readonly IncorrectPhraseRecord[];
+  /**
+   * Apply an AI grading result (or null for fallback) for a specific attempt
+   * event. Calls `tracker.applyAiGrading` or `tracker.applyFallbackClassification`
+   * and removes newly fully-resolved phrases from the session queue.
+   *
+   * @param eventSeq The per-session event sequence number of the graded attempt.
+   * @param result The AI result, or null to apply the alignment-based fallback.
+   * @returns `newlyResolvedFailedAtSeqs` — failedAtEventSeq values for records
+   *   newly made fully resolved by this call.
+   */
+  applyGradingResult: (
+    eventSeq: number,
+    result: GrammarGradingResult | null,
+  ) => ApplyGradingResultReturn;
 }
 
 /**
@@ -154,6 +179,11 @@ export const useLessonSession = (
   const trackerRef = useRef(createIncorrectPhraseTracker());
   /** Monotonic per-session event counter. Increments once per PhraseEvent. */
   const eventSeqRef = useRef(0);
+  /**
+   * Map from eventSeq → grading metadata for attempt events awaiting AI
+   * grading. Populated in `onPhraseEvent` and consumed in `applyGradingResult`.
+   */
+  const pendingGradingMapRef = useRef(new Map<number, PendingGradingEventInfo>());
   /**
    * Per-phrase presentation visit count. Incremented by the wrapped
    * `onPresentationStart` so `onPhraseEvent` can detect first presentations
@@ -244,42 +274,56 @@ export const useLessonSession = (
     const slotsAheadAtEvent = engine.getQueuePosition(event.phraseId);
     const liveSlotsAhead = engine.getQueuePosition(event.phraseId);
 
-    let incorrectPhraseRecordsFullyResolvedFailedAtEventSeqs:
-      | readonly number[]
-      | undefined;
-    let newlyResolvedPhraseIds: string[] = [];
-
-    if (event.eventType === 'attempt' || event.eventType === 'reveal') {
+    if (event.eventType === 'attempt') {
       const phrase = deckById.get(event.phraseId);
       if (phrase) {
-        const missingWords =
-          event.eventType === 'attempt'
-            ? event.missingWords
-            : phrase.Spanish.words.map((w) => w.word);
-        const isSuccess = event.eventType === 'attempt' && event.isAccuracySuccess;
-        // First presentation of a type="new" phrase is a practice run and
-        // cannot resolve other phrases.
-        const visitCount = visitCountsRef.current.get(event.phraseId) ?? 0;
-        const canResolve = !(phrase.type === 'new' && visitCount <= 1);
-        newlyResolvedPhraseIds = trackerRef.current.recordAttempt(
+        // For attempt events, do word-tracking synchronously so the sidebar
+        // can immediately show which words were missing. Grammar classification
+        // is deferred to applyGradingResult (called after AI grading returns).
+        trackerRef.current.recordMissingWords(
           event.phraseId,
           phrase,
-          missingWords,
-          isSuccess,
+          event.missingWords,
+          event.isAccuracySuccess,
+          eventSeq,
+        );
+
+        const visitCount = visitCountsRef.current.get(event.phraseId) ?? 0;
+        const canResolve = !(phrase.type === 'new' && visitCount <= 1);
+        const grammarItems = phrase.Spanish.grammar
+          .split(',')
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0);
+
+        pendingGradingMapRef.current.set(eventSeq, {
+          phraseId: event.phraseId,
+          grammarItems,
+          missingWords: event.missingWords,
+          isAccuracySuccess: event.isAccuracySuccess,
+          canResolve,
+          startedAtMs: Date.now(),
+        });
+        setIncorrectPhraseRecords(trackerRef.current.getAllRecords());
+      }
+    } else if (event.eventType === 'reveal') {
+      const phrase = deckById.get(event.phraseId);
+      if (phrase) {
+        const allMissingWords = phrase.Spanish.words.map((w) => w.word);
+        const visitCount = visitCountsRef.current.get(event.phraseId) ?? 0;
+        const canResolve = !(phrase.type === 'new' && visitCount <= 1);
+        const newlyResolvedPhraseIds = trackerRef.current.applyFallbackClassification(
+          event.phraseId,
+          phrase,
+          allMissingWords,
+          false,
           eventSeq,
           canResolve,
+          'n/a',
         );
-        const fullySeqSet = new Set<number>();
-        for (const resolvedId of newlyResolvedPhraseIds) {
-          const rec = trackerRef.current.getRecord(resolvedId);
-          if (rec) fullySeqSet.add(rec.failedAtEventSeq);
-        }
-        if (fullySeqSet.size > 0) {
-          incorrectPhraseRecordsFullyResolvedFailedAtEventSeqs = Array.from(
-            fullySeqSet,
-          ).sort((a, b) => a - b);
-        }
         setIncorrectPhraseRecords(trackerRef.current.getAllRecords());
+        for (const resolvedId of newlyResolvedPhraseIds) {
+          engine.removeAndPreventRequeue(resolvedId);
+        }
       }
     }
 
@@ -287,13 +331,8 @@ export const useLessonSession = (
       slotsAheadAtEvent,
       liveSlotsAhead,
       eventSeq,
-      incorrectPhraseRecordsFullyResolvedFailedAtEventSeqs,
     });
     setRemaining(engine.remaining());
-
-    for (const resolvedId of newlyResolvedPhraseIds) {
-      engine.removeAndPreventRequeue(resolvedId);
-    }
   }, [deckById]);
 
   const advance = useCallback((): void => {
@@ -350,6 +389,56 @@ export const useLessonSession = (
     [deck],
   );
 
+  const applyGradingResult = useCallback(
+    (eventSeq: number, result: GrammarGradingResult | null): ApplyGradingResultReturn => {
+      const engine = engineRef.current;
+      if (!engine) return { newlyResolvedFailedAtSeqs: [] };
+
+      const info = pendingGradingMapRef.current.get(eventSeq);
+      if (!info) return { newlyResolvedFailedAtSeqs: [] };
+      pendingGradingMapRef.current.delete(eventSeq);
+
+      const phrase = deckById.get(info.phraseId);
+      if (!phrase) return { newlyResolvedFailedAtSeqs: [] };
+
+      let newlyResolvedPhraseIds: string[];
+      if (result !== null) {
+        newlyResolvedPhraseIds = trackerRef.current.applyAiGrading(
+          info.phraseId,
+          phrase,
+          result,
+          info.isAccuracySuccess,
+          eventSeq,
+          info.canResolve,
+        );
+      } else {
+        newlyResolvedPhraseIds = trackerRef.current.applyFallbackClassification(
+          info.phraseId,
+          phrase,
+          info.missingWords,
+          info.isAccuracySuccess,
+          eventSeq,
+          info.canResolve,
+          'failed',
+        );
+      }
+
+      const fullySeqSet = new Set<number>();
+      for (const resolvedId of newlyResolvedPhraseIds) {
+        const rec = trackerRef.current.getRecord(resolvedId);
+        if (rec) fullySeqSet.add(rec.failedAtEventSeq);
+        engine.removeAndPreventRequeue(resolvedId);
+      }
+      setIncorrectPhraseRecords(trackerRef.current.getAllRecords());
+      setRemaining(engine.remaining());
+
+      return {
+        newlyResolvedFailedAtSeqs: Array.from(fullySeqSet).sort((a, b) => a - b),
+      };
+    },
+    [deckById],
+  );
+
   // Stable 1-element array keyed on currentPhrase identity; avoids a
   // useMemo dep since the reference only changes when the phrase does.
   const phrasesRef = useRef<[Phrase]>([currentPhrase]);
@@ -369,5 +458,6 @@ export const useLessonSession = (
     getLiveSlotsAhead,
     getSessionCheckpoint,
     incorrectPhraseRecords,
+    applyGradingResult,
   };
 };

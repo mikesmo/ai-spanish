@@ -33,7 +33,9 @@ import {
   type AccuracyBreakdown,
   type Attempt,
   type FluencyBreakdown,
+  type GrammarGradingStatus,
   type HistoryEntry,
+  type IncorrectGrammarItemEntry,
   type IncorrectPhraseRecord,
   type LessonReportSummary,
   type Phrase,
@@ -131,6 +133,14 @@ interface WordAlignmentRow {
 
 type GrammarRow = {
   item: string;
+  /** True when the AI classified this item as failed by the user. */
+  isFailed: boolean;
+  /** True while AI grading is in-flight (no classification yet). */
+  isPending: boolean;
+  /** Per-session event seq resolving this grammar item, or null. */
+  resolvedByEventSeq: number | null;
+  /** AI-generated one-sentence rationale for why this item was violated. Only set when isFailed. */
+  rationale?: string;
 };
 
 const splitCommaPhraseList = (raw: string): string[] =>
@@ -139,60 +149,152 @@ const splitCommaPhraseList = (raw: string): string[] =>
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
 
-/** Rows for the Grammar table: comma-split tokens from `Spanish.grammar` only. */
-const buildGrammarRows = (phrase: Phrase): GrammarRow[] =>
-  splitCommaPhraseList(phrase.Spanish.grammar).map((item) => ({ item }));
+/**
+ * Builds grammar rows for the sidebar table.
+ * - When `gradingStatus === 'success'`: AI-driven per-item failure + resolution.
+ * - When `gradingStatus === 'pending'`: all rows shown as pending (no classification yet).
+ * - When `gradingStatus === 'failed'` or legacy: falls back to single-bucket resolution.
+ * - When `gradingStatus === 'n/a'` or undefined: plain rows with legacy resolution.
+ */
+const buildGrammarRows = (
+  phrase: Phrase,
+  incorrectPhraseRecord: IncorrectPhraseRecord | undefined,
+  gradingStatus: GrammarGradingStatus | undefined,
+  suppressResolvedDisplay: boolean,
+): GrammarRow[] => {
+  const items = splitCommaPhraseList(phrase.Spanish.grammar);
+
+  if (gradingStatus === 'pending') {
+    return items.map((item) => ({
+      item,
+      isFailed: false,
+      isPending: true,
+      resolvedByEventSeq: null,
+    }));
+  }
+
+  if (gradingStatus === 'success' && incorrectPhraseRecord?.incorrectGrammarItems) {
+    const failedMap = new Map<string, IncorrectGrammarItemEntry>(
+      incorrectPhraseRecord.incorrectGrammarItems.map((e) => [e.item, e]),
+    );
+    return items.map((item) => {
+      const entry = failedMap.get(item);
+      return {
+        item,
+        isFailed: entry !== undefined,
+        isPending: false,
+        resolvedByEventSeq:
+          !suppressResolvedDisplay && entry ? entry.resolvedByEventSeq : null,
+        rationale: entry?.rationale,
+      };
+    });
+  }
+
+  if (
+    (gradingStatus === 'failed' || gradingStatus === 'n/a' || gradingStatus === undefined) &&
+    incorrectPhraseRecord?.incorrectGrammarItems?.length
+  ) {
+    const failedMap = new Map<string, IncorrectGrammarItemEntry>(
+      incorrectPhraseRecord.incorrectGrammarItems.map((e) => [e.item, e]),
+    );
+    return items.map((item) => {
+      const entry = failedMap.get(item);
+      return {
+        item,
+        isFailed: entry !== undefined,
+        isPending: false,
+        resolvedByEventSeq:
+          !suppressResolvedDisplay && entry ? entry.resolvedByEventSeq : null,
+        rationale: entry?.rationale,
+      };
+    });
+  }
+
+  return items.map((item) => ({
+    item,
+    isFailed: false,
+    isPending: false,
+    resolvedByEventSeq: null,
+  }));
+};
 
 /**
- * Grammar section: `Spanish.grammar` tags only. Resolved column shows the
- * per-session event seq when `incorrectPhraseRecord.grammarResolvedByEventSeq`
- * is set for this phrase.
- *
- * When `suppressResolvedDisplay` is true (successful scored revisit), the
- * Resolved column stays "—" so the row does not point at the current event.
+ * Grammar section: `Spanish.grammar` tags only.
+ * Renders AI-classified failed items in red, pending items in muted style,
+ * and per-item "Resolved by" event-seq links.
  */
 const GrammarSection = ({
   phrase,
   incorrectPhraseRecord,
   suppressResolvedDisplay = false,
+  gradingStatus,
 }: {
   phrase: Phrase;
   incorrectPhraseRecord: IncorrectPhraseRecord | undefined;
   suppressResolvedDisplay?: boolean;
+  gradingStatus?: GrammarGradingStatus;
 }): JSX.Element => {
-  const rows = useMemo(() => buildGrammarRows(phrase), [phrase]);
-  const resolvedSeq = suppressResolvedDisplay
-    ? null
-    : (incorrectPhraseRecord?.grammarResolvedByEventSeq ?? null);
+  const rows = useMemo(
+    () => buildGrammarRows(phrase, incorrectPhraseRecord, gradingStatus, suppressResolvedDisplay),
+    [phrase, incorrectPhraseRecord, gradingStatus, suppressResolvedDisplay],
+  );
   return (
     <div>
-      <div className="font-semibold text-gray-700 mb-1">Grammar</div>
+      <div className="font-semibold text-gray-700 mb-1 flex items-center gap-2">
+        Grammar
+        {gradingStatus === 'pending' && (
+          <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">
+            grading…
+          </span>
+        )}
+        {gradingStatus === 'failed' && (
+          <span className="text-[10px] text-gray-500 bg-gray-50 border border-gray-200 rounded px-1.5 py-0.5">
+            fallback
+          </span>
+        )}
+      </div>
       <table className="w-full border-collapse">
         <thead>
           <tr className="text-left text-gray-500 border-b border-gray-200">
             <th className="py-1 pr-2 font-medium">Grammar</th>
             <th className="py-1 pr-2 font-medium">Resolved by</th>
+            <th className="py-1 pr-2 font-medium">Reason</th>
           </tr>
         </thead>
         <tbody>
           {rows.length === 0 ? (
             <tr className="border-b border-gray-100">
-              <td colSpan={2} className="py-1 pr-2 text-gray-500 normal-case">
+              <td colSpan={3} className="py-1 pr-2 text-gray-500 normal-case">
                 —
               </td>
             </tr>
           ) : (
             rows.map((r, i) => (
               <tr key={`${r.item}-${i}`} className="border-b border-gray-100">
-                <td className="py-1 pr-2 text-gray-900 normal-case">{r.item}</td>
+                <td
+                  className={`py-1 pr-2 normal-case ${
+                    r.isPending
+                      ? "text-gray-400 italic"
+                      : r.isFailed
+                        ? "text-red-600 font-semibold"
+                        : "text-gray-900"
+                  }`}
+                >
+                  {r.item}
+                </td>
                 <td className="py-1 pr-2">
-                  {resolvedSeq != null ? (
+                  {r.isPending ? (
+                    <span className="text-amber-500 text-[10px]">pending</span>
+                  ) : r.resolvedByEventSeq != null ? (
                     <span className="text-emerald-600 font-mono">
-                      #{resolvedSeq}
+                      #{r.resolvedByEventSeq}
                     </span>
                   ) : (
                     <span className="text-gray-400">—</span>
                   )}
+                </td>
+                <td className="py-1 pr-2 normal-case text-gray-600">
+                  {r.isFailed && r.rationale ? r.rationale : <span className="text-gray-400">—</span>}
                 </td>
               </tr>
             ))
@@ -544,6 +646,7 @@ const ScoredEventDetail = ({
   isPractice: boolean;
   incorrectPhraseRecord: IncorrectPhraseRecord | undefined;
 }): JSX.Element => {
+  const gradingStatus = entry.gradingStatus;
   const { event, phrase, scoreSummary, stabilityBreakdown } = entry;
   const ab = event.accuracyBreakdown;
   const fb = event.fluencyBreakdown;
@@ -660,6 +763,7 @@ const ScoredEventDetail = ({
         phrase={phrase}
         incorrectPhraseRecord={incorrectPhraseRecord}
         suppressResolvedDisplay={suppressGrammarResolvedDisplay}
+        gradingStatus={gradingStatus}
       />
 
       {fullyRedeemedFailedAtEventSeqs.length > 0 && (
@@ -848,6 +952,22 @@ const HistoryRow = ({
                 className={`inline-block w-fit text-[10px] px-1.5 py-0.5 rounded border ${badge.className}`}
               >
                 {badge.label}
+              </span>
+            )}
+            {entry.gradingStatus === "pending" && (
+              <span
+                title="AI grammar grading is in progress — grammar classification will update when complete"
+                className="inline-block w-fit text-[10px] px-1.5 py-0.5 rounded border bg-amber-50 text-amber-600 border-amber-200"
+              >
+                grading…
+              </span>
+            )}
+            {entry.gradingStatus === "failed" && (
+              <span
+                title="AI grammar grading timed out or failed — alignment-based fallback was used for grammar classification"
+                className="inline-block w-fit text-[10px] px-1.5 py-0.5 rounded border bg-gray-100 text-gray-500 border-gray-200"
+              >
+                grammar fallback
               </span>
             )}
             {phrase.type === "new" && (
@@ -1230,6 +1350,7 @@ export const SessionHistoryStatsBar = ({
   subtitle,
   variant = "dark",
   actions,
+  pendingGradingCount = 0,
 }: {
   history: HistoryEntry[];
   remainingInSession: number;
@@ -1238,6 +1359,8 @@ export const SessionHistoryStatsBar = ({
   variant?: "dark" | "light";
   /** Optional controls rendered at the far end of the title row (e.g. Clear/Close buttons). */
   actions?: React.ReactNode;
+  /** Number of attempt events still awaiting AI grammar classification. */
+  pendingGradingCount?: number;
 }): JSX.Element => {
   const stats = useMemo(() => computeStats(history), [history]);
   const isDark = variant === "dark";
@@ -1263,6 +1386,7 @@ export const SessionHistoryStatsBar = ({
           <span className={metaClass}>
             {history.length} event{history.length === 1 ? "" : "s"}
             {subtitle ? ` · ${subtitle}` : remainingInSession > 0 ? ` · ${remainingInSession} left in session` : ""}
+            {pendingGradingCount > 0 ? ` · grading ${pendingGradingCount}…` : ""}
           </span>
         </div>
         {actions}
@@ -1357,6 +1481,8 @@ export interface SessionHistoryLogViewProps {
   incorrectPhraseRecords?: readonly IncorrectPhraseRecord[];
   emptyStateMessage?: string;
   className?: string;
+  /** Number of attempt events still awaiting AI grammar classification. */
+  pendingGradingCount?: number;
 }
 
 export const SessionHistoryLogView = ({
@@ -1366,6 +1492,7 @@ export const SessionHistoryLogView = ({
   incorrectPhraseRecords,
   emptyStateMessage,
   className,
+  pendingGradingCount = 0,
 }: SessionHistoryLogViewProps): JSX.Element => {
   const reversed = useMemo(() => [...history].reverse(), [history]);
 
