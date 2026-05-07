@@ -18,6 +18,12 @@ interface HistorySidebarProps {
   incorrectPhraseRecords: readonly IncorrectPhraseRecord[];
   /** Called on mount and whenever the sidebar's width changes (e.g. after drag-resize). */
   onWidthChange?: (width: number) => void;
+  /**
+   * When true, the Clear button is hidden. Used when rendering the sidebar
+   * over an immutable (post-completion) history snapshot, where clearing is
+   * meaningless.
+   */
+  hideClearButton?: boolean;
 }
 
 const MIN_WIDTH = 320;
@@ -48,6 +54,7 @@ export const HistorySidebar = ({
   remainingInSession,
   incorrectPhraseRecords,
   onWidthChange,
+  hideClearButton = false,
 }: HistorySidebarProps): JSX.Element => {
   const [width, setWidth] = useState<number>(DEFAULT_WIDTH);
   const [isResizing, setIsResizing] = useState(false);
@@ -165,14 +172,16 @@ export const HistorySidebar = ({
             variant="dark"
             actions={
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={onClear}
-                  disabled={history.length === 0}
-                  className="text-[11px] text-gray-300 hover:text-white disabled:text-gray-600 disabled:cursor-not-allowed"
-                >
-                  Clear
-                </button>
+                {hideClearButton ? null : (
+                  <button
+                    type="button"
+                    onClick={onClear}
+                    disabled={history.length === 0}
+                    className="text-[11px] text-gray-300 hover:text-white disabled:text-gray-600 disabled:cursor-not-allowed"
+                  >
+                    Clear
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={onClose}

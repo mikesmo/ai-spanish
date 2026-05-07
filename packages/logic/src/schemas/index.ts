@@ -1,3 +1,4 @@
+export * from './completedLessonsList';
 export * from './lessonCatalogApi';
 export * from './lessonFile';
 export * from './lessonSessionCompletion';

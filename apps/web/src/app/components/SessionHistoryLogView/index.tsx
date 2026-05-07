@@ -26,6 +26,7 @@ import {
   STABILITY_EMA_ALPHA,
   alignWords,
   buildPresentationOrdinalByEntryId,
+  computeLessonReportSummary,
   fluencyForMastery,
   normalizeStr,
   type AccuracyBreakdown,
@@ -33,6 +34,7 @@ import {
   type FluencyBreakdown,
   type HistoryEntry,
   type IncorrectPhraseRecord,
+  type LessonReportSummary,
   type Phrase,
   type PracticeAttempt,
   type ScoreSummary,
@@ -44,51 +46,19 @@ import {
 // Shared types
 // ---------------------------------------------------------------------------
 
-export interface SessionStats {
-  totalAttempts: number;
-  exactCorrect: number;
-  exactCorrectPct: number | null;
-  avgAccuracy: number | null;
-  avgFluency: number | null;
-  practiceCount: number;
-  revealCount: number;
-  revisitAttemptCount: number;
-}
+/**
+ * In-session stats panel shape. Re-exposed from the shared
+ * `LessonReportSummary` so the in-session sidebar and the post-completion
+ * report page render off the same aggregation.
+ */
+export type SessionStats = LessonReportSummary;
 
 // ---------------------------------------------------------------------------
 // Pure helpers
 // ---------------------------------------------------------------------------
 
-export const computeStats = (history: HistoryEntry[]): SessionStats => {
-  const attempts = history.filter(
-    (h): h is HistoryEntry & { event: Attempt } =>
-      h.event.eventType === "attempt",
-  );
-  const total = attempts.length;
-  const exact = attempts.filter((h) => h.event.success).length;
-  const accuracySum = attempts.reduce(
-    (sum, h) => sum + h.event.accuracyScore,
-    0,
-  );
-  const fluencyVals = attempts
-    .map((h) => h.event.fluencyScore)
-    .filter((v): v is number => v != null);
-  return {
-    totalAttempts: total,
-    exactCorrect: exact,
-    exactCorrectPct: total > 0 ? exact / total : null,
-    avgAccuracy: total > 0 ? accuracySum / total : null,
-    avgFluency:
-      fluencyVals.length > 0
-        ? fluencyVals.reduce((s, v) => s + v, 0) / fluencyVals.length
-        : null,
-    practiceCount: history.filter((h) => h.event.eventType === "practice")
-      .length,
-    revealCount: history.filter((h) => h.event.eventType === "reveal").length,
-    revisitAttemptCount: attempts.filter((h) => h.isRepeatedPresentation)
-      .length,
-  };
-};
+export const computeStats = (history: HistoryEntry[]): SessionStats =>
+  computeLessonReportSummary(history);
 
 /**
  * For each revisit row (`isRepeatedPresentation`), the # of the last event from the

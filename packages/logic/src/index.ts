@@ -176,3 +176,14 @@ export {
   type SimRng,
   type SimOutcomeWeights,
 } from './lessonSimulationEvents';
+export {
+  bucketPhrasesByRevisitCount,
+  buildPhrasesByMasterScore,
+  computeLessonReportSummary,
+  countPracticeEvents,
+  countRevealEvents,
+  type LessonReportSummary,
+  type PhraseMasteryRow,
+  type PhraseRevisitBuckets,
+  type PhraseRevisitRow,
+} from './lessonReport';

@@ -5,6 +5,8 @@ import {
   type LessonsApiResponse,
 } from "@ai-spanish/logic";
 import Link from "next/link";
+import { useMemo } from "react";
+import { useCompletedLessonsQuery } from "../hooks/useCompletedLessonsQuery";
 import { useLessonsQuery } from "../hooks/useLessonsQuery";
 import { SignOutButton } from "./SignOutButton";
 
@@ -16,27 +18,44 @@ function HomeLessonsContent({
   data: LessonsApiResponse;
 }): JSX.Element {
   const { lessons, courseLevel } = data;
+  const { data: completed } = useCompletedLessonsQuery();
+  const completedLessonIds = useMemo<Set<string>>(
+    () => new Set(completed?.completedLessonIds ?? []),
+    [completed?.completedLessonIds],
+  );
   return (
     <>
       {lessons.length > 0 ? (
         <p className="text-xs text-gray-400 text-center mb-4">{courseLevel.title}</p>
       ) : null}
       <ul className="flex flex-col gap-4">
-        {lessons.map((lesson) => (
-          <li key={lesson.lessonId}>
-            <Link
-              href={`/lesson/${lesson.lessonId}`}
-              className="block w-full rounded-xl border border-gray-200 bg-white px-5 py-4 text-left shadow-sm transition hover:border-gray-300 hover:shadow"
-            >
-              <span className="block text-base font-medium text-gray-900">
-                {lesson.title}
-              </span>
-              <span className="mt-1 block text-sm text-gray-500">
-                {lesson.description}
-              </span>
-            </Link>
-          </li>
-        ))}
+        {lessons.map((lesson) => {
+          const hasCompletion = completedLessonIds.has(lesson.lessonId);
+          return (
+            <li key={lesson.lessonId} className="flex flex-col gap-1.5">
+              <Link
+                href={`/lesson/${lesson.lessonId}`}
+                className="block w-full rounded-xl border border-gray-200 bg-white px-5 py-4 text-left shadow-sm transition hover:border-gray-300 hover:shadow"
+              >
+                <span className="block text-base font-medium text-gray-900">
+                  {lesson.title}
+                </span>
+                <span className="mt-1 block text-sm text-gray-500">
+                  {lesson.description}
+                </span>
+              </Link>
+              {hasCompletion ? (
+                <Link
+                  href={`/lesson/${lesson.lessonId}/report`}
+                  className="self-end inline-flex items-center gap-1 px-3 py-1 text-xs font-medium text-gray-600 rounded-full border border-gray-200 bg-white transition hover:border-gray-300 hover:text-gray-900"
+                >
+                  Report
+                  <span aria-hidden className="text-gray-400">→</span>
+                </Link>
+              ) : null}
+            </li>
+          );
+        })}
       </ul>
 
       {isDev && lessons.length > 0 ? (

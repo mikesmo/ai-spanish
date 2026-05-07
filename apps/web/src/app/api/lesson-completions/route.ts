@@ -1,4 +1,5 @@
 import {
+  completedLessonsListResponseSchema,
   lessonSessionCompletionPayloadSchema,
   sessionHistoryGetResponseSchema,
 } from '@ai-spanish/logic';
@@ -66,8 +67,13 @@ export async function POST(request: NextRequest): Promise<Response> {
 }
 
 /**
- * GET ?lesson=id — latest stored completion for the authenticated user + lesson.
- * Shape matches SessionHistoryGetResponse for existing log viewers.
+ * GET — two modes:
+ *   - With `?lesson=id`: latest stored completion for the authenticated user
+ *     and lesson, shape matches SessionHistoryGetResponse for existing log
+ *     viewers.
+ *   - Without `?lesson`: list of distinct lesson_ids the user has at least
+ *     one completion for (used by the home page to decide whether to show
+ *     the Report link).
  */
 export async function GET(request: NextRequest): Promise<Response> {
   const auth = await resolveAuthenticatedSupabaseForApi(request);
@@ -75,7 +81,29 @@ export async function GET(request: NextRequest): Promise<Response> {
 
   const lesson = request.nextUrl.searchParams.get('lesson')?.trim() ?? '';
   if (!lesson) {
-    return jsonError(400, 'Missing required query param: lesson');
+    const { data, error } = await auth.data.supabase
+      .from('user_lesson_completions')
+      .select('lesson_id');
+
+    if (error) {
+      return jsonError(
+        500,
+        error.message ?? 'Failed to load completed lessons',
+      );
+    }
+
+    const ids = Array.from(
+      new Set(
+        (data ?? [])
+          .map((row) => (row as { lesson_id?: unknown }).lesson_id)
+          .filter((v): v is string => typeof v === 'string' && v.length > 0),
+      ),
+    );
+
+    const response = completedLessonsListResponseSchema.parse({
+      completedLessonIds: ids,
+    });
+    return NextResponse.json(response);
   }
 
   const { data, error } = await auth.data.supabase
