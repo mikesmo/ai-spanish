@@ -11,6 +11,16 @@ import type { PhraseEvent } from './events';
 import type { Phrase, PhraseProgress } from './types';
 import type { PhraseEventContext } from './useLessonSession';
 
+export interface UseSessionHistoryOptions {
+  /**
+   * Pre-existing history entries used to seed the in-memory log when resuming
+   * a previously persisted lesson. The internal mastery/visit refs are
+   * rebuilt by replaying these entries so subsequent events derive their
+   * `masteryBefore` / `isRepeatedPresentation` flags from the correct state.
+   */
+  initialHistory?: HistoryEntry[];
+}
+
 export interface ScoreSummary {
   accuracy: number;
   fluency: number | null;
@@ -110,22 +120,79 @@ const generateId = (): string => {
  * display. Each entry carries `stabilityBreakdown` and mastery before/after
  * for the sidebar or other consumers.
  */
-export const useSessionHistory = (): UseSessionHistoryResult => {
-  const [history, setHistory] = useState<HistoryEntry[]>([]);
+export const useSessionHistory = (
+  options: UseSessionHistoryOptions = {},
+): UseSessionHistoryResult => {
+  const { initialHistory } = options;
+
+  /**
+   * Lazy initializer captured once on mount: hydrate the visible history
+   * AND the internal mastery/visit mirrors from the persisted entries by
+   * replaying their effects. This keeps subsequent events deriving correct
+   * `masteryBefore` and `isRepeatedPresentation` flags after resume.
+   */
+  const seededRef = useRef<{
+    history: HistoryEntry[];
+    visitCounts: Map<string, number>;
+    progress: Map<string, PhraseProgress>;
+    /**
+     * Repeat flag carried over from the last presented phrase in the persisted
+     * history. The resumed card never re-fires `onPresentationStart` so any
+     * events emitted on it would otherwise be classified as a first
+     * presentation.
+     */
+    currentIsRepeat: boolean;
+  } | null>(null);
+  if (seededRef.current === null) {
+    const seededVisits = new Map<string, number>();
+    const seededProgress = new Map<string, PhraseProgress>();
+    let seededIsRepeat = false;
+    if (initialHistory && initialHistory.length > 0) {
+      let lastPhraseName: string | null = null;
+      for (const entry of initialHistory) {
+        const key = entry.phrase.name;
+        if (key !== lastPhraseName) {
+          seededVisits.set(key, (seededVisits.get(key) ?? 0) + 1);
+          lastPhraseName = key;
+        }
+        const next = reduceProgress(
+          seededProgress.get(key) ?? null,
+          entry.event,
+        );
+        seededProgress.set(key, next);
+      }
+      const lastEntry = initialHistory[initialHistory.length - 1]!;
+      seededIsRepeat = lastEntry.isRepeatedPresentation;
+    }
+    seededRef.current = {
+      history: initialHistory ? [...initialHistory] : [],
+      visitCounts: seededVisits,
+      progress: seededProgress,
+      currentIsRepeat: seededIsRepeat,
+    };
+  }
+
+  const [history, setHistory] = useState<HistoryEntry[]>(
+    () => seededRef.current!.history,
+  );
   const phraseRef = useRef<Phrase | undefined>(undefined);
   /**
    * Per-phrase presentation counter. Incremented in `onPresentationStart`
    * for each new card shown (not per Try Again). Events appended while
    * count > 1 are flagged as repeated presentations.
    */
-  const visitCountsRef = useRef<Map<string, number>>(new Map());
+  const visitCountsRef = useRef<Map<string, number>>(
+    seededRef.current!.visitCounts,
+  );
   /** Whether the currently displayed card is a revisit of a previous one. */
-  const currentIsRepeatRef = useRef(false);
+  const currentIsRepeatRef = useRef(seededRef.current!.currentIsRepeat);
   /**
    * Per-phrase progress mirror used to compute stability breakdowns and
    * mastery before/after for each history entry.
    */
-  const progressByPhraseRef = useRef<Map<string, PhraseProgress>>(new Map());
+  const progressByPhraseRef = useRef<Map<string, PhraseProgress>>(
+    seededRef.current!.progress,
+  );
 
   const onPhraseEvent = useCallback(
     (event: PhraseEvent, ctx: PhraseEventContext): void => {

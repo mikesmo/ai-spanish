@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { incorrectPhraseRecordSchema } from './incorrectPhraseRecord';
+import { historyEntrySchema } from './sessionHistory';
 
 export const phraseProgressSchema = z.object({
   phraseId: z.string(),
@@ -38,6 +39,14 @@ export const sessionCheckpointSchema = z.object({
    * trail. Optional for backward compatibility with older checkpoints.
    */
   incorrectPhraseRecords: z.array(incorrectPhraseRecordSchema).optional(),
+  /**
+   * Per-event session history (sidebar log) at the moment the checkpoint was
+   * captured. Persisted alongside the engine state so the sidebar can be
+   * fully restored when the learner resumes a mid-flight lesson. Optional for
+   * backward compatibility with older checkpoints persisted before this field
+   * existed.
+   */
+  history: z.array(historyEntrySchema).optional(),
 });
 
 export type SessionCheckpointParsed = z.infer<typeof sessionCheckpointSchema>;

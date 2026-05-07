@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  buildDeckFingerprint,
   buildDevPhraseIndexCheckpoint,
   isTranscriptLessonIdSyntaxValid,
 } from "@ai-spanish/logic";
@@ -30,17 +31,21 @@ export default function LessonPageContent(): JSX.Element {
 
   const {
     data: phrases,
-    isLoading,
-    isError,
-    error,
+    isLoading: isLessonLoading,
+    isError: isLessonError,
+    error: lessonError,
   } = useLessonQuery(lessonId);
+
+  /**
+   * Resume probe runs in parallel with the lesson transcript fetch so the user
+   * never sees a separate "restoring" stage after the lesson finishes loading.
+   */
+  const resumeQuery = useLessonResumeCheckpointQuery(lessonId);
 
   const devPhraseIndexKey =
     process.env.NODE_ENV === "development"
       ? (searchParams.get("phraseIndex") ?? "_")
       : "_";
-
-  const resumeQuery = useLessonResumeCheckpointQuery(lessonId, phrases);
 
   const devSessionCheckpointOnly = useMemo(() => {
     if (
@@ -66,16 +71,39 @@ export default function LessonPageContent(): JSX.Element {
     });
   }, [lessonId, phrases, searchParams]);
 
-  /** Dev `?phraseIndex=` wins over DB resume checkpoint. */
-  const initialSessionCheckpoint = useMemo(
-    () =>
-      devSessionCheckpointOnly ??
-      resumeQuery.data ??
-      undefined,
-    [devSessionCheckpointOnly, resumeQuery.data],
-  );
+  /**
+   * Dev `?phraseIndex=` wins over DB resume checkpoint. The persisted
+   * checkpoint is only honored when its `deckFingerprint` matches the
+   * currently loaded deck — stale checkpoints (e.g. from before the lesson
+   * content changed) are discarded so PhraseDisplay starts a fresh session.
+   */
+  const initialSessionCheckpoint = useMemo(() => {
+    if (devSessionCheckpointOnly) return devSessionCheckpointOnly;
+    const cp = resumeQuery.data;
+    if (!cp || phrases == null || phrases.length === 0) return undefined;
+    if (cp.deckFingerprint !== undefined) {
+      const fp = buildDeckFingerprint(phrases);
+      if (cp.deckFingerprint !== fp) return undefined;
+    }
+    return cp;
+  }, [devSessionCheckpointOnly, resumeQuery.data, phrases]);
 
-  if (isLoading) {
+  /**
+   * Single, unified loading state. The resume probe must complete a real fetch
+   * round-trip on every mount before we render PhraseDisplay — `isSuccess`
+   * alone is not enough because `refetchOnMount: 'always'` returns the cached
+   * value (often stale: `null` from a prior reset, or the previous run's
+   * checkpoint) while a background refetch is still in flight. PhraseDisplay
+   * consumes `initialSessionCheckpoint` once at mount and cannot pick up a
+   * later update, so we wait for `isFetching` to drop.
+   */
+  const isResumeSettled =
+    Boolean(devSessionCheckpointOnly) ||
+    resumeQuery.isError ||
+    (resumeQuery.isSuccess && !resumeQuery.isFetching);
+  const isPageLoading = isLessonLoading || !isResumeSettled;
+
+  if (isPageLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
         <main className="w-full max-w-[390px] mx-auto px-8 py-16 text-center text-gray-500">
@@ -85,11 +113,13 @@ export default function LessonPageContent(): JSX.Element {
     );
   }
 
-  if (isError) {
+  if (isLessonError) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
         <main className="w-full max-w-[390px] mx-auto px-8 py-16 text-center text-[#D85A30]">
-          {error instanceof Error ? error.message : "Failed to load lesson."}
+          {lessonError instanceof Error
+            ? lessonError.message
+            : "Failed to load lesson."}
         </main>
       </div>
     );
@@ -105,25 +135,6 @@ export default function LessonPageContent(): JSX.Element {
     );
   }
 
-  /**
-   * Engine hydrates once — wait for any in-flight resume GET so we never mount
-   * with stale React Query cache while a refetch is in flight.
-   * Dev ?phraseIndex= skips.
-   */
-  const resumeProbeSettled =
-    devSessionCheckpointOnly ||
-    (resumeQuery.isFetched && !resumeQuery.isFetching);
-
-  if (!resumeProbeSettled) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <main className="w-full max-w-[390px] mx-auto px-8 py-16 text-center text-gray-500">
-          Restoring your lesson...
-        </main>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-white">
       <main className="w-full">
@@ -131,7 +142,7 @@ export default function LessonPageContent(): JSX.Element {
           key={`${lessonId}-${devPhraseIndexKey}`}
           phrases={phrases}
           lessonId={lessonId}
-          initialSessionCheckpoint={initialSessionCheckpoint ?? undefined}
+          initialSessionCheckpoint={initialSessionCheckpoint}
         />
       </main>
     </div>

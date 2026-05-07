@@ -4,9 +4,15 @@ import {
   DEFAULT_COURSE_LEVEL_SLUG,
   type LessonsApiResponse,
 } from "@ai-spanish/logic";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useMemo } from "react";
-import { useCompletedLessonsQuery } from "../hooks/useCompletedLessonsQuery";
+import { useMemo, useState } from "react";
+import { resetLessonProgressAndCompletions } from "@/lib/lessonResetApi";
+import {
+  COMPLETED_LESSONS_QUERY_KEY,
+  useCompletedLessonsQuery,
+} from "../hooks/useCompletedLessonsQuery";
+import { lessonCompletionQueryKey } from "../hooks/useLessonCompletionQuery";
 import { useLessonsQuery } from "../hooks/useLessonsQuery";
 import { SignOutButton } from "./SignOutButton";
 
@@ -18,11 +24,49 @@ function HomeLessonsContent({
   data: LessonsApiResponse;
 }): JSX.Element {
   const { lessons, courseLevel } = data;
+  const queryClient = useQueryClient();
   const { data: completed } = useCompletedLessonsQuery();
+  const [resetErrorLessonId, setResetErrorLessonId] = useState<string | null>(
+    null,
+  );
   const completedLessonIds = useMemo<Set<string>>(
     () => new Set(completed?.completedLessonIds ?? []),
     [completed?.completedLessonIds],
   );
+
+  const resetMutation = useMutation({
+    mutationFn: async (lessonId: string) => {
+      const ok = await resetLessonProgressAndCompletions(lessonId);
+      if (!ok) {
+        throw new Error("Reset failed");
+      }
+    },
+    onMutate: () => {
+      setResetErrorLessonId(null);
+    },
+    onSuccess: async (_data, lessonId) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: COMPLETED_LESSONS_QUERY_KEY }),
+        queryClient.invalidateQueries({ queryKey: lessonCompletionQueryKey(lessonId) }),
+        queryClient.invalidateQueries({ queryKey: ["lesson-resume-checkpoint", lessonId] }),
+      ]);
+    },
+    onError: (_err, lessonId) => {
+      setResetErrorLessonId(lessonId);
+    },
+  });
+
+  const handleReset = (lessonId: string, lessonTitle: string): void => {
+    if (
+      !window.confirm(
+        `Clear saved progress and all completion history for “${lessonTitle}”? You cannot undo this.`,
+      )
+    ) {
+      return;
+    }
+    resetMutation.mutate(lessonId);
+  };
+
   return (
     <>
       {lessons.length > 0 ? (
@@ -31,6 +75,9 @@ function HomeLessonsContent({
       <ul className="flex flex-col gap-4">
         {lessons.map((lesson) => {
           const hasCompletion = completedLessonIds.has(lesson.lessonId);
+          const isResetting =
+            resetMutation.isPending &&
+            resetMutation.variables === lesson.lessonId;
           return (
             <li key={lesson.lessonId} className="flex flex-col gap-1.5">
               <Link
@@ -44,14 +91,29 @@ function HomeLessonsContent({
                   {lesson.description}
                 </span>
               </Link>
-              {hasCompletion ? (
-                <Link
-                  href={`/lesson/${lesson.lessonId}/report`}
-                  className="self-end inline-flex items-center gap-1 px-3 py-1 text-xs font-medium text-gray-600 rounded-full border border-gray-200 bg-white transition hover:border-gray-300 hover:text-gray-900"
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <button
+                  type="button"
+                  disabled={resetMutation.isPending}
+                  onClick={() => handleReset(lesson.lessonId, lesson.title)}
+                  className="inline-flex items-center gap-1 px-3 py-1 text-xs font-medium text-red-600 rounded-full border border-red-100 bg-white transition hover:border-red-200 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Report
-                  <span aria-hidden className="text-gray-400">→</span>
-                </Link>
+                  {isResetting ? "Resetting…" : "Reset"}
+                </button>
+                {hasCompletion ? (
+                  <Link
+                    href={`/lesson/${lesson.lessonId}/report`}
+                    className="inline-flex items-center gap-1 px-3 py-1 text-xs font-medium text-gray-600 rounded-full border border-gray-200 bg-white transition hover:border-gray-300 hover:text-gray-900"
+                  >
+                    Report
+                    <span aria-hidden className="text-gray-400">→</span>
+                  </Link>
+                ) : null}
+              </div>
+              {resetErrorLessonId === lesson.lessonId ? (
+                <p className="text-right text-xs text-[#D85A30]">
+                  Could not reset this lesson. Try again.
+                </p>
               ) : null}
             </li>
           );

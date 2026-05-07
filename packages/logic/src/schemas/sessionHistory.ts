@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import { phraseSchema } from './phrase';
-import { sessionCheckpointSchema } from './sessionCheckpoint';
 
 export const accuracyBreakdownSchema = z.object({
   accuracy: z.number(),
@@ -95,13 +94,3 @@ export const historyEntrySchema = z.object({
 });
 
 export type HistoryEntryParsed = z.infer<typeof historyEntrySchema>;
-
-export const sessionHistoryGetResponseSchema = z.object({
-  lessonId: z.string(),
-  entries: z.array(historyEntrySchema),
-  latestCheckpoint: sessionCheckpointSchema.nullable(),
-});
-
-export type SessionHistoryGetResponse = z.infer<
-  typeof sessionHistoryGetResponseSchema
->;
