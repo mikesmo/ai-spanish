@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
-  bucketPhrasesByRevisitCount,
+  bucketPhrasesByFailedAttemptCount,
   buildPhrasesByMasterScore,
   computeLessonReportSummary,
+  lastHistoryDisplaySeqByPhrase,
 } from '../lessonReport';
 import type { HistoryEntry } from '../useSessionHistory';
 import type { Phrase, PhraseProgress } from '../types';
@@ -34,6 +35,7 @@ interface AttemptEntryArgs {
   accuracy?: number;
   fluency?: number | null;
   mastery?: number;
+  eventSeq?: number;
 }
 
 const attemptEntry = ({
@@ -45,6 +47,7 @@ const attemptEntry = ({
   accuracy = isAccuracySuccess ? 0.95 : 0.4,
   fluency = 0.8,
   mastery = isAccuracySuccess ? 0.7 : 0.2,
+  eventSeq,
 }: AttemptEntryArgs): HistoryEntry => ({
   id,
   event: {
@@ -94,6 +97,7 @@ const attemptEntry = ({
   masteryAfter: mastery,
   isRepeatedPresentation,
   slotsAheadAtEvent: null,
+  ...(eventSeq != null ? { eventSeq } : {}),
 });
 
 const practiceEntry = (id: string, phraseName: string): HistoryEntry => ({
@@ -180,16 +184,31 @@ describe('computeLessonReportSummary', () => {
   });
 });
 
-describe('bucketPhrasesByRevisitCount', () => {
+describe('lastHistoryDisplaySeqByPhrase', () => {
+  it('uses eventSeq when present on the last row for that phrase', () => {
+    const history: HistoryEntry[] = [
+      attemptEntry({ id: 'a', phraseName: 'A', isAccuracySuccess: false }),
+      attemptEntry({
+        id: 'b',
+        phraseName: 'A',
+        isAccuracySuccess: true,
+        eventSeq: 900,
+      }),
+    ];
+    expect(lastHistoryDisplaySeqByPhrase(history).get('A')).toBe(900);
+  });
+});
+
+describe('bucketPhrasesByFailedAttemptCount', () => {
   it('returns empty buckets for an empty history', () => {
-    const b = bucketPhrasesByRevisitCount([]);
+    const b = bucketPhrasesByFailedAttemptCount([]);
     expect(b.once).toEqual([]);
     expect(b.twice).toEqual([]);
     expect(b.threePlus).toEqual([]);
   });
 
-  it('omits phrases that were never revisited', () => {
-    const b = bucketPhrasesByRevisitCount([
+  it('omits phrases with no failed scored attempts', () => {
+    const b = bucketPhrasesByFailedAttemptCount([
       attemptEntry({ id: '1', phraseName: 'A', isAccuracySuccess: true }),
       attemptEntry({ id: '2', phraseName: 'B', isAccuracySuccess: true }),
     ]);
@@ -198,7 +217,22 @@ describe('bucketPhrasesByRevisitCount', () => {
     expect(b.threePlus).toEqual([]);
   });
 
-  it('places phrases revisited once into the once bucket', () => {
+  it('places phrases with exactly one fail into the once bucket (may have zero revisits)', () => {
+    const history: HistoryEntry[] = [
+      attemptEntry({ id: '1', phraseName: 'A', isAccuracySuccess: false }),
+      attemptEntry({ id: '2', phraseName: 'B', isAccuracySuccess: true }),
+    ];
+    const b = bucketPhrasesByFailedAttemptCount(history);
+    expect(b.once).toHaveLength(1);
+    expect(b.once[0]?.phrase.name).toBe('A');
+    expect(b.once[0]?.revisitCount).toBe(0);
+    expect(b.once[0]?.failedAttempts).toBe(1);
+    expect(b.once[0]?.lastEventSeq).toBe(1);
+    expect(b.twice).toEqual([]);
+    expect(b.threePlus).toEqual([]);
+  });
+
+  it('places phrases with one fail after one revisit into the once bucket', () => {
     const history: HistoryEntry[] = [
       attemptEntry({ id: '1', phraseName: 'A', isAccuracySuccess: false }),
       attemptEntry({ id: '2', phraseName: 'B', isAccuracySuccess: true }),
@@ -209,16 +243,33 @@ describe('bucketPhrasesByRevisitCount', () => {
         isRepeatedPresentation: true,
       }),
     ];
-    const b = bucketPhrasesByRevisitCount(history);
+    const b = bucketPhrasesByFailedAttemptCount(history);
     expect(b.once).toHaveLength(1);
     expect(b.once[0]?.phrase.name).toBe('A');
     expect(b.once[0]?.revisitCount).toBe(1);
     expect(b.once[0]?.failedAttempts).toBe(1);
+    expect(b.once[0]?.lastEventSeq).toBe(3);
     expect(b.twice).toEqual([]);
     expect(b.threePlus).toEqual([]);
   });
 
-  it('places phrases revisited twice into the twice bucket', () => {
+  it('places phrases with two fails on the same presentation into the twice bucket', () => {
+    const history: HistoryEntry[] = [
+      attemptEntry({ id: '1', phraseName: 'A', isAccuracySuccess: false }),
+      attemptEntry({ id: '2', phraseName: 'A', isAccuracySuccess: false }),
+      attemptEntry({ id: '3', phraseName: 'B', isAccuracySuccess: true }),
+    ];
+    const b = bucketPhrasesByFailedAttemptCount(history);
+    expect(b.once).toEqual([]);
+    expect(b.twice).toHaveLength(1);
+    expect(b.twice[0]?.phrase.name).toBe('A');
+    expect(b.twice[0]?.revisitCount).toBe(0);
+    expect(b.twice[0]?.failedAttempts).toBe(2);
+    expect(b.twice[0]?.lastEventSeq).toBe(2);
+    expect(b.threePlus).toEqual([]);
+  });
+
+  it('places phrases with exactly two fails across revisits into the twice bucket', () => {
     const history: HistoryEntry[] = [
       attemptEntry({ id: '1', phraseName: 'A', isAccuracySuccess: false }),
       attemptEntry({ id: '2', phraseName: 'B', isAccuracySuccess: true }),
@@ -236,27 +287,21 @@ describe('bucketPhrasesByRevisitCount', () => {
         isRepeatedPresentation: true,
       }),
     ];
-    const b = bucketPhrasesByRevisitCount(history);
+    const b = bucketPhrasesByFailedAttemptCount(history);
     expect(b.once).toEqual([]);
     expect(b.twice).toHaveLength(1);
     expect(b.twice[0]?.phrase.name).toBe('A');
     expect(b.twice[0]?.revisitCount).toBe(2);
     expect(b.twice[0]?.failedAttempts).toBe(2);
+    expect(b.twice[0]?.lastEventSeq).toBe(5);
+    expect(b.threePlus).toEqual([]);
   });
 
-  it('places phrases revisited 3+ times into the threePlus bucket', () => {
+  it('places phrases with three or more fails into the threePlus bucket', () => {
     const history: HistoryEntry[] = [];
     history.push(attemptEntry({ id: '1', phraseName: 'A', isAccuracySuccess: false }));
+    history.push(attemptEntry({ id: '2', phraseName: 'A', isAccuracySuccess: false }));
     history.push(attemptEntry({ id: 'x1', phraseName: 'X', isAccuracySuccess: true }));
-    history.push(
-      attemptEntry({
-        id: '2',
-        phraseName: 'A',
-        isAccuracySuccess: false,
-        isRepeatedPresentation: true,
-      }),
-    );
-    history.push(attemptEntry({ id: 'x2', phraseName: 'X', isAccuracySuccess: true }));
     history.push(
       attemptEntry({
         id: '3',
@@ -265,7 +310,7 @@ describe('bucketPhrasesByRevisitCount', () => {
         isRepeatedPresentation: true,
       }),
     );
-    history.push(attemptEntry({ id: 'x3', phraseName: 'X', isAccuracySuccess: true }));
+    history.push(attemptEntry({ id: 'x2', phraseName: 'X', isAccuracySuccess: true }));
     history.push(
       attemptEntry({
         id: '4',
@@ -274,11 +319,14 @@ describe('bucketPhrasesByRevisitCount', () => {
         isRepeatedPresentation: true,
       }),
     );
-    const b = bucketPhrasesByRevisitCount(history);
+    const b = bucketPhrasesByFailedAttemptCount(history);
+    expect(b.once).toEqual([]);
+    expect(b.twice).toEqual([]);
     expect(b.threePlus).toHaveLength(1);
     expect(b.threePlus[0]?.phrase.name).toBe('A');
-    expect(b.threePlus[0]?.revisitCount).toBe(3);
+    expect(b.threePlus[0]?.revisitCount).toBe(2);
     expect(b.threePlus[0]?.failedAttempts).toBe(3);
+    expect(b.threePlus[0]?.lastEventSeq).toBe(6);
   });
 });
 
@@ -297,6 +345,7 @@ describe('buildPhrasesByMasterScore', () => {
     const rows = buildPhrasesByMasterScore(history, progress);
     expect(rows.map((r) => r.phrase.name)).toEqual(['B', 'C', 'A']);
     expect(rows.map((r) => r.masteryScore)).toEqual([0.2, 0.5, 0.9]);
+    expect(rows.map((r) => r.lastEventSeq)).toEqual([2, 3, 1]);
   });
 
   it('synthesizes a 0-mastery row for phrases without progress', () => {
@@ -312,7 +361,9 @@ describe('buildPhrasesByMasterScore', () => {
     expect(rows[0]?.phrase.name).toBe('Z');
     expect(rows[0]?.masteryScore).toBe(0);
     expect(rows[0]?.state).toBe('new');
+    expect(rows[0]?.lastEventSeq).toBe(2);
     expect(rows[1]?.phrase.name).toBe('A');
+    expect(rows[1]?.lastEventSeq).toBe(1);
   });
 
   it('ignores progress entries that have no matching history phrase', () => {
@@ -325,5 +376,6 @@ describe('buildPhrasesByMasterScore', () => {
     ];
     const rows = buildPhrasesByMasterScore(history, progress);
     expect(rows.map((r) => r.phrase.name)).toEqual(['A']);
+    expect(rows[0]?.lastEventSeq).toBe(1);
   });
 });

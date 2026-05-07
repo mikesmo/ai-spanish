@@ -63,9 +63,29 @@ export interface PhraseRevisitRow {
   revisitCount: number;
   /** Count of failed scored attempts on the phrase across the lesson. */
   failedAttempts: number;
+  /**
+   * `#` column for this phrase’s last history row — `eventSeq` when set, else
+   * 1-based chronological index (matches `SessionHistoryLogView`).
+   */
+  lastEventSeq: number;
 }
 
-export interface PhraseRevisitBuckets {
+/**
+ * For each phrase (`phrase.name`), the displayed `#` for its chronologically last
+ * row — same rule as the session log: `eventSeq ?? (1-based index in lesson order)`.
+ */
+export const lastHistoryDisplaySeqByPhrase = (
+  entries: readonly HistoryEntry[],
+): Map<string, number> => {
+  const map = new Map<string, number>();
+  entries.forEach((entry, idx) => {
+    const seq = entry.eventSeq ?? idx + 1;
+    map.set(entry.phrase.name, seq);
+  });
+  return map;
+};
+
+export interface PhraseFailedAttemptBuckets {
   once: PhraseRevisitRow[];
   twice: PhraseRevisitRow[];
   threePlus: PhraseRevisitRow[];
@@ -75,13 +95,14 @@ const isAttempt = (event: PhraseEvent): event is Attempt =>
   event.eventType === 'attempt';
 
 /**
- * Buckets phrases by how many times they were revisited (re-presented after
- * the initial card). Phrases that were only shown once and never revisited
- * are excluded entirely.
+ * Buckets phrases by how many scored attempts failed accuracy (`!isAccuracySuccess`).
+ * Phrases with zero failed attempts are omitted. Each row still includes `revisitCount`
+ * for display (re-presentations after the first card).
  */
-export const bucketPhrasesByRevisitCount = (
+export const bucketPhrasesByFailedAttemptCount = (
   entries: readonly HistoryEntry[],
-): PhraseRevisitBuckets => {
+): PhraseFailedAttemptBuckets => {
+  const lastEventSeqByPhrase = lastHistoryDisplaySeqByPhrase(entries);
   const ordinalByEntryId = buildPresentationOrdinalByEntryId(entries);
 
   const maxOrdinalByPhrase = new Map<string, number>();
@@ -108,15 +129,16 @@ export const bucketPhrasesByRevisitCount = (
   });
 
   const rows: PhraseRevisitRow[] = [];
-  for (const [phraseId, maxOrdinal] of maxOrdinalByPhrase) {
+  for (const [phraseId, phrase] of phraseByName) {
+    const failedAttempts = failedAttemptsByPhrase.get(phraseId) ?? 0;
+    if (failedAttempts === 0) continue;
+    const maxOrdinal = maxOrdinalByPhrase.get(phraseId) ?? 1;
     const revisitCount = Math.max(0, maxOrdinal - 1);
-    if (revisitCount === 0) continue;
-    const phrase = phraseByName.get(phraseId);
-    if (!phrase) continue;
     rows.push({
       phrase,
       revisitCount,
-      failedAttempts: failedAttemptsByPhrase.get(phraseId) ?? 0,
+      failedAttempts,
+      lastEventSeq: lastEventSeqByPhrase.get(phraseId) ?? 0,
     });
   }
 
@@ -127,9 +149,9 @@ export const bucketPhrasesByRevisitCount = (
   );
 
   return {
-    once: rows.filter((r) => r.revisitCount === 1),
-    twice: rows.filter((r) => r.revisitCount === 2),
-    threePlus: rows.filter((r) => r.revisitCount >= 3),
+    once: rows.filter((r) => r.failedAttempts === 1),
+    twice: rows.filter((r) => r.failedAttempts === 2),
+    threePlus: rows.filter((r) => r.failedAttempts >= 3),
   };
 };
 
@@ -137,6 +159,11 @@ export interface PhraseMasteryRow {
   phrase: Phrase;
   masteryScore: number;
   state: PhraseState;
+  /**
+   * `#` column for this phrase’s last history row — `eventSeq` when set, else
+   * 1-based chronological index (matches `SessionHistoryLogView`).
+   */
+  lastEventSeq: number;
 }
 
 /**
@@ -151,6 +178,7 @@ export const buildPhrasesByMasterScore = (
   entries: readonly HistoryEntry[],
   progress: readonly PhraseProgress[],
 ): PhraseMasteryRow[] => {
+  const lastEventSeqByPhrase = lastHistoryDisplaySeqByPhrase(entries);
   const phraseByName = new Map<string, Phrase>();
   for (const entry of entries) {
     phraseByName.set(entry.phrase.name, entry.phrase);
@@ -166,13 +194,19 @@ export const buildPhrasesByMasterScore = (
       phrase,
       masteryScore: p.masteryScore,
       state: p.state,
+      lastEventSeq: lastEventSeqByPhrase.get(p.phraseId) ?? 0,
     });
     seenPhraseIds.add(p.phraseId);
   }
 
   for (const [phraseId, phrase] of phraseByName) {
     if (seenPhraseIds.has(phraseId)) continue;
-    rows.push({ phrase, masteryScore: 0, state: 'new' });
+    rows.push({
+      phrase,
+      masteryScore: 0,
+      state: 'new',
+      lastEventSeq: lastEventSeqByPhrase.get(phraseId) ?? 0,
+    });
   }
 
   rows.sort((a, b) => a.masteryScore - b.masteryScore);

@@ -177,14 +177,15 @@ export {
   type SimOutcomeWeights,
 } from './lessonSimulationEvents';
 export {
-  bucketPhrasesByRevisitCount,
+  bucketPhrasesByFailedAttemptCount,
   buildPhrasesByMasterScore,
   computeLessonReportSummary,
   countPracticeEvents,
   countRevealEvents,
+  lastHistoryDisplaySeqByPhrase,
   type LessonReportSummary,
+  type PhraseFailedAttemptBuckets,
   type PhraseMasteryRow,
-  type PhraseRevisitBuckets,
   type PhraseRevisitRow,
 } from './lessonReport';
 export {

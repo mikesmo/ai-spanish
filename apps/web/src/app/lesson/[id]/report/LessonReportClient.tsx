@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  bucketPhrasesByRevisitCount,
+  bucketPhrasesByFailedAttemptCount,
   buildPhrasesByMasterScore,
   computeLessonReportSummary,
   type PhraseMasteryRow,
@@ -42,6 +42,19 @@ const STATE_BADGE_LABEL: Record<PhraseState, string> = {
 };
 
 const noLiveSlots = (): number | null => null;
+
+/** Matches session history `#` column for this phrase’s last row (`eventSeq ?? chronological index`). */
+const ReportLastEventSeq = ({ seq }: { seq: number }): JSX.Element | null => {
+  if (seq <= 0) return null;
+  return (
+    <span
+      className="font-mono text-[10px] tabular-nums text-gray-400"
+      title="History # column — last row for this phrase in lesson order"
+    >
+      {seq}
+    </span>
+  );
+};
 
 interface SummaryStats {
   totalEvents: number;
@@ -128,7 +141,7 @@ const PhraseRevisitList = ({
   rows: PhraseRevisitRow[];
 }): JSX.Element => (
   <ul className="mt-3 flex flex-col gap-2">
-    {rows.map(({ phrase, revisitCount, failedAttempts }) => (
+    {rows.map(({ phrase, revisitCount, lastEventSeq }) => (
       <li
         key={phrase.name}
         className="flex items-start justify-between gap-3 rounded-lg border border-gray-100 bg-white px-3 py-2"
@@ -142,15 +155,13 @@ const PhraseRevisitList = ({
           </p>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-0.5 text-[10px] text-gray-500">
-          <span className="rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 tabular-nums">
-            {revisitCount}× revisit
-            {revisitCount === 1 ? "" : "s"}
-          </span>
-          {failedAttempts > 0 ? (
-            <span className="tabular-nums text-red-500">
-              {failedAttempts} fail{failedAttempts === 1 ? "" : "s"}
+          {revisitCount > 0 ? (
+            <span className="rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 tabular-nums">
+              {revisitCount}× revisit
+              {revisitCount === 1 ? "" : "s"}
             </span>
           ) : null}
+          <ReportLastEventSeq seq={lastEventSeq} />
         </div>
       </li>
     ))}
@@ -216,7 +227,7 @@ const MasterySection = ({
       </p>
     ) : (
       <ul className="flex flex-col gap-2">
-        {rows.map(({ phrase, masteryScore, state }) => (
+        {rows.map(({ phrase, masteryScore, state, lastEventSeq }) => (
           <li
             key={phrase.name}
             className="flex items-start justify-between gap-3 rounded-lg border border-gray-100 bg-white px-3 py-2"
@@ -238,6 +249,7 @@ const MasterySection = ({
               >
                 {STATE_BADGE_LABEL[state]}
               </span>
+              <ReportLastEventSeq seq={lastEventSeq} />
             </div>
           </li>
         ))}
@@ -309,7 +321,7 @@ export function LessonReportClient({
     [entries],
   );
   const buckets = useMemo(
-    () => bucketPhrasesByRevisitCount(entries),
+    () => bucketPhrasesByFailedAttemptCount(entries),
     [entries],
   );
   const masteryRows = useMemo(
@@ -369,18 +381,20 @@ export function LessonReportClient({
             buckets.twice.length === 0 &&
             buckets.threePlus.length === 0 ? (
               <section
-                aria-label="Revisits"
+                aria-label="Failed attempts"
                 className="rounded-xl border border-gray-200 bg-white px-5 py-4 shadow-sm"
               >
-                <h2 className="text-sm font-semibold text-gray-800">Revisits</h2>
+                <h2 className="text-sm font-semibold text-gray-800">
+                  Failed attempts
+                </h2>
                 <p className="mt-2 text-xs text-gray-500">
-                  No phrases needed a revisit in this lesson.
+                  No phrases had a failed scored attempt in this lesson.
                 </p>
               </section>
             ) : (
               <div className="flex flex-col gap-3">
                 <h2 className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                  Revisits
+                  Failed attempts
                 </h2>
                 <RevisitBucket
                   title="Phrases that failed once"
