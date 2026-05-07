@@ -170,3 +170,9 @@ export {
   type UseLearnerQuestionResult,
 } from './useLearnerQuestion';
 export { usePhraseDisplayWithDeck } from './usePhraseDisplayWithDeck';
+export {
+  buildSimSpokenWords,
+  pickRandomPhraseEventsForCard,
+  type SimRng,
+  type SimOutcomeWeights,
+} from './lessonSimulationEvents';

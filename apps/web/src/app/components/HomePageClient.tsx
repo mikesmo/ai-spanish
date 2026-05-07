@@ -56,6 +56,17 @@ function HomeLessonsContent({
                 </Link>
               </li>
             ))}
+            {lessons.map((lesson) => (
+              <li key={`sim-${lesson.lessonId}`}>
+                <Link
+                  href={`/dev/lesson-sim?lesson=${lesson.lessonId}`}
+                  className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-4 py-2.5 text-xs text-gray-500 transition hover:border-gray-300 hover:text-gray-700"
+                >
+                  <span>Lesson simulation — {lesson.title}</span>
+                  <span className="text-gray-300">→</span>
+                </Link>
+              </li>
+            ))}
           </ul>
         </div>
       ) : null}
