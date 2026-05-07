@@ -26,6 +26,7 @@ import {
   STABILITY_EMA_ALPHA,
   alignWords,
   buildPresentationOrdinalByEntryId,
+  buildRevisitRefDisplayByEntryId,
   computeLessonReportSummary,
   fluencyForMastery,
   normalizeStr,
@@ -59,32 +60,6 @@ export type SessionStats = LessonReportSummary;
 
 export const computeStats = (history: HistoryEntry[]): SessionStats =>
   computeLessonReportSummary(history);
-
-/**
- * For each revisit row (`isRepeatedPresentation`), the # of the last event from the
- * previous presentation of that phrase (chronological `history`): walk backward,
- * skip other phrases, use the closest same-phrase row with `!isRepeatedPresentation`.
- * Display matches the # column: `eventSeq ?? (1-based chronological index)`.
- */
-export const buildRevisitRefDisplayByEntryId = (
-  history: HistoryEntry[],
-): Map<string, number> => {
-  const m = new Map<string, number>();
-  for (let i = 0; i < history.length; i++) {
-    const entry = history[i];
-    if (!entry.isRepeatedPresentation) continue;
-    const pid = entry.phrase.name;
-    for (let j = i - 1; j >= 0; j--) {
-      const prev = history[j];
-      if (prev.phrase.name !== pid) continue;
-      if (!prev.isRepeatedPresentation) {
-        m.set(entry.id, prev.eventSeq ?? j + 1);
-        break;
-      }
-    }
-  }
-  return m;
-};
 
 export const formatPct = (n: number | null): string =>
   n == null ? "—" : `${Math.round(n * 100)}%`;
@@ -791,8 +766,8 @@ interface RowProps {
   /** Incorrect-phrase redemption record for this entry's phrase, if any. */
   incorrectPhraseRecord: IncorrectPhraseRecord | undefined;
   /**
-   * When this row is a revisit, the # of the last event from the prior presentation
-   * of this phrase (matches the table’s # column for that referenced row).
+   * When this row is a revisit, the log `#` of the **last** row from the immediately
+   * preceding contiguous stint for this phrase (matches `buildRevisitRefDisplayByEntryId`).
    */
   revisitRefDisplay?: number;
   /**
@@ -895,7 +870,7 @@ const HistoryRow = ({
               <span
                 title={
                   revisitRefDisplay != null
-                    ? `Revisit — this phrase was presented again in the same session (e.g. Pimsleur requeue or deck wrap). #${revisitRefDisplay} is the last event (# column) from the previous time this phrase was shown in this session. ${revisitFractionLabel} is how many times this phrase has been re-presented so far versus the max mastery-driven requeues (${MAX_REINSERTS_PER_PHRASE_PER_SESSION}) this lesson; at (${MAX_REINSERTS_PER_PHRASE_PER_SESSION}/${MAX_REINSERTS_PER_PHRASE_PER_SESSION}) the session engine will not schedule another such repeat. Decks with duplicate phrase ids could repeat without using that counter.`
+                    ? `Revisit — this phrase was presented again in the same session (e.g. Pimsleur requeue or deck wrap). #${revisitRefDisplay} is the # column for the last row of the immediately preceding stint of this phrase. ${revisitFractionLabel} is how many times this phrase has been re-presented so far versus the max mastery-driven requeues (${MAX_REINSERTS_PER_PHRASE_PER_SESSION}) this lesson; at (${MAX_REINSERTS_PER_PHRASE_PER_SESSION}/${MAX_REINSERTS_PER_PHRASE_PER_SESSION}) the session engine will not schedule another such repeat. Decks with duplicate phrase ids could repeat without using that counter.`
                     : `Revisit — this phrase was presented again in the same session (e.g. Pimsleur requeue or deck wrap). ${revisitFractionLabel} is revisit count vs max mastery-driven requeues (${MAX_REINSERTS_PER_PHRASE_PER_SESSION}) this lesson. Decks with duplicate phrase ids could repeat without using that counter.`
                 }
                 className={PHRASE_LESSON_KIND_BADGE_CLASS}
@@ -1028,7 +1003,7 @@ const EVENT_LEGEND: LegendItem[] = [
   },
   {
     term: "revisit",
-    description: `This phrase was presented again in the current session — e.g. a Pimsleur requeue after a weak attempt, or a deck wrap. The badge applies to every event (attempt, retry, reveal) logged for that revisit card and is orthogonal to the scored-vs-practice distinction. When shown as revisit #n, n is the # column of the last event from the previous time that phrase was shown in this session. The parenthetical (n/T) counts how many times this phrase has been re-presented after its first showing versus ${MAX_REINSERTS_PER_PHRASE_PER_SESSION} (mastery-driven requeues per lesson); at (T/T) the engine will not schedule another repeat for that reason. Duplicate phrase ids in the deck could still repeat without consuming that counter.`,
+    description: `This phrase was presented again in the current session — e.g. a Pimsleur requeue after a weak attempt, or a deck wrap. The badge applies to every event (attempt, retry, reveal) logged for that revisit card and is orthogonal to the scored-vs-practice distinction. When shown as revisit #n, n is the # column of the last row from the immediately preceding stint of this phrase (skipping Try Again rows on the same card backward, so a second or third revisit references the prior revisit block, not the first lesson pass). The parenthetical (n/T) counts how many times this phrase has been re-presented after its first showing versus ${MAX_REINSERTS_PER_PHRASE_PER_SESSION} (mastery-driven requeues per lesson); at (T/T) the engine will not schedule another repeat for that reason. Duplicate phrase ids in the deck could still repeat without consuming that counter.`,
   },
   {
     term: "New",

@@ -76,6 +76,10 @@ export {
   buildPresentationOrdinalByEntryId,
   type PresentationOrdinalHistorySlice,
 } from './sessionHistoryPresentationOrdinals';
+export {
+  buildRevisitRefDisplayByEntryId,
+  type RevisitRefHistorySlice,
+} from './sessionHistoryRevisitRef';
 export { useLessonSessionWithHistory } from './useLessonSessionWithHistory';
 export type {
   UseLessonSessionWithHistoryResult,
