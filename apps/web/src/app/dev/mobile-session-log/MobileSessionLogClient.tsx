@@ -25,6 +25,8 @@ export function MobileSessionLogClient({ lessonId, lessonTitle }: Props) {
   const { data, isLoading, isError } = useMobileSessionLogQuery(lessonId);
   const { data: phrases } = useLessonQuery(lessonId);
   const entries = data?.entries ?? [];
+  const incorrectPhraseRecords =
+    data?.latestCheckpoint?.incorrectPhraseRecords ?? [];
 
   /**
    * Hydrate a throwaway session engine from the latest checkpoint whenever
@@ -84,8 +86,8 @@ export function MobileSessionLogClient({ lessonId, lessonTitle }: Props) {
           {!isLoading && !isError && (
             <span className="ml-auto text-xs text-gray-400">
               {hydratedEngine
-                ? "Updates every ~2s · session (now) live"
-                : "Updates every ~2s"}
+                ? "Poll latest saved completion (~3s) · session (now) live"
+                : "Poll latest saved completion (~3s)"}
             </span>
           )}
         </div>
@@ -110,14 +112,15 @@ export function MobileSessionLogClient({ lessonId, lessonTitle }: Props) {
           <SessionHistoryStatsBar
             history={entries}
             remainingInSession={0}
-            subtitle="Buffered log (mobile dev)"
+            subtitle="Latest saved completion"
             variant="light"
           />
           <SessionHistoryLogView
             history={entries}
             getLiveSlotsAhead={getLiveSlotsAhead}
             queueVersion={entries.length}
-            emptyStateMessage={`No entries yet for ${lessonTitle}. Start a lesson on the mobile app — entries appear here within ~2s of each phrase interaction.`}
+            incorrectPhraseRecords={incorrectPhraseRecords}
+            emptyStateMessage={`No saved completion yet for ${lessonTitle}. Finish a lesson while signed in (web or mobile) — the log appears once the queue drains.`}
           />
         </div>
       </div>

@@ -4,9 +4,12 @@ import {
   type SessionHistoryGetResponse,
 } from "@ai-spanish/logic";
 
-async function fetchSessionHistory(lessonId: string): Promise<SessionHistoryGetResponse> {
+async function fetchLatestLessonCompletion(
+  lessonId: string,
+): Promise<SessionHistoryGetResponse> {
   const res = await fetch(
-    `/api/session-history?lesson=${encodeURIComponent(lessonId)}`,
+    `/api/lesson-completions?lesson=${encodeURIComponent(lessonId)}`,
+    { credentials: "include" },
   );
   if (!res.ok) {
     throw new Error(`Failed to fetch session history: ${res.status}`);
@@ -17,9 +20,9 @@ async function fetchSessionHistory(lessonId: string): Promise<SessionHistoryGetR
 
 export function useMobileSessionLogQuery(lessonId: string) {
   return useQuery({
-    queryKey: ["mobile-session-log", lessonId],
-    queryFn: () => fetchSessionHistory(lessonId),
-    refetchInterval: 2000,
+    queryKey: ["lesson-completion-log", lessonId],
+    queryFn: () => fetchLatestLessonCompletion(lessonId),
+    refetchInterval: 3000,
     refetchOnWindowFocus: true,
     retry: false,
   });

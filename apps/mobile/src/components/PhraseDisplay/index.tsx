@@ -2,6 +2,8 @@ import { BackHandler, Pressable, StyleSheet, Text, View } from "react-native";
 import { useEffect, useRef } from "react";
 import {
   buildDeckFingerprint,
+  buildLessonCompletionPayload,
+  createLessonCompletionRunId,
   getAisSpeakingViewModel,
   getLessonTitle,
   getUserRecordingViewModel,
@@ -13,7 +15,7 @@ import {
 } from "@ai-spanish/logic";
 import { useSTT, useS3TTS } from "@ai-spanish/ai";
 import { playSuccessChime } from "../../lib/playSuccessChime";
-import { postSessionHistoryEntry } from "../../services/sessionHistory.service";
+import { postLessonCompletion } from "../../services/lessonCompletion.service";
 import type { PhraseDisplayProps } from "./PhraseDisplay.types";
 import { AISpeaking } from "./components/AISpeaking";
 import { UserFeedback } from "./components/UserFeedback";
@@ -61,23 +63,35 @@ export const PhraseDisplay = ({
     return () => sub.remove();
   }, [display.isExplainAckOpen]);
 
-  const syncedLengthRef = useRef(0);
-  // Stable fingerprint computed once per mount (deck identity is fixed).
   const deckFingerprintRef = useRef(buildDeckFingerprint(phrases));
+  const lessonRunIdRef = useRef<string | undefined>(undefined);
+  if (lessonRunIdRef.current === undefined) {
+    lessonRunIdRef.current = createLessonCompletionRunId();
+  }
+  const lessonCompletionSavedRef = useRef(false);
+
   useEffect(() => {
-    if (!__DEV__) return;
-    const { history } = session;
-    const newCount = history.length;
-    if (newCount <= syncedLengthRef.current) return;
+    if (!session.isComplete || lessonCompletionSavedRef.current) return;
+    lessonCompletionSavedRef.current = true;
     const checkpoint = session.getSessionCheckpoint({
       lessonId,
       deckFingerprint: deckFingerprintRef.current,
     });
-    for (let i = syncedLengthRef.current; i < newCount; i++) {
-      void postSessionHistoryEntry(lessonId, history[i], checkpoint).catch(() => {});
-    }
-    syncedLengthRef.current = newCount;
-  }, [session.history, lessonId, session]);
+    const payload = buildLessonCompletionPayload({
+      runId: lessonRunIdRef.current!,
+      lessonId,
+      lessonTitle,
+      entries: session.history,
+      checkpoint,
+    });
+    void postLessonCompletion(payload);
+  }, [
+    lessonId,
+    lessonTitle,
+    session.getSessionCheckpoint,
+    session.history,
+    session.isComplete,
+  ]);
 
   const ais = getAisSpeakingViewModel({
     status: display.status,

@@ -8,6 +8,7 @@ import { notFound, useParams, useSearchParams } from "next/navigation";
 import { useMemo } from "react";
 import { PhraseDisplay } from "../../components/PhraseDisplay";
 import { useLessonQuery } from "../../hooks/useLessonQuery";
+import { useLessonResumeCheckpointQuery } from "../../hooks/useLessonResumeCheckpointQuery";
 
 function resolveLessonId(params: { id?: string | string[] }): string {
   const raw =
@@ -39,7 +40,9 @@ export default function LessonPageContent(): JSX.Element {
       ? (searchParams.get("phraseIndex") ?? "_")
       : "_";
 
-  const initialSessionCheckpoint = useMemo(() => {
+  const resumeQuery = useLessonResumeCheckpointQuery(lessonId, phrases);
+
+  const devSessionCheckpointOnly = useMemo(() => {
     if (
       process.env.NODE_ENV !== "development" ||
       phrases == null ||
@@ -62,6 +65,15 @@ export default function LessonPageContent(): JSX.Element {
       completedLessonCount: 0,
     });
   }, [lessonId, phrases, searchParams]);
+
+  /** Dev `?phraseIndex=` wins over DB resume checkpoint. */
+  const initialSessionCheckpoint = useMemo(
+    () =>
+      devSessionCheckpointOnly ??
+      resumeQuery.data ??
+      undefined,
+    [devSessionCheckpointOnly, resumeQuery.data],
+  );
 
   if (isLoading) {
     return (
@@ -93,6 +105,25 @@ export default function LessonPageContent(): JSX.Element {
     );
   }
 
+  /**
+   * Engine hydrates once — wait for any in-flight resume GET so we never mount
+   * with stale React Query cache while a refetch is in flight.
+   * Dev ?phraseIndex= skips.
+   */
+  const resumeProbeSettled =
+    devSessionCheckpointOnly ||
+    (resumeQuery.isFetched && !resumeQuery.isFetching);
+
+  if (!resumeProbeSettled) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <main className="w-full max-w-[390px] mx-auto px-8 py-16 text-center text-gray-500">
+          Restoring your lesson...
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-white">
       <main className="w-full">
@@ -100,7 +131,7 @@ export default function LessonPageContent(): JSX.Element {
           key={`${lessonId}-${devPhraseIndexKey}`}
           phrases={phrases}
           lessonId={lessonId}
-          initialSessionCheckpoint={initialSessionCheckpoint}
+          initialSessionCheckpoint={initialSessionCheckpoint ?? undefined}
         />
       </main>
     </div>

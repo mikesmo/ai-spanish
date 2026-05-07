@@ -1,8 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
+  buildDeckFingerprint,
+  buildLessonCompletionPayload,
+  createLessonCompletionRunId,
   getAisSpeakingViewModel,
   getUserRecordingViewModel,
   getLessonTitle,
@@ -14,6 +19,8 @@ import {
 } from "@ai-spanish/logic";
 import { useS3TTS, useSTT } from "@ai-spanish/ai";
 import { playSuccessChime } from "@/lib/playSuccessChime";
+import { postLessonCompletion } from "@/lib/postLessonCompletion";
+import { putLessonProgressCheckpoint } from "@/lib/lessonProgressApi";
 import { AISpeaking } from "./components/AISpeaking";
 import { UserFeedback } from "./components/UserFeedback";
 import { UserRecording } from "./components/UserRecording";
@@ -26,6 +33,9 @@ export const PhraseDisplay = ({
   lessonId,
   initialSessionCheckpoint,
 }: PhraseDisplayProps): JSX.Element => {
+  const pathname = usePathname();
+  const pathnamePrevRef = useRef<string | null>(null);
+
   const tts = useS3TTS();
   const stt = useSTT();
   const session = useLessonSessionWithHistory(phrases, {
@@ -33,6 +43,8 @@ export const PhraseDisplay = ({
   });
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const lessonTitle = getLessonTitle(lessonId);
+
+  const queryClient = useQueryClient();
 
   const { display } = usePhraseDisplayWithDeck(phrases, session, stt, tts, {
     playSuccessChime,
@@ -43,6 +55,128 @@ export const PhraseDisplay = ({
   useEffect(() => {
     bindCurrentPhrase(display.currentPhrase);
   }, [display.currentPhrase, bindCurrentPhrase]);
+
+  const deckFingerprintRef = useRef(buildDeckFingerprint(phrases));
+  const lessonRunIdRef = useRef<string | undefined>(undefined);
+  if (lessonRunIdRef.current === undefined) {
+    lessonRunIdRef.current = createLessonCompletionRunId();
+  }
+  const lessonCompletionSavedRef = useRef(false);
+
+  const sessionSnapRef = useRef(session);
+  sessionSnapRef.current = session;
+
+  useEffect(() => {
+    if (session.isComplete) return;
+    const tid = window.setTimeout(() => {
+      let cp;
+      try {
+        cp = sessionSnapRef.current.getSessionCheckpoint({
+          lessonId,
+          deckFingerprint: deckFingerprintRef.current,
+        });
+      } catch {
+        return;
+      }
+      void putLessonProgressCheckpoint(cp);
+    }, 450);
+    return () => window.clearTimeout(tid);
+  }, [
+    lessonId,
+    session.history.length,
+    session.remaining,
+    session.presentationVersion,
+    session.isComplete,
+    session.getSessionCheckpoint,
+  ]);
+
+  useEffect(() => {
+    const flush = (): void => {
+      const snap = sessionSnapRef.current;
+      if (snap.isComplete) return;
+      let cp;
+      try {
+        cp = snap.getSessionCheckpoint({
+          lessonId,
+          deckFingerprint: deckFingerprintRef.current,
+        });
+      } catch {
+        return;
+      }
+      void putLessonProgressCheckpoint(cp, { keepalive: true });
+    };
+    const onVis = (): void => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") flush();
+    };
+    if (typeof window !== "undefined") {
+      window.addEventListener("pagehide", flush);
+    }
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", onVis);
+    }
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("pagehide", flush);
+      }
+      if (typeof document !== "undefined") {
+        document.removeEventListener("visibilitychange", onVis);
+      }
+    };
+  }, [lessonId]);
+
+  /** SPA navigation away from /lesson/* (StrictMode unmount PUT removed — it overwrote DB with stale cache). */
+  useEffect(() => {
+    const prev = pathnamePrevRef.current;
+    const next = pathname;
+    pathnamePrevRef.current = next;
+    if (prev === null) return;
+    const leftLessonRoutes = prev.startsWith("/lesson/") && !next.startsWith("/lesson/");
+    if (!leftLessonRoutes) return;
+    const snap = sessionSnapRef.current;
+    if (snap.isComplete) return;
+    let cp;
+    try {
+      cp = snap.getSessionCheckpoint({
+        lessonId,
+        deckFingerprint: deckFingerprintRef.current,
+      });
+    } catch {
+      return;
+    }
+    void putLessonProgressCheckpoint(cp, { keepalive: true });
+  }, [lessonId, pathname]);
+
+  /* eslint-disable react-hooks/exhaustive-deps -- useLessonSessionWithHistory returns a new object each render; list stable fields explicitly. */
+  useEffect(() => {
+    if (!session.isComplete || lessonCompletionSavedRef.current) return;
+    lessonCompletionSavedRef.current = true;
+    const checkpoint = session.getSessionCheckpoint({
+      lessonId,
+      deckFingerprint: deckFingerprintRef.current,
+    });
+    const payload = buildLessonCompletionPayload({
+      runId: lessonRunIdRef.current!,
+      lessonId,
+      lessonTitle,
+      entries: session.history,
+      checkpoint,
+    });
+    void postLessonCompletion(payload).then((ok) => {
+      if (ok) {
+        void queryClient.invalidateQueries({
+          queryKey: ["lesson-resume-checkpoint", lessonId],
+        });
+      }
+    });
+  }, [
+    lessonId,
+    lessonTitle,
+    queryClient,
+    session.getSessionCheckpoint,
+    session.history,
+    session.isComplete,
+  ]);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   const learnerQuestionPause = useLearnerQuestionPause({
     isCorrect: display.isCorrect,

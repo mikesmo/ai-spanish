@@ -13,6 +13,10 @@ export {
   type BuildDevPhraseIndexCheckpointArgs,
 } from './buildDevPhraseIndexCheckpoint';
 export type { CreateSessionEngineOptions } from './sessionEngine';
+export {
+  buildLessonCompletionPayload,
+  createLessonCompletionRunId,
+} from './buildLessonCompletionPayload';
 export * from './lessonBuilder';
 export * from './schemas';
 export {
