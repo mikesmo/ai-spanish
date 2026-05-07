@@ -1,6 +1,11 @@
-import { isTranscriptLessonIdSyntaxValid } from "@ai-spanish/logic";
+import {
+  buildDeckFingerprint,
+  isTranscriptLessonIdSyntaxValid,
+  useLessonResumeCheckpointQuery,
+  type SessionCheckpointParsed,
+} from "@ai-spanish/logic";
 import { StatusBar } from "expo-status-bar";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import {
   ActivityIndicator,
   BackHandler,
@@ -11,6 +16,7 @@ import {
 } from "react-native";
 import { PhraseDisplay } from "../src/components/PhraseDisplay";
 import { useLessonQuery } from "../src/hooks/useLessonQuery";
+import { mobileLessonProgressFetcher } from "../src/services/lessonProgressTransport";
 
 type LessonScreenProps = {
   lessonId: string;
@@ -41,12 +47,42 @@ function LessonSessionContent({
 
   const {
     data: phrases,
-    isLoading,
+    isLoading: isLessonLoading,
     isError,
     error,
   } = useLessonQuery(lessonId);
 
-  if (isLoading) {
+  /**
+   * Resume probe runs in parallel with the lesson transcript fetch so the user
+   * never sees a separate "restoring" stage after the lesson finishes loading.
+   */
+  const resumeQuery = useLessonResumeCheckpointQuery(
+    mobileLessonProgressFetcher,
+    lessonId,
+  );
+
+  /**
+   * Wait for a real round-trip fetch before rendering PhraseDisplay —
+   * `initialCheckpoint` is consumed only at mount so we must not hand it
+   * stale (cached) data. Mirror web's `isResumeSettled` logic.
+   */
+  const isResumeSettled =
+    resumeQuery.isError ||
+    (resumeQuery.isSuccess && !resumeQuery.isFetching);
+
+  const initialSessionCheckpoint = useMemo((): SessionCheckpointParsed | undefined => {
+    const cp = resumeQuery.data;
+    if (!cp || phrases == null || phrases.length === 0) return undefined;
+    if (cp.deckFingerprint !== undefined) {
+      const fp = buildDeckFingerprint(phrases);
+      if (cp.deckFingerprint !== fp) return undefined;
+    }
+    return cp;
+  }, [resumeQuery.data, phrases]);
+
+  const isPageLoading = isLessonLoading || !isResumeSettled;
+
+  if (isPageLoading) {
     return (
       <SafeAreaView style={styles.container}>
         <StatusBar style="dark" />
@@ -85,7 +121,12 @@ function LessonSessionContent({
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
-      <PhraseDisplay phrases={phrases} lessonId={lessonId} onExit={onBack} />
+      <PhraseDisplay
+        phrases={phrases}
+        lessonId={lessonId}
+        onExit={onBack}
+        initialSessionCheckpoint={initialSessionCheckpoint}
+      />
     </SafeAreaView>
   );
 }

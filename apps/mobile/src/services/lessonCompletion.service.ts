@@ -1,21 +1,27 @@
-import type { LessonSessionCompletionPayload } from "@ai-spanish/logic";
+import {
+  deleteLessonProgress,
+  type LessonSessionCompletionPayload,
+} from "@ai-spanish/logic";
 import { supabase } from "../lib/supabase";
+import { mobileLessonProgressFetcher } from "./lessonProgressTransport";
 
 const WEB_ORIGIN = process.env.EXPO_PUBLIC_WEB_ORIGIN;
 
 /**
- * Posts a completed lesson snapshot to the web API (same auth as other
- * cross-origin calls). Safe to call from production when the web app is
- * deployed; failures are non-fatal.
+ * Posts a completed lesson snapshot to the web API and, on success, deletes
+ * the in-progress checkpoint row so the next session starts fresh.
+ *
+ * Returns `true` when the server accepted the completion (2xx).
  */
 export async function postLessonCompletion(
   payload: LessonSessionCompletionPayload,
-): Promise<void> {
+  lessonId: string,
+): Promise<boolean> {
   if (!WEB_ORIGIN) {
     console.warn(
       "[lessonCompletion] EXPO_PUBLIC_WEB_ORIGIN is not set — cannot save completion.",
     );
-    return;
+    return false;
   }
 
   const url = `${WEB_ORIGIN.replace(/\/$/, "")}/api/lesson-completions`;
@@ -24,6 +30,7 @@ export async function postLessonCompletion(
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
+
     if (supabase) {
       const {
         data: { session },
@@ -45,8 +52,18 @@ export async function postLessonCompletion(
         `[lessonCompletion] POST failed ${response.status}`,
         text.slice(0, 200),
       );
+      return false;
     }
+
+    // Clear the in-progress row so the next session starts fresh.
+    const delOk = await deleteLessonProgress(mobileLessonProgressFetcher, lessonId);
+    if (!delOk) {
+      console.warn("[lessonCompletion] failed to clear in-progress checkpoint");
+    }
+
+    return true;
   } catch (err) {
     console.warn("[lessonCompletion] POST error", err);
+    return false;
   }
 }

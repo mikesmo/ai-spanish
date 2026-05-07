@@ -187,3 +187,15 @@ export {
   type PhraseRevisitBuckets,
   type PhraseRevisitRow,
 } from './lessonReport';
+export {
+  fetchLessonResumeCheckpoint,
+  putLessonProgressCheckpoint,
+  deleteLessonProgress,
+  type LessonProgressFetcher,
+} from './lessonProgressClient';
+export { useLessonResumeCheckpointQuery } from './useLessonResumeCheckpointQuery';
+export {
+  useLessonProgressPersistence,
+  type UseLessonProgressPersistenceOptions,
+  type UseLessonProgressPersistenceResult,
+} from './useLessonProgressPersistence';

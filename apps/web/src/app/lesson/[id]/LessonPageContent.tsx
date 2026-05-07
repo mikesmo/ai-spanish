@@ -7,9 +7,10 @@ import {
 } from "@ai-spanish/logic";
 import { notFound, useParams, useSearchParams } from "next/navigation";
 import { useMemo } from "react";
+import { useLessonResumeCheckpointQuery } from "@ai-spanish/logic";
 import { PhraseDisplay } from "../../components/PhraseDisplay";
 import { useLessonQuery } from "../../hooks/useLessonQuery";
-import { useLessonResumeCheckpointQuery } from "../../hooks/useLessonResumeCheckpointQuery";
+import { webLessonProgressFetcher } from "@/lib/lessonProgressApi";
 
 function resolveLessonId(params: { id?: string | string[] }): string {
   const raw =
@@ -40,7 +41,7 @@ export default function LessonPageContent(): JSX.Element {
    * Resume probe runs in parallel with the lesson transcript fetch so the user
    * never sees a separate "restoring" stage after the lesson finishes loading.
    */
-  const resumeQuery = useLessonResumeCheckpointQuery(lessonId);
+  const resumeQuery = useLessonResumeCheckpointQuery(webLessonProgressFetcher, lessonId);
 
   const devPhraseIndexKey =
     process.env.NODE_ENV === "development"

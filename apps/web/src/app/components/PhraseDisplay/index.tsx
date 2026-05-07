@@ -14,13 +14,14 @@ import {
   runPhraseFeedbackNext,
   s3LessonFolderForTranscriptLessonId,
   useLearnerQuestionPause,
+  useLessonProgressPersistence,
   useLessonSessionWithHistory,
   usePhraseDisplayWithDeck,
 } from "@ai-spanish/logic";
 import { useS3TTS, useSTT } from "@ai-spanish/ai";
 import { playSuccessChime } from "@/lib/playSuccessChime";
 import { postLessonCompletion } from "@/lib/postLessonCompletion";
-import { putLessonProgressCheckpoint } from "@/lib/lessonProgressApi";
+import { webLessonProgressFetcher } from "@/lib/lessonProgressApi";
 import { AISpeaking } from "./components/AISpeaking";
 import { UserFeedback } from "./components/UserFeedback";
 import { UserRecording } from "./components/UserRecording";
@@ -63,66 +64,32 @@ export const PhraseDisplay = ({
   }
   const lessonCompletionSavedRef = useRef(false);
 
-  const sessionSnapRef = useRef(session);
-  sessionSnapRef.current = session;
-
-  useEffect(() => {
-    if (session.isComplete) return;
-    const tid = window.setTimeout(() => {
-      let cp;
-      try {
-        cp = sessionSnapRef.current.getSessionCheckpoint({
-          lessonId,
-          deckFingerprint: deckFingerprintRef.current,
-        });
-      } catch {
-        return;
-      }
-      void putLessonProgressCheckpoint(cp);
-    }, 450);
-    return () => window.clearTimeout(tid);
-  }, [
+  const { flush } = useLessonProgressPersistence({
+    session,
     lessonId,
-    session.history.length,
-    session.remaining,
-    session.presentationVersion,
-    session.isComplete,
-    session.getSessionCheckpoint,
-  ]);
+    deckFingerprint: deckFingerprintRef.current,
+    fetcher: webLessonProgressFetcher,
+  });
 
   useEffect(() => {
-    const flush = (): void => {
-      const snap = sessionSnapRef.current;
-      if (snap.isComplete) return;
-      let cp;
-      try {
-        cp = snap.getSessionCheckpoint({
-          lessonId,
-          deckFingerprint: deckFingerprintRef.current,
-        });
-      } catch {
-        return;
-      }
-      void putLessonProgressCheckpoint(cp, { keepalive: true });
-    };
     const onVis = (): void => {
-      if (typeof document !== "undefined" && document.visibilityState === "hidden") flush();
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+        flush({ keepalive: true });
+      }
     };
     if (typeof window !== "undefined") {
-      window.addEventListener("pagehide", flush);
+      window.addEventListener("pagehide", () => flush({ keepalive: true }));
     }
     if (typeof document !== "undefined") {
       document.addEventListener("visibilitychange", onVis);
     }
     return () => {
-      if (typeof window !== "undefined") {
-        window.removeEventListener("pagehide", flush);
-      }
       if (typeof document !== "undefined") {
         document.removeEventListener("visibilitychange", onVis);
       }
     };
-  }, [lessonId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flush]);
 
   /** SPA navigation away from /lesson/* (StrictMode unmount PUT removed — it overwrote DB with stale cache). */
   useEffect(() => {
@@ -132,19 +99,8 @@ export const PhraseDisplay = ({
     if (prev === null) return;
     const leftLessonRoutes = prev.startsWith("/lesson/") && !next.startsWith("/lesson/");
     if (!leftLessonRoutes) return;
-    const snap = sessionSnapRef.current;
-    if (snap.isComplete) return;
-    let cp;
-    try {
-      cp = snap.getSessionCheckpoint({
-        lessonId,
-        deckFingerprint: deckFingerprintRef.current,
-      });
-    } catch {
-      return;
-    }
-    void putLessonProgressCheckpoint(cp, { keepalive: true });
-  }, [lessonId, pathname]);
+    flush({ keepalive: true });
+  }, [flush, pathname]);
 
   /* eslint-disable react-hooks/exhaustive-deps -- useLessonSessionWithHistory returns a new object each render; list stable fields explicitly. */
   useEffect(() => {

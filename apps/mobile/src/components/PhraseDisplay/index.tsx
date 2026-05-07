@@ -1,4 +1,4 @@
-import { BackHandler, Pressable, StyleSheet, Text, View } from "react-native";
+import { AppState, BackHandler, Pressable, StyleSheet, Text, View } from "react-native";
 import { useEffect, useRef } from "react";
 import {
   buildDeckFingerprint,
@@ -10,12 +10,15 @@ import {
   runPhraseFeedbackNext,
   s3LessonFolderForTranscriptLessonId,
   useLearnerQuestionPause,
+  useLessonProgressPersistence,
   useLessonSessionWithHistory,
   usePhraseDisplayWithDeck,
 } from "@ai-spanish/logic";
 import { useSTT, useS3TTS } from "@ai-spanish/ai";
+import { useQueryClient } from "@tanstack/react-query";
 import { playSuccessChime } from "../../lib/playSuccessChime";
 import { postLessonCompletion } from "../../services/lessonCompletion.service";
+import { mobileLessonProgressFetcher } from "../../services/lessonProgressTransport";
 import type { PhraseDisplayProps } from "./PhraseDisplay.types";
 import { AISpeaking } from "./components/AISpeaking";
 import { UserFeedback } from "./components/UserFeedback";
@@ -26,11 +29,15 @@ export const PhraseDisplay = ({
   phrases,
   lessonId,
   onExit,
+  initialSessionCheckpoint,
 }: PhraseDisplayProps): JSX.Element => {
   const tts = useS3TTS();
   const stt = useSTT();
-  const session = useLessonSessionWithHistory(phrases);
+  const session = useLessonSessionWithHistory(phrases, {
+    initialCheckpoint: initialSessionCheckpoint ?? undefined,
+  });
   const lessonTitle = getLessonTitle(lessonId);
+  const queryClient = useQueryClient();
 
   const { display } = usePhraseDisplayWithDeck(phrases, session, stt, tts, {
     playSuccessChime,
@@ -70,6 +77,33 @@ export const PhraseDisplay = ({
   }
   const lessonCompletionSavedRef = useRef(false);
 
+  const { flush } = useLessonProgressPersistence({
+    session,
+    lessonId,
+    deckFingerprint: deckFingerprintRef.current,
+    fetcher: mobileLessonProgressFetcher,
+  });
+
+  // Stable ref so handleExit / AppState listener always see the latest flush.
+  const flushRef = useRef(flush);
+  flushRef.current = flush;
+
+  const handleExit = (): void => {
+    flushRef.current();
+    onExit();
+  };
+
+  // Flush checkpoint when the app moves to background (equivalent of browser pagehide).
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (nextState) => {
+      if (nextState !== "active") {
+        flush();
+      }
+    });
+    return () => sub.remove();
+  }, [flush]);
+
+  /* eslint-disable react-hooks/exhaustive-deps -- useLessonSessionWithHistory returns a new object each render; list stable fields explicitly. */
   useEffect(() => {
     if (!session.isComplete || lessonCompletionSavedRef.current) return;
     lessonCompletionSavedRef.current = true;
@@ -84,14 +118,22 @@ export const PhraseDisplay = ({
       entries: session.history,
       checkpoint,
     });
-    void postLessonCompletion(payload);
+    void postLessonCompletion(payload, lessonId).then((ok) => {
+      if (ok) {
+        void queryClient.invalidateQueries({
+          queryKey: ["lesson-resume-checkpoint", lessonId],
+        });
+      }
+    });
   }, [
     lessonId,
     lessonTitle,
+    queryClient,
     session.getSessionCheckpoint,
     session.history,
     session.isComplete,
   ]);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   const ais = getAisSpeakingViewModel({
     status: display.status,
@@ -126,7 +168,7 @@ export const PhraseDisplay = ({
       <View style={styles.container}>
         <View style={[styles.header, isIncorrectAnswerFeedback && styles.headerNoMarginBelow]}>
           <Pressable
-            onPress={onExit}
+            onPress={handleExit}
             style={({ pressed }) => [styles.headerClose, pressed && styles.pressed]}
             accessibilityRole="button"
             accessibilityLabel="Exit lesson"
