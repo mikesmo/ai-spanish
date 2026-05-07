@@ -6,7 +6,7 @@ import {
   getDefaultLearningPipelineDebug,
   logSessionHistoryAppend,
 } from './learningPipelineDebug';
-import { reduceProgress, type ReduceProgressContext } from './mastery';
+import { reduceProgress } from './mastery';
 import type { PhraseEvent } from './events';
 import type { Phrase, PhraseProgress } from './types';
 import type { PhraseEventContext } from './useLessonSession';
@@ -44,19 +44,13 @@ export interface HistoryEntry {
    */
   isRepeatedPresentation: boolean;
   /**
-   * Lesson index when this phrase becomes SRS-eligible after this event —
-   * `reduceProgress(prev, event, ctx).dueOnLessonSessionIndex`. For `practice`
-   * events (no progress change) this is the prior value carried forward.
-   */
-  dueOnLessonSessionIndex: number;
-  /**
    * Snapshot of the in-session queue position (0-based index into the
    * remaining queue) for this phrase **immediately after** the session engine
    * processed this event. `null` when the phrase is not in the queue — e.g.
    * a mastered attempt that dropped the card, or a practice event (which
    * never reorders). Populated from `useLessonSession` `PhraseEventContext`
    * (not a ref). Static after creation; pair with a live
-   * `getLiveSlotsAhead` for “session (now)”.
+   * `getLiveSlotsAhead` for "session (now)".
    */
   slotsAheadAtEvent: number | null;
   /**
@@ -115,13 +109,8 @@ const generateId = (): string => {
  * before and after match — but accuracy/fluency still reflect the retry for
  * display. Each entry carries `stabilityBreakdown` and mastery before/after
  * for the sidebar or other consumers.
- *
- * @param completedLessonCount Lessons fully completed before this lesson run;
- *   must match the value passed into `useLessonSession` / the session engine.
  */
-export const useSessionHistory = (
-  completedLessonCount: number,
-): UseSessionHistoryResult => {
+export const useSessionHistory = (): UseSessionHistoryResult => {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const phraseRef = useRef<Phrase | undefined>(undefined);
   /**
@@ -133,25 +122,18 @@ export const useSessionHistory = (
   /** Whether the currently displayed card is a revisit of a previous one. */
   const currentIsRepeatRef = useRef(false);
   /**
-   * Per-phrase SRS progress, mirroring what a `ProgressStore` would hold.
-   * Updated via `reduceProgress(..., ctx)` on each logged event so every
-   * HistoryEntry can surface its post-event `dueOnLessonSessionIndex`.
+   * Per-phrase progress mirror used to compute stability breakdowns and
+   * mastery before/after for each history entry.
    */
   const progressByPhraseRef = useRef<Map<string, PhraseProgress>>(new Map());
-
-  const completedLessonCountRef = useRef(completedLessonCount);
-  completedLessonCountRef.current = completedLessonCount;
 
   const onPhraseEvent = useCallback(
     (event: PhraseEvent, ctx: PhraseEventContext): void => {
       const phrase = phraseRef.current;
       if (!phrase) return;
 
-      const reduceCtx: ReduceProgressContext = {
-        completedLessonCount: completedLessonCountRef.current,
-      };
       const prevProgress = progressByPhraseRef.current.get(phrase.name) ?? null;
-      const nextProgress = reduceProgress(prevProgress, event, reduceCtx);
+      const nextProgress = reduceProgress(prevProgress, event);
       progressByPhraseRef.current.set(phrase.name, nextProgress);
 
       const stabilityBefore = prevProgress?.stabilityScore ?? 0;
@@ -210,7 +192,6 @@ export const useSessionHistory = (
           eventType: event.eventType,
           phraseId: phrase.name,
           transcriptPreview: transcriptStr,
-          dueOnLessonSessionIndex: nextProgress.dueOnLessonSessionIndex,
           slotsSessionLog: ctx.slotsAheadAtEvent,
           slotsSessionNow: ctx.liveSlotsAhead,
         });
@@ -225,7 +206,6 @@ export const useSessionHistory = (
         masteryBefore,
         masteryAfter,
         isRepeatedPresentation: currentIsRepeatRef.current,
-        dueOnLessonSessionIndex: nextProgress.dueOnLessonSessionIndex,
         slotsAheadAtEvent,
         eventSeq,
         ...(ctx.incorrectPhraseRecordsFullyResolvedFailedAtEventSeqs != null &&

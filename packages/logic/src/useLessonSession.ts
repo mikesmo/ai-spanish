@@ -64,11 +64,6 @@ export interface UseLessonSessionOptions {
    */
   onPresentationStart?: (phrase: Phrase) => void;
   /**
-   * Lessons fully completed *before* this lesson run. Drives session-based SRS
-   * in the progress store. Default 0. Host should bump between runs and persist.
-   */
-  completedLessonCount?: number;
-  /**
    * When provided the engine is hydrated from this snapshot instead of
    * starting fresh. Every phrase id in the checkpoint must exist in `deck`;
    * the hook throws if any id is unrecognised. Pass `null` to clear a stored
@@ -124,7 +119,6 @@ export interface UseLessonSessionResult {
    */
   getSessionCheckpoint: (meta: {
     lessonId: string;
-    completedLessonCount: number;
     deckFingerprint?: string;
   }) => SessionCheckpointParsed;
   /**
@@ -149,10 +143,7 @@ export const useLessonSession = (
     throw new Error('useLessonSession: deck must contain at least one phrase');
   }
 
-  const { onEvent, onPresentationStart, completedLessonCount = 0, initialCheckpoint } = options;
-
-  const completedLessonCountRef = useRef(completedLessonCount);
-  completedLessonCountRef.current = completedLessonCount;
+  const { onEvent, onPresentationStart, initialCheckpoint } = options;
 
   // Engine + store are imperative and identity-stable across renders. Built
   // once per mount; we do not rebuild when `deck` identity changes (the
@@ -171,7 +162,6 @@ export const useLessonSession = (
   const visitCountsRef = useRef(new Map<string, number>());
   if (engineRef.current === null) {
     engineRef.current = createSessionEngine(deck, storeRef.current, {
-      getCompletedLessonCount: () => completedLessonCountRef.current,
       initialCheckpoint: initialCheckpoint ?? undefined,
     });
   }
@@ -345,7 +335,7 @@ export const useLessonSession = (
   }, []);
 
   const getSessionCheckpoint = useCallback(
-    (meta: { lessonId: string; completedLessonCount: number; deckFingerprint?: string }) => {
+    (meta: { lessonId: string; deckFingerprint?: string }) => {
       const engine = engineRef.current!;
       const checkpoint = engine.exportCheckpoint({
         ...meta,

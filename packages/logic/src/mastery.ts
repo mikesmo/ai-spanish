@@ -1,10 +1,5 @@
 import type { PhraseEvent } from './events';
 import type { PhraseProgress, PhraseState } from './types';
-import {
-  computeSrsLessonOffset,
-  scheduleDueOnLessonSessionIndex,
-  SRS_REVEAL_SESSIONS_OFFSET,
-} from './srs';
 
 /** Stability EMA coefficient. `S' = (1 - alpha) * prev + alpha * current`. */
 export const STABILITY_EMA_ALPHA = 0.3;
@@ -74,11 +69,6 @@ export function computeMastery(
   );
 }
 
-/** Context for cross-session SRS: lessons fully completed before this lesson run. */
-export interface ReduceProgressContext {
-  completedLessonCount: number;
-}
-
 function newProgress(phraseId: string, now: number): PhraseProgress {
   return {
     phraseId,
@@ -86,8 +76,6 @@ function newProgress(phraseId: string, now: number): PhraseProgress {
     stabilityScore: 0,
     state: 'new',
     lastSeenAt: now,
-    dueOnLessonSessionIndex: 0,
-    srsSpacingLessons: 1,
   };
 }
 
@@ -98,7 +86,6 @@ function newProgress(phraseId: string, now: number): PhraseProgress {
 export function reduceProgress(
   prev: PhraseProgress | null,
   event: PhraseEvent,
-  ctx: ReduceProgressContext,
 ): PhraseProgress {
   const base = prev ?? newProgress(event.phraseId, event.timestamp);
 
@@ -114,18 +101,12 @@ export function reduceProgress(
         stabilityScore,
       );
       const state = classifyState(masteryScore);
-      const offset = computeSrsLessonOffset(base, state);
       return {
         phraseId: event.phraseId,
         masteryScore,
         stabilityScore,
         state,
         lastSeenAt: event.timestamp,
-        dueOnLessonSessionIndex: scheduleDueOnLessonSessionIndex(
-          ctx.completedLessonCount,
-          offset,
-        ),
-        srsSpacingLessons: offset,
       };
     }
 
@@ -140,18 +121,12 @@ export function reduceProgress(
       const stabilityScore = clamp01(
         base.stabilityScore * REVEAL_STABILITY_DECAY,
       );
-      const offset = SRS_REVEAL_SESSIONS_OFFSET;
       return {
         phraseId: event.phraseId,
         masteryScore,
         stabilityScore,
         state: 'learning',
         lastSeenAt: event.timestamp,
-        dueOnLessonSessionIndex: scheduleDueOnLessonSessionIndex(
-          ctx.completedLessonCount,
-          offset,
-        ),
-        srsSpacingLessons: offset,
       };
     }
   }

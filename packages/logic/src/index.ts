@@ -12,16 +12,6 @@ export {
   buildDevPhraseIndexCheckpoint,
   type BuildDevPhraseIndexCheckpointArgs,
 } from './buildDevPhraseIndexCheckpoint';
-export {
-  SRS_LEARNING_SESSIONS_OFFSET,
-  SRS_STABILIZING_SESSIONS_OFFSET,
-  SRS_MASTERED_MIN_SESSIONS_OFFSET,
-  SRS_MASTERED_MAX_SESSIONS_OFFSET,
-  SRS_REVEAL_SESSIONS_OFFSET,
-  computeSrsLessonOffset,
-  scheduleDueOnLessonSessionIndex,
-  isDueForReview,
-} from './srs';
 export type { CreateSessionEngineOptions } from './sessionEngine';
 export * from './lessonBuilder';
 export * from './schemas';

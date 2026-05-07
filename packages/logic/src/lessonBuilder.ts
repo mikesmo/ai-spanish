@@ -1,13 +1,17 @@
-import { isDueForReview } from './srs';
 import type { Phrase, PhraseProgress } from './types';
 import type { ProgressStore } from './progressStore';
 
 /** Default daily lesson size. */
 export const DEFAULT_DECK_SIZE = 20;
 
-/** Composition of a daily deck. Must sum to 1. */
-export const LESSON_MIX_SCHEDULED = 0.7;
-export const LESSON_MIX_WEAK = 0.2;
+/**
+ * Composition of a daily deck. Must sum to 1.
+ *
+ * TODO: A future iteration will draw from the per-student "to be revised" LIFO
+ * list (phrases that hit the in-session requeue cap) as a third bucket, giving
+ * them priority over generic weak phrases.
+ */
+export const LESSON_MIX_WEAK = 0.9;
 export const LESSON_MIX_MASTERED = 0.1;
 
 export interface LessonBuilderOptions {
@@ -31,21 +35,16 @@ function drawN<T>(arr: T[], n: number, random: () => number): T[] {
 }
 
 /**
- * Assemble a daily lesson deck using the spec's 70 / 20 / 10 mix:
+ * Assemble a daily lesson deck using a 90 / 10 mix:
  *
- *  - 70% scheduled reviews (phrases whose session-based SRS slot is due).
- *  - 20% weakest non-scheduled (lowest mastery first).
- *  - 10% mastered reinforcement (sampled).
+ *  - 90% weakest phrases (lowest mastery first, never-seen phrases treated as mastery 0).
+ *  - 10% mastered reinforcement (sampled randomly).
  *
- * If a bucket runs dry, remaining slots are filled from the other buckets.
- *
- * @param completedLessonCount Lessons fully completed before this build
- *   (`PhraseProgress.dueOnLessonSessionIndex <= completedLessonCount` → due).
+ * If a bucket runs dry, remaining slots are filled from the other bucket.
  */
 export function buildLesson(
   phrases: Phrase[],
   store: ProgressStore,
-  completedLessonCount: number,
   options: LessonBuilderOptions = {},
 ): Phrase[] {
   const deckSize = options.deckSize ?? DEFAULT_DECK_SIZE;
@@ -54,49 +53,34 @@ export function buildLesson(
   const progressByPhrase = new Map<string, PhraseProgress>();
   for (const p of store.all()) progressByPhrase.set(p.phraseId, p);
 
-  const scheduledPhrases: Phrase[] = [];
   const weakPhrases: Array<{ phrase: Phrase; mastery: number }> = [];
   const masteredPhrases: Phrase[] = [];
 
   for (const phrase of phrases) {
     const progress = progressByPhrase.get(phrase.name);
-    if (!progress) {
-      // Treat never-seen phrases as "weak" (lowest mastery).
-      weakPhrases.push({ phrase, mastery: 0 });
-      continue;
-    }
-    if (isDueForReview(progress, completedLessonCount)) {
-      scheduledPhrases.push(phrase);
-    } else if (progress.state === 'mastered') {
-      masteredPhrases.push(phrase);
+    if (!progress || progress.state !== 'mastered') {
+      weakPhrases.push({ phrase, mastery: progress?.masteryScore ?? 0 });
     } else {
-      weakPhrases.push({ phrase, mastery: progress.masteryScore });
+      masteredPhrases.push(phrase);
     }
   }
 
-  const targetScheduled = Math.round(deckSize * LESSON_MIX_SCHEDULED);
   const targetWeak = Math.round(deckSize * LESSON_MIX_WEAK);
-  const targetMastered = Math.max(
-    0,
-    deckSize - targetScheduled - targetWeak,
-  );
+  const targetMastered = Math.max(0, deckSize - targetWeak);
 
-  const scheduledPick = scheduledPhrases.slice(0, targetScheduled);
   const weakSorted = [...weakPhrases].sort((a, b) => a.mastery - b.mastery);
   const weakPick = weakSorted.slice(0, targetWeak).map((x) => x.phrase);
   const masteredPick = drawN(masteredPhrases, targetMastered, random);
 
   const chosen = new Set<string>([
-    ...scheduledPick.map((p) => p.name),
     ...weakPick.map((p) => p.name),
     ...masteredPick.map((p) => p.name),
   ]);
 
-  // Backfill remaining slots from any bucket, preserving priority order.
+  // Backfill remaining slots if a bucket ran dry.
   const remaining = deckSize - chosen.size;
   if (remaining > 0) {
     const leftovers = [
-      ...scheduledPhrases.slice(targetScheduled),
       ...weakSorted.slice(targetWeak).map((x) => x.phrase),
       ...drawN(
         masteredPhrases.filter((p) => !chosen.has(p.name)),
@@ -105,7 +89,6 @@ export function buildLesson(
       ),
     ];
     for (const phrase of leftovers) {
-      if (chosen.size - (chosen.has(phrase.name) ? 1 : 0) >= deckSize) break;
       if (!chosen.has(phrase.name)) {
         chosen.add(phrase.name);
       }
@@ -115,12 +98,8 @@ export function buildLesson(
 
   const phraseByName = new Map(phrases.map((p) => [p.name, p]));
   const ordered: Phrase[] = [];
-  const appendIfChosen = (p: Phrase) => {
-    if (chosen.has(p.name)) ordered.push(p);
-  };
-  scheduledPick.forEach(appendIfChosen);
-  weakPick.forEach(appendIfChosen);
-  masteredPick.forEach(appendIfChosen);
+  weakPick.forEach((p) => { if (chosen.has(p.name)) ordered.push(p); });
+  masteredPick.forEach((p) => { if (chosen.has(p.name)) ordered.push(p); });
   // Any backfilled phrases that haven't been emitted yet.
   for (const id of chosen) {
     if (!ordered.some((p) => p.name === id)) {

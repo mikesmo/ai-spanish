@@ -71,7 +71,6 @@ export const PhraseDisplay = ({
     if (newCount <= syncedLengthRef.current) return;
     const checkpoint = session.getSessionCheckpoint({
       lessonId,
-      completedLessonCount: session.completedLessonCount,
       deckFingerprint: deckFingerprintRef.current,
     });
     for (let i = syncedLengthRef.current; i < newCount; i++) {

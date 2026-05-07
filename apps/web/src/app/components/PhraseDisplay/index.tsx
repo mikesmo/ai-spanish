@@ -218,7 +218,6 @@ export const PhraseDisplay = ({
         getLiveSlotsAhead={session.getLiveSlotsAhead}
         queueVersion={session.presentationVersion}
         remainingInSession={session.remaining}
-        completedLessonCount={session.completedLessonCount}
         incorrectPhraseRecords={session.incorrectPhraseRecords}
       />
       <QuestionSidebar

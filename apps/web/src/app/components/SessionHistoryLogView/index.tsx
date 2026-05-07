@@ -126,19 +126,6 @@ const formatTime = (ts: number): string =>
     second: "2-digit",
   });
 
-const formatSrsSessionLabel = (
-  dueOnLessonSessionIndex: number,
-  completedLessonCount: number,
-): string => {
-  const delta = dueOnLessonSessionIndex - completedLessonCount;
-  if (delta <= 0) return "due now";
-  if (delta === 1) return "next lesson";
-  return `in ${delta} lessons`;
-};
-
-const formatSrsSessionTitle = (dueOnLessonSessionIndex: number): string =>
-  `SRS: phrase eligible when completed-lesson count ≥ ${dueOnLessonSessionIndex}`;
-
 const formatSlotsAhead = (slots: number | null): string => {
   if (slots == null) return "—";
   const cards = slots + 1;
@@ -825,7 +812,6 @@ interface RowProps {
    *  number when `entry.eventSeq` is absent (e.g. mobile log viewer). */
   ordinal: number;
   liveSlotsAhead: number | null;
-  completedLessonCount: number;
   /**
    * True when this is the most recent history entry for this phrase in the
    * current session. When false, `session (log)` and `session (now)` are
@@ -851,7 +837,6 @@ const HistoryRow = ({
   entry,
   ordinal,
   liveSlotsAhead,
-  completedLessonCount,
   isLatestForPhrase,
   incorrectPhraseRecord,
   revisitRefDisplay,
@@ -950,16 +935,6 @@ const HistoryRow = ({
                   : `revisit ${revisitFractionLabel}`}
               </span>
             )}
-            <span
-              title={`${formatSrsSessionTitle(entry.dueOnLessonSessionIndex)} (current completed-lesson count: ${completedLessonCount})`}
-              className="text-[10px] text-gray-500 tabular-nums"
-            >
-              next:{" "}
-              {formatSrsSessionLabel(
-                entry.dueOnLessonSessionIndex,
-                completedLessonCount,
-              )}
-            </span>
             <span
               title="In-session distance captured at the moment this event was logged. Mirrors the session engine's Pimsleur requeue: REPEAT_SOON for weak attempts/reveals, REPEAT_LATER for stabilizing attempts, '—' for mastered (dropped), practice, or phrase not yet reinserted. Always retained for analytics — shows the engine's reinsert decision at event time even after the phrase is later redeemed or superseded."
               className="text-[10px] text-gray-500 tabular-nums"
@@ -1131,7 +1106,7 @@ const METRIC_LEGEND: LegendItem[] = [
   {
     term: "Mastery",
     description:
-      "The engine's combined score (0–1) after each event: accuracy, fluency when available, and stability S′. Drives learning / stabilizing / mastered bands, SRS spacing, and whether the phrase may be reinserted in the current lesson: below session graduation (see expanded row, typically 80%) means eligible for in-session requeue (with a per-phrase cap). Shown as Mast.",
+      "The engine's combined score (0–1) after each event: accuracy, fluency when available, and stability S′. Drives learning / stabilizing / mastered bands and whether the phrase may be reinserted in the current lesson: below session graduation (typically 80%) means eligible for in-session requeue (with a per-phrase cap). Shown as Mast.",
   },
 ];
 
@@ -1383,6 +1358,49 @@ export const SessionHistoryStatsBar = ({
 };
 
 // ---------------------------------------------------------------------------
+// ToBeRevisedSection
+// ---------------------------------------------------------------------------
+
+const ToBeRevisedSection = ({
+  phrases,
+}: {
+  phrases: Array<{ phrase: Phrase; revisitCount: number }>;
+}): JSX.Element => (
+  <div className="border-t border-amber-200 bg-amber-50 px-4 py-4">
+    <h3 className="text-[11px] font-semibold text-amber-800 uppercase tracking-wide mb-2">
+      To be revised ({phrases.length})
+    </h3>
+    <p className="text-[11px] text-amber-700 leading-relaxed mb-3">
+      These phrases were requeued the maximum number of times this session (
+      {MAX_REINSERTS_PER_PHRASE_PER_SESSION} revisit
+      {(MAX_REINSERTS_PER_PHRASE_PER_SESSION as number) === 1 ? "" : "s"}). They
+      are candidates for additional practice in a future session.
+    </p>
+    <ul className="space-y-2">
+      {phrases.map(({ phrase, revisitCount }) => (
+        <li
+          key={phrase.name}
+          className="flex items-start justify-between gap-3 text-[11px]"
+        >
+          <div>
+            <span className="text-gray-900 italic">{phrase.Spanish.answer}</span>
+            <span className="ml-2 text-gray-500 normal-case">
+              {phrase.English.question}
+            </span>
+          </div>
+          <span
+            className="shrink-0 text-amber-700 tabular-nums"
+            title={`Revisited ${revisitCount} time${revisitCount === 1 ? "" : "s"} this session`}
+          >
+            {revisitCount}×
+          </span>
+        </li>
+      ))}
+    </ul>
+  </div>
+);
+
+// ---------------------------------------------------------------------------
 // SessionHistoryLogView (main export)
 // ---------------------------------------------------------------------------
 
@@ -1390,7 +1408,6 @@ export interface SessionHistoryLogViewProps {
   history: HistoryEntry[];
   getLiveSlotsAhead: (phraseId: string) => number | null;
   queueVersion: number;
-  completedLessonCount: number;
   /** Incorrect-phrase redemption records for the current session. */
   incorrectPhraseRecords?: readonly IncorrectPhraseRecord[];
   emptyStateMessage?: string;
@@ -1401,7 +1418,6 @@ export const SessionHistoryLogView = ({
   history,
   getLiveSlotsAhead,
   queueVersion,
-  completedLessonCount,
   incorrectPhraseRecords,
   emptyStateMessage,
   className,
@@ -1445,6 +1461,38 @@ export const SessionHistoryLogView = ({
     [history],
   );
 
+  /** Phrases that have hit the max requeue cap this session, LIFO ordered
+   *  (most recently promoted phrase appears first). */
+  const toBeRevised = useMemo((): Array<{ phrase: Phrase; revisitCount: number }> => {
+    const maxOrdinalByPhrase = new Map<string, { phrase: Phrase; maxOrdinal: number }>();
+    for (const entry of history) {
+      const ordinal = presentationOrdinalByEntryId.get(entry.id) ?? 1;
+      const existing = maxOrdinalByPhrase.get(entry.phrase.name);
+      if (!existing || ordinal > existing.maxOrdinal) {
+        maxOrdinalByPhrase.set(entry.phrase.name, { phrase: entry.phrase, maxOrdinal: ordinal });
+      }
+    }
+    // Track the history index when each phrase first exceeded the threshold.
+    const promotionIndexByPhrase = new Map<string, number>();
+    for (let i = 0; i < history.length; i++) {
+      const entry = history[i];
+      const ordinal = presentationOrdinalByEntryId.get(entry.id) ?? 1;
+      if (
+        ordinal > MAX_REINSERTS_PER_PHRASE_PER_SESSION &&
+        !promotionIndexByPhrase.has(entry.phrase.name)
+      ) {
+        promotionIndexByPhrase.set(entry.phrase.name, i);
+      }
+    }
+    return Array.from(maxOrdinalByPhrase.entries())
+      .filter(([, { maxOrdinal }]) => maxOrdinal > MAX_REINSERTS_PER_PHRASE_PER_SESSION)
+      .sort(
+        ([aId], [bId]) =>
+          (promotionIndexByPhrase.get(bId) ?? 0) - (promotionIndexByPhrase.get(aId) ?? 0),
+      )
+      .map(([, { phrase, maxOrdinal }]) => ({ phrase, revisitCount: maxOrdinal - 1 }));
+  }, [history, presentationOrdinalByEntryId]);
+
   return (
     <div className={className}>
       {history.length === 0 ? (
@@ -1472,7 +1520,6 @@ export const SessionHistoryLogView = ({
                 entry={entry}
                 ordinal={history.length - i}
                 liveSlotsAhead={liveSlotsByPhraseId.get(entry.phrase.name) ?? null}
-                completedLessonCount={completedLessonCount}
                 isLatestForPhrase={latestEntryIdByPhraseId.get(entry.phrase.name) === entry.id}
                 incorrectPhraseRecord={incorrectRecordsByPhraseId.get(entry.phrase.name)}
                 revisitRefDisplay={revisitRefDisplayByEntryId.get(entry.id)}
@@ -1483,6 +1530,9 @@ export const SessionHistoryLogView = ({
             ))}
           </tbody>
         </table>
+      )}
+      {toBeRevised.length > 0 && (
+        <ToBeRevisedSection phrases={toBeRevised} />
       )}
       <Legend />
     </div>

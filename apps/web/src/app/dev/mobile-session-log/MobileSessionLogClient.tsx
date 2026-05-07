@@ -46,7 +46,6 @@ export function MobileSessionLogClient({ lessonId, lessonTitle }: Props) {
       const store = createInMemoryProgressStore();
       return createSessionEngine(phrases, store, {
         initialCheckpoint: cp,
-        getCompletedLessonCount: () => cp.completedLessonCount,
       });
     } catch {
       return null;
@@ -118,7 +117,6 @@ export function MobileSessionLogClient({ lessonId, lessonTitle }: Props) {
             history={entries}
             getLiveSlotsAhead={getLiveSlotsAhead}
             queueVersion={entries.length}
-            completedLessonCount={data?.latestCheckpoint?.completedLessonCount ?? 0}
             emptyStateMessage={`No entries yet for ${lessonTitle}. Start a lesson on the mobile app — entries appear here within ~2s of each phrase interaction.`}
           />
         </div>

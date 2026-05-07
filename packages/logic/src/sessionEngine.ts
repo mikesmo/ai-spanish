@@ -1,5 +1,4 @@
 import { MASTERY_STABILIZING_CEIL, reduceProgress } from './mastery';
-import type { ReduceProgressContext } from './mastery';
 import type { PhraseEvent } from './events';
 import type { Phrase } from './types';
 import type { ProgressStore } from './progressStore';
@@ -85,7 +84,6 @@ export interface SessionEngine {
    */
   exportCheckpoint(meta: {
     lessonId: string;
-    completedLessonCount: number;
     deckFingerprint?: string;
   }): SessionCheckpointParsed;
 }
@@ -109,11 +107,6 @@ function insertAt<T>(arr: T[], index: number, item: T): T[] {
 
 export interface CreateSessionEngineOptions {
   /**
-   * Lessons fully completed *before* this lesson run. Drives session-based SRS
-   * in `reduceProgress`. Defaults to always `0` when omitted.
-   */
-  getCompletedLessonCount?: () => number;
-  /**
    * When provided the engine is hydrated from this checkpoint instead of
    * starting fresh from `deck`. Every phrase name in the checkpoint must exist
    * in `deck`; throws if any id is unrecognised.
@@ -131,8 +124,6 @@ export function createSessionEngine(
   store: ProgressStore,
   options: CreateSessionEngineOptions = {},
 ): SessionEngine {
-  const getCompletedLessonCount =
-    options.getCompletedLessonCount ?? (() => 0);
   const deckById = new Map(deck.map((p) => [p.name, p]));
 
   // --- Hydrate from checkpoint or start fresh ---
@@ -195,10 +186,7 @@ export function createSessionEngine(
       }
 
       const prev = store.get(event.phraseId);
-      const reduceCtx: ReduceProgressContext = {
-        completedLessonCount: getCompletedLessonCount(),
-      };
-      const next = reduceProgress(prev, event, reduceCtx);
+      const next = reduceProgress(prev, event);
       store.put(next);
 
       if (event.phraseId !== currentPhraseId) return;
@@ -231,7 +219,7 @@ export function createSessionEngine(
       return idx === -1 ? null : idx;
     },
 
-    exportCheckpoint({ lessonId, completedLessonCount, deckFingerprint }) {
+    exportCheckpoint({ lessonId, deckFingerprint }) {
       const reinsertCountRecord: Record<string, number> = {};
       for (const [id, count] of reinsertCount) {
         reinsertCountRecord[id] = count;
@@ -243,7 +231,6 @@ export function createSessionEngine(
         currentPresentedPhraseId: currentPhraseId,
         reinsertCount: reinsertCountRecord,
         progress: store.all(),
-        completedLessonCount,
         ...(deckFingerprint !== undefined ? { deckFingerprint } : {}),
       };
     },

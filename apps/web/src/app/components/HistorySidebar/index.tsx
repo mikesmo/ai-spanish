@@ -15,7 +15,6 @@ interface HistorySidebarProps {
   getLiveSlotsAhead: (phraseId: string) => number | null;
   queueVersion: number;
   remainingInSession: number;
-  completedLessonCount: number;
   incorrectPhraseRecords: readonly IncorrectPhraseRecord[];
   /** Called on mount and whenever the sidebar's width changes (e.g. after drag-resize). */
   onWidthChange?: (width: number) => void;
@@ -47,7 +46,6 @@ export const HistorySidebar = ({
   getLiveSlotsAhead,
   queueVersion,
   remainingInSession,
-  completedLessonCount,
   incorrectPhraseRecords,
   onWidthChange,
 }: HistorySidebarProps): JSX.Element => {
@@ -193,7 +191,6 @@ export const HistorySidebar = ({
             history={history}
             getLiveSlotsAhead={getLiveSlotsAhead}
             queueVersion={queueVersion}
-            completedLessonCount={completedLessonCount}
             incorrectPhraseRecords={incorrectPhraseRecords}
           />
         </div>

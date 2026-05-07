@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildLesson, DEFAULT_DECK_SIZE } from '../lessonBuilder';
+import { buildLesson, DEFAULT_DECK_SIZE, LESSON_MIX_MASTERED, LESSON_MIX_WEAK } from '../lessonBuilder';
 import { createInMemoryProgressStore } from '../progressStore';
 import { POS_WEIGHTS } from '../weights';
 import type { Phrase, PhraseProgress } from '../types';
@@ -29,8 +29,6 @@ const progress = (overrides: Partial<PhraseProgress>): PhraseProgress => ({
   stabilityScore: 0.3,
   state: 'learning',
   lastSeenAt: NOW,
-  dueOnLessonSessionIndex: 99,
-  srsSpacingLessons: 1,
   ...overrides,
 });
 
@@ -42,46 +40,33 @@ const seededRandom = (seed: number) => {
   };
 };
 
-/** Completed-lesson count for deck build: phrases with dueOn <= this are "due". */
-const COMPLETED_LESSONS = 10;
-
 describe('buildLesson', () => {
-  it('uses the 70/20/10 mix when all buckets are full', () => {
+  it('uses the 90/10 mix when both buckets are full', () => {
     const deck = Array.from({ length: 100 }, (_, i) => phrase(`p${i}`, i));
     const store = createInMemoryProgressStore();
 
-    for (let i = 0; i < 50; i++) {
+    // p0-p79: weak (non-mastered)
+    for (let i = 0; i < 80; i++) {
       store.put(
         progress({
           phraseId: `p${i}`,
-          dueOnLessonSessionIndex: 5,
-          masteryScore: 0.5,
-          state: 'learning',
-        }),
-      );
-    }
-    for (let i = 50; i < 80; i++) {
-      store.put(
-        progress({
-          phraseId: `p${i}`,
-          dueOnLessonSessionIndex: 20,
           masteryScore: 0.4,
           state: 'learning',
         }),
       );
     }
+    // p80-p99: mastered
     for (let i = 80; i < 100; i++) {
       store.put(
         progress({
           phraseId: `p${i}`,
-          dueOnLessonSessionIndex: 50,
           masteryScore: 0.9,
           state: 'mastered',
         }),
       );
     }
 
-    const built = buildLesson(deck, store, COMPLETED_LESSONS, {
+    const built = buildLesson(deck, store, {
       deckSize: DEFAULT_DECK_SIZE,
       random: seededRandom(42),
     });
@@ -89,28 +74,17 @@ describe('buildLesson', () => {
     expect(built.length).toBe(DEFAULT_DECK_SIZE);
     expect(new Set(built.map((p) => p.name)).size).toBe(DEFAULT_DECK_SIZE);
 
-    const scheduledIds = built
-      .filter((p) => Number(p.name.slice(1)) < 50)
-      .map((p) => p.name);
-    const weakIds = built
-      .filter((p) => {
-        const idx = Number(p.name.slice(1));
-        return idx >= 50 && idx < 80;
-      })
-      .map((p) => p.name);
-    const masteredIds = built
-      .filter((p) => Number(p.name.slice(1)) >= 80)
-      .map((p) => p.name);
+    const weakCount = built.filter((p) => Number(p.name.slice(1)) < 80).length;
+    const masteredCount = built.filter((p) => Number(p.name.slice(1)) >= 80).length;
 
-    expect(scheduledIds.length).toBe(14);
-    expect(weakIds.length).toBe(4);
-    expect(masteredIds.length).toBe(2);
+    expect(weakCount).toBe(Math.round(DEFAULT_DECK_SIZE * LESSON_MIX_WEAK));
+    expect(masteredCount).toBe(Math.round(DEFAULT_DECK_SIZE * LESSON_MIX_MASTERED));
   });
 
   it('treats never-seen phrases as weak', () => {
     const deck = [phrase('a'), phrase('b'), phrase('c')];
     const store = createInMemoryProgressStore();
-    const built = buildLesson(deck, store, COMPLETED_LESSONS, { deckSize: 3 });
+    const built = buildLesson(deck, store, { deckSize: 3 });
     expect(built.length).toBe(3);
     expect(new Set(built.map((p) => p.name))).toEqual(new Set(['a', 'b', 'c']));
   });
@@ -123,34 +97,33 @@ describe('buildLesson', () => {
       store.put(
         progress({
           phraseId: `p${i}`,
-          dueOnLessonSessionIndex: 20,
           masteryScore: m,
           state: 'learning',
         }),
       );
     });
-    const built = buildLesson(deck, store, COMPLETED_LESSONS, {
+    const built = buildLesson(deck, store, {
       deckSize: 3,
       random: seededRandom(7),
     });
     expect(built.length).toBe(3);
+    // p1 has the lowest mastery (0.1) so it must appear
     expect(built.map((p) => p.name)).toContain('p1');
   });
 
-  it('backfills when a bucket is empty', () => {
+  it('backfills when mastered bucket is empty', () => {
     const deck = Array.from({ length: 5 }, (_, i) => phrase(`p${i}`, i));
     const store = createInMemoryProgressStore();
     for (let i = 0; i < 5; i++) {
       store.put(
         progress({
           phraseId: `p${i}`,
-          dueOnLessonSessionIndex: 3,
           masteryScore: 0.5,
           state: 'learning',
         }),
       );
     }
-    const built = buildLesson(deck, store, COMPLETED_LESSONS, { deckSize: 5 });
+    const built = buildLesson(deck, store, { deckSize: 5 });
     expect(built.length).toBe(5);
   });
 
@@ -161,13 +134,12 @@ describe('buildLesson', () => {
       store.put(
         progress({
           phraseId: `p${i}`,
-          dueOnLessonSessionIndex: 0,
           masteryScore: 0.5,
           state: 'learning',
         }),
       );
     }
-    const built = buildLesson(deck, store, COMPLETED_LESSONS, { deckSize: 10 });
+    const built = buildLesson(deck, store, { deckSize: 10 });
     expect(built.length).toBe(10);
   });
 });

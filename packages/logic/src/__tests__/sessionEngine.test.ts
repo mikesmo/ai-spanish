@@ -9,8 +9,6 @@ import {
   createSessionEngine,
 } from '../sessionEngine';
 import { MASTERY_STABILIZING_CEIL, reduceProgress } from '../mastery';
-
-const REDUCE_CTX = { completedLessonCount: 0 } as const;
 import { createInMemoryProgressStore } from '../progressStore';
 import { POS_WEIGHTS } from '../weights';
 import type { Attempt, PracticeAttempt, RevealEvent } from '../events';
@@ -159,7 +157,7 @@ describe('createSessionEngine', () => {
     // Derive the expected slot from the public formula rather than hard-coding
     // it — keeps the test sensitive to *behavior* (weak → low slot) while
     // tracking tuning changes in a single place.
-    const nextProgress = reduceProgress(null, weakAttempt, REDUCE_CTX);
+    const nextProgress = reduceProgress(null, weakAttempt);
     const expectedSlot = computeReinsertSlots(
       nextProgress.masteryScore,
       nextProgress.stabilityScore,
@@ -179,7 +177,7 @@ describe('createSessionEngine', () => {
       fluencyScore: 0.7,
     });
     engine.onEvent(stabilizingAttempt);
-    const nextProgress = reduceProgress(null, stabilizingAttempt, REDUCE_CTX);
+    const nextProgress = reduceProgress(null, stabilizingAttempt);
     const expectedSlot = computeReinsertSlots(
       nextProgress.masteryScore,
       nextProgress.stabilityScore,
@@ -193,7 +191,6 @@ describe('createSessionEngine', () => {
         fluencyScore: 0.2,
         isAccuracySuccess: false,
       }),
-      REDUCE_CTX,
     );
     const weakSlot = computeReinsertSlots(
       weakProgress.masteryScore,
@@ -376,7 +373,7 @@ describe('getQueuePosition', () => {
       isAccuracySuccess: false,
     });
     engine.onEvent(weakAttempt);
-    const nextProgress = reduceProgress(null, weakAttempt, REDUCE_CTX);
+    const nextProgress = reduceProgress(null, weakAttempt);
     const expectedSlot = computeReinsertSlots(
       nextProgress.masteryScore,
       nextProgress.stabilityScore,
@@ -407,7 +404,7 @@ describe('exportCheckpoint / initialCheckpoint round-trip', () => {
     const engine = createSessionEngine(deck, store);
 
     engine.pickNext(); // current = a, queue = [b, c]
-    const cp = engine.exportCheckpoint({ lessonId: '1', completedLessonCount: 0 });
+    const cp = engine.exportCheckpoint({ lessonId: '1' });
 
     const store2 = createInMemoryProgressStore();
     const engine2 = createSessionEngine(deck, store2, { initialCheckpoint: cp });
@@ -434,14 +431,14 @@ describe('exportCheckpoint / initialCheckpoint round-trip', () => {
     engine.onEvent(attempt('x', { accuracyScore: 0, isAccuracySuccess: false, success: false }));
     // x has been reinserted MAX_REINSERTS_PER_PHRASE_PER_SESSION times
 
-    const cp = engine.exportCheckpoint({ lessonId: '1', completedLessonCount: 0 });
+    const cp = engine.exportCheckpoint({ lessonId: '1' });
     const xCount = cp.reinsertCount['x'] ?? 0;
     expect(xCount).toBe(MAX_REINSERTS_PER_PHRASE_PER_SESSION);
 
     const store2 = createInMemoryProgressStore();
     const engine2 = createSessionEngine(deck, store2, { initialCheckpoint: cp });
     // Verify restored engine respects the cap
-    const cpRound2 = engine2.exportCheckpoint({ lessonId: '1', completedLessonCount: 0 });
+    const cpRound2 = engine2.exportCheckpoint({ lessonId: '1' });
     expect(cpRound2.reinsertCount['x']).toBe(MAX_REINSERTS_PER_PHRASE_PER_SESSION);
   });
 
@@ -452,7 +449,7 @@ describe('exportCheckpoint / initialCheckpoint round-trip', () => {
     engine.pickNext(); // p
     engine.onEvent(attempt('p', { accuracyScore: 0.5, isAccuracySuccess: true, success: false }));
 
-    const cp = engine.exportCheckpoint({ lessonId: '1', completedLessonCount: 0 });
+    const cp = engine.exportCheckpoint({ lessonId: '1' });
 
     const store2 = createInMemoryProgressStore();
     const engine2 = createSessionEngine(deck, store2, { initialCheckpoint: cp });
@@ -469,7 +466,7 @@ describe('exportCheckpoint / initialCheckpoint round-trip', () => {
     const store = createInMemoryProgressStore();
     const engine = createSessionEngine(deck, store);
     engine.pickNext();
-    const cp = engine.exportCheckpoint({ lessonId: '1', completedLessonCount: 0 });
+    const cp = engine.exportCheckpoint({ lessonId: '1' });
     const badCp = { ...cp, queuePhraseIds: ['UNKNOWN'] };
 
     const store2 = createInMemoryProgressStore();
@@ -483,7 +480,7 @@ describe('exportCheckpoint / initialCheckpoint round-trip', () => {
     const store = createInMemoryProgressStore();
     const engine = createSessionEngine(deck, store);
     const fingerprint = 'a,b';
-    const cp = engine.exportCheckpoint({ lessonId: '1', completedLessonCount: 0, deckFingerprint: fingerprint });
+    const cp = engine.exportCheckpoint({ lessonId: '1', deckFingerprint: fingerprint });
     expect(cp.deckFingerprint).toBe(fingerprint);
   });
 
@@ -491,7 +488,7 @@ describe('exportCheckpoint / initialCheckpoint round-trip', () => {
     const deck = [phrase('a'), phrase('b')];
     const store = createInMemoryProgressStore();
     const engine = createSessionEngine(deck, store);
-    const cp = engine.exportCheckpoint({ lessonId: '1', completedLessonCount: 0 });
+    const cp = engine.exportCheckpoint({ lessonId: '1' });
     expect(cp.currentPresentedPhraseId).toBeNull();
 
     const store2 = createInMemoryProgressStore();

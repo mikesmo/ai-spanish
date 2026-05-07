@@ -81,7 +81,8 @@ export const historyEntrySchema = z.object({
   masteryBefore: z.number(),
   masteryAfter: z.number(),
   isRepeatedPresentation: z.boolean(),
-  dueOnLessonSessionIndex: z.number(),
+  /** @deprecated Removed — kept optional for parsing legacy persisted entries. */
+  dueOnLessonSessionIndex: z.number().optional(),
   slotsAheadAtEvent: z.number().nullable(),
   /**
    * Per-session monotonic event sequence number. Optional for backward

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback } from 'react';
 import type { Phrase } from './types';
 import type { PhraseEvent } from './events';
 import {
@@ -21,12 +21,6 @@ export interface UseLessonSessionWithHistoryResult
   history: HistoryEntry[];
   clearHistory: UseSessionHistoryResult['clearHistory'];
   bindCurrentPhrase: UseSessionHistoryResult['bindCurrentPhrase'];
-  /**
-   * Lessons fully completed before this run. Bumps once when the queue drains;
-   * pass to session history / sidebar for SRS copy. Persist between visits in
-   * production.
-   */
-  completedLessonCount: number;
 }
 
 export interface UseLessonSessionWithHistoryOptions {
@@ -45,17 +39,13 @@ export const useLessonSessionWithHistory = (
   deck: Phrase[],
   opts: UseLessonSessionWithHistoryOptions = {},
 ): UseLessonSessionWithHistoryResult => {
-  const [completedLessonCount, setCompletedLessonCount] = useState(
-    opts.initialCheckpoint?.completedLessonCount ?? 0,
-  );
-  const lessonCompletionHandledRef = useRef(false);
   const {
     history: historyEntries,
     onPhraseEvent,
     onPresentationStart,
     clearHistory,
     bindCurrentPhrase,
-  } = useSessionHistory(completedLessonCount);
+  } = useSessionHistory();
 
   const onEvent = useCallback(
     (event: PhraseEvent, ctx: PhraseEventContext) => {
@@ -67,24 +57,11 @@ export const useLessonSessionWithHistory = (
   const core = useCoreLessonSession(deck, {
     onEvent,
     onPresentationStart,
-    completedLessonCount,
     initialCheckpoint: opts.initialCheckpoint,
   });
 
-  useEffect(() => {
-    if (core.isComplete) {
-      if (!lessonCompletionHandledRef.current) {
-        lessonCompletionHandledRef.current = true;
-        setCompletedLessonCount((c) => c + 1);
-      }
-    } else {
-      lessonCompletionHandledRef.current = false;
-    }
-  }, [core.isComplete]);
-
   return {
     ...core,
-    completedLessonCount,
     history: historyEntries,
     clearHistory,
     bindCurrentPhrase,
