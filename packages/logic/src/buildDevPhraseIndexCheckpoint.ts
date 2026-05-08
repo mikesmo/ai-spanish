@@ -34,5 +34,7 @@ export function buildDevPhraseIndexCheckpoint(
     progress: [],
     completedLessonCount,
     deckFingerprint: buildDeckFingerprint(deck),
+    wordScores: {},
+    grammarItemScores: {},
   };
 }

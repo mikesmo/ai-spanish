@@ -176,7 +176,15 @@ export const useLessonSession = (
   // need to switch decks should remount this component.
   const storeRef = useRef(createInMemoryProgressStore());
   const engineRef = useRef<SessionEngine | null>(null);
-  const trackerRef = useRef(createIncorrectPhraseTracker());
+  const trackerRef = useRef(
+    createIncorrectPhraseTracker(
+      initialCheckpoint?.incorrectPhraseRecords,
+      {
+        wordScores: initialCheckpoint?.wordScores,
+        grammarItemScores: initialCheckpoint?.grammarItemScores,
+      },
+    ),
+  );
   /** Monotonic per-session event counter. Increments once per PhraseEvent. */
   const eventSeqRef = useRef(0);
   /**
@@ -396,6 +404,8 @@ export const useLessonSession = (
       return {
         ...checkpoint,
         incorrectPhraseRecords: trackerRef.current.getAllRecords() as IncorrectPhraseRecord[],
+        wordScores: Object.fromEntries(trackerRef.current.getWordScores()),
+        grammarItemScores: Object.fromEntries(trackerRef.current.getGrammarItemScores()),
       };
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps

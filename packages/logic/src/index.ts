@@ -66,6 +66,7 @@ export type {
   IncorrectPhraseRecord,
   IncorrectPhraseTracker,
   ResolvedWordEntry,
+  TrackerSeedScores,
   WordMistakeEntry,
 } from './incorrectPhraseTracker';
 export {
@@ -222,16 +223,24 @@ export {
   type SimOutcomeWeights,
 } from './lessonSimulationEvents';
 export {
+  averageMasteryByPos,
   bucketPhrasesByFailedAttemptCount,
+  buildGrammarItemsByMastery,
   buildPhrasesByMasterScore,
+  buildWordsByMastery,
   computeLessonReportSummary,
   countPracticeEvents,
   countRevealEvents,
+  groupWordsByPos,
   lastHistoryDisplaySeqByPhrase,
+  summarizeItemBands,
+  type GrammarMasteryRow,
+  type ItemBandSummary,
   type LessonReportSummary,
   type PhraseFailedAttemptBuckets,
   type PhraseMasteryRow,
   type PhraseRevisitRow,
+  type WordMasteryRow,
 } from './lessonReport';
 export {
   fetchLessonResumeCheckpoint,

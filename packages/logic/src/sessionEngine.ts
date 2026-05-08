@@ -247,6 +247,8 @@ export function createSessionEngine(
         reinsertCount: reinsertCountRecord,
         progress: store.all(),
         ...(deckFingerprint !== undefined ? { deckFingerprint } : {}),
+        wordScores: {},
+        grammarItemScores: {},
       };
     },
   };

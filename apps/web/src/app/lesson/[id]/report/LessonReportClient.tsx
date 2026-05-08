@@ -1,12 +1,22 @@
 "use client";
 
 import {
+  averageMasteryByPos,
   bucketPhrasesByFailedAttemptCount,
+  buildGrammarItemsByMastery,
   buildPhrasesByMasterScore,
+  buildWordsByMastery,
   computeLessonReportSummary,
+  groupWordsByPos,
+  PART_OF_SPEECH_VALUES,
+  summarizeItemBands,
+  type GrammarMasteryRow,
+  type ItemBandSummary,
+  type ItemMasteryBand,
   type PhraseMasteryRow,
   type PhraseRevisitRow,
   type PhraseState,
+  type WordMasteryRow,
 } from "@ai-spanish/logic";
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -27,6 +37,8 @@ const formatCompletedAt = (ms: number): string =>
     timeStyle: "short",
   });
 
+// ─── Badge styles ──────────────────────────────────────────────────────────────
+
 const STATE_BADGE_CLASS: Record<PhraseState, string> = {
   new: "bg-gray-100 text-gray-600 border-gray-200",
   learning: "bg-red-50 text-red-700 border-red-200",
@@ -41,9 +53,21 @@ const STATE_BADGE_LABEL: Record<PhraseState, string> = {
   mastered: "mastered",
 };
 
+const BAND_BADGE_CLASS: Record<ItemMasteryBand, string> = {
+  weak: "bg-red-50 text-red-700 border-red-200",
+  stabilizing: "bg-amber-50 text-amber-700 border-amber-200",
+  mastered: "bg-emerald-50 text-emerald-700 border-emerald-200",
+};
+
+const BAND_BAR_CLASS: Record<ItemMasteryBand, string> = {
+  weak: "bg-red-400",
+  stabilizing: "bg-amber-400",
+  mastered: "bg-emerald-500",
+};
+
 const noLiveSlots = (): number | null => null;
 
-/** Matches session history `#` column for this phrase’s last row (`eventSeq ?? chronological index`). */
+/** Matches session history `#` column for this phrase's last row (`eventSeq ?? chronological index`). */
 const ReportLastEventSeq = ({ seq }: { seq: number }): JSX.Element | null => {
   if (seq <= 0) return null;
   return (
@@ -55,6 +79,8 @@ const ReportLastEventSeq = ({ seq }: { seq: number }): JSX.Element | null => {
     </span>
   );
 };
+
+// ─── Summary section ──────────────────────────────────────────────────────────
 
 interface SummaryStats {
   totalEvents: number;
@@ -135,6 +161,8 @@ const SummarySection = ({
   </section>
 );
 
+// ─── Failed attempts sections ─────────────────────────────────────────────────
+
 const PhraseRevisitList = ({
   rows,
 }: {
@@ -204,6 +232,8 @@ const RevisitBucket = ({
   );
 };
 
+// ─── Phrase mastery section ───────────────────────────────────────────────────
+
 const MasterySection = ({
   rows,
 }: {
@@ -258,6 +288,406 @@ const MasterySection = ({
   </section>
 );
 
+// ─── Mastery health snapshot ──────────────────────────────────────────────────
+
+const BandBar = ({
+  summary,
+  label,
+}: {
+  summary: ItemBandSummary;
+  label: string;
+}): JSX.Element => {
+  const { weak, stabilizing, mastered, untrained, total } = summary;
+  if (total === 0) return <p className="text-xs text-gray-400">No data</p>;
+
+  const pct = (n: number) => `${Math.round((n / total) * 100)}%`;
+
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between">
+        <span className="text-[11px] text-gray-600">{label}</span>
+        <span className="text-[10px] text-gray-400">{total} items</span>
+      </div>
+      <div
+        className="flex h-2.5 w-full overflow-hidden rounded-full bg-gray-100"
+        role="img"
+        aria-label={`${label}: ${mastered} mastered, ${stabilizing} stabilizing, ${weak} weak, ${untrained} untrained`}
+      >
+        {mastered > 0 && (
+          <div
+            className="h-full bg-emerald-500"
+            style={{ width: pct(mastered) }}
+          />
+        )}
+        {stabilizing > 0 && (
+          <div
+            className="h-full bg-amber-400"
+            style={{ width: pct(stabilizing) }}
+          />
+        )}
+        {weak > 0 && (
+          <div
+            className="h-full bg-red-400"
+            style={{ width: pct(weak) }}
+          />
+        )}
+        {untrained > 0 && (
+          <div
+            className="h-full bg-gray-200"
+            style={{ width: pct(untrained) }}
+          />
+        )}
+      </div>
+      <div className="mt-1 flex gap-3 text-[10px] text-gray-500">
+        {mastered > 0 && <span className="text-emerald-600">{mastered} mastered</span>}
+        {stabilizing > 0 && <span className="text-amber-600">{stabilizing} stabilizing</span>}
+        {weak > 0 && <span className="text-red-600">{weak} weak</span>}
+        {untrained > 0 && <span className="text-gray-400">{untrained} unseen</span>}
+      </div>
+    </div>
+  );
+};
+
+const MasteryHealthSection = ({
+  wordSummary,
+  grammarSummary,
+}: {
+  wordSummary: ItemBandSummary;
+  grammarSummary: ItemBandSummary;
+}): JSX.Element => (
+  <section
+    aria-label="Mastery health"
+    className="rounded-xl border border-gray-200 bg-white px-5 py-4 shadow-sm"
+  >
+    <h2 className="mb-4 text-sm font-semibold text-gray-800">Mastery Health</h2>
+    <div className="flex flex-col gap-4">
+      <BandBar summary={wordSummary} label="Words" />
+      <BandBar summary={grammarSummary} label="Grammar" />
+    </div>
+    <div className="mt-3 flex flex-wrap gap-3 text-[10px]">
+      <span className="flex items-center gap-1">
+        <span className="inline-block h-2 w-2 rounded-sm bg-emerald-500" />
+        Mastered
+      </span>
+      <span className="flex items-center gap-1">
+        <span className="inline-block h-2 w-2 rounded-sm bg-amber-400" />
+        Stabilizing
+      </span>
+      <span className="flex items-center gap-1">
+        <span className="inline-block h-2 w-2 rounded-sm bg-red-400" />
+        Weak
+      </span>
+      <span className="flex items-center gap-1">
+        <span className="inline-block h-2 w-2 rounded-sm bg-gray-200" />
+        Unseen
+      </span>
+    </div>
+  </section>
+);
+
+// ─── POS strength bar ─────────────────────────────────────────────────────────
+
+const POS_LABEL: Record<string, string> = {
+  verb: "Verbs",
+  noun: "Nouns",
+  adjective: "Adjectives",
+  adverb: "Adverbs",
+  pronoun: "Pronouns",
+  preposition: "Prepositions",
+  conjunction: "Conjunctions",
+  article: "Articles",
+  determiner: "Determiners",
+};
+
+const PosStrengthSection = ({
+  avgByPos,
+}: {
+  avgByPos: Partial<Record<string, number | null>>;
+}): JSX.Element | null => {
+  const posEntries = PART_OF_SPEECH_VALUES.filter(
+    (pos) => pos in avgByPos,
+  );
+  if (posEntries.length === 0) return null;
+
+  return (
+    <section
+      aria-label="Part of speech strength"
+      className="rounded-xl border border-gray-200 bg-white px-5 py-4 shadow-sm"
+    >
+      <h2 className="mb-3 text-sm font-semibold text-gray-800">
+        Strength by Part of Speech
+      </h2>
+      <ul className="flex flex-col gap-2">
+        {posEntries.map((pos) => {
+          const avg = avgByPos[pos];
+          const pct = avg != null ? Math.round(avg * 100) : null;
+          const bandClass =
+            avg == null
+              ? "bg-gray-200"
+              : avg >= 0.8
+                ? "bg-emerald-500"
+                : avg >= 0.6
+                  ? "bg-amber-400"
+                  : "bg-red-400";
+
+          return (
+            <li key={pos} className="flex items-center gap-2">
+              <span className="w-24 shrink-0 text-[11px] text-gray-600">
+                {POS_LABEL[pos] ?? pos}
+              </span>
+              <div className="flex-1 overflow-hidden rounded-full bg-gray-100 h-2">
+                <div
+                  className={`h-full rounded-full ${bandClass} transition-[width] duration-300`}
+                  style={{ width: pct != null ? `${pct}%` : "0%" }}
+                />
+              </div>
+              <span className="w-8 shrink-0 text-right text-[11px] tabular-nums text-gray-600">
+                {pct != null ? `${pct}%` : "—"}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+};
+
+// ─── Word mastery row component ───────────────────────────────────────────────
+
+const WordRow = ({ row }: { row: WordMasteryRow }): JSX.Element => {
+  const band: ItemMasteryBand = row.isUntrained
+    ? "weak"
+    : row.mastery >= 0.8
+      ? "mastered"
+      : row.mastery >= 0.6
+        ? "stabilizing"
+        : "weak";
+
+  return (
+    <li className="flex items-center gap-2 rounded-lg border border-gray-100 bg-white px-3 py-2">
+      <div className="min-w-0 flex-1">
+        <span className="text-sm text-gray-900">{row.displayWord}</span>
+      </div>
+      <div className="flex shrink-0 items-center gap-1.5">
+        <span className="text-[10px] tabular-nums text-gray-400">
+          {Math.round(row.trialsEff)} trials
+        </span>
+        {row.isUntrained ? (
+          <span className="rounded-full border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] text-gray-400">
+            unseen
+          </span>
+        ) : (
+          <>
+            <span className="text-sm font-semibold tabular-nums text-gray-900">
+              {formatPct(row.mastery)}
+            </span>
+            <span
+              className={`rounded-full border px-1.5 py-0.5 text-[10px] ${BAND_BADGE_CLASS[band]}`}
+            >
+              {band}
+            </span>
+          </>
+        )}
+      </div>
+    </li>
+  );
+};
+
+// ─── Words merged ranking + by type ──────────────────────────────────────────
+
+const WordsRankingSection = ({
+  rows,
+}: {
+  rows: WordMasteryRow[];
+}): JSX.Element => {
+  const grouped = useMemo(() => groupWordsByPos(rows), [rows]);
+
+  return (
+    <section aria-label="Words by master score" className="flex flex-col gap-3">
+      <h2 className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+        Words
+      </h2>
+
+      {/* Merged ranking */}
+      <div className="rounded-xl border border-gray-200 bg-white px-5 py-4 shadow-sm">
+        <header className="mb-2 flex items-center justify-between">
+          <span className="text-sm font-semibold text-gray-800">
+            All words ranked
+          </span>
+          <span className="text-[11px] text-gray-500">
+            Lowest first · {rows.length} word{rows.length === 1 ? "" : "s"}
+          </span>
+        </header>
+        {rows.length === 0 ? (
+          <p className="py-2 text-xs text-gray-400">No word data yet.</p>
+        ) : (
+          <ul className="flex flex-col gap-1.5">
+            {rows.map((row) => (
+              <WordRow key={row.word} row={row} />
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* By part of speech */}
+      {PART_OF_SPEECH_VALUES.filter((pos) => grouped[pos] != null).map(
+        (pos) => {
+          const posRows = grouped[pos]!;
+          return (
+            <details
+              key={pos}
+              className="group rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm"
+            >
+              <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-medium text-gray-800">
+                <span>
+                  {POS_LABEL[pos] ?? pos}{" "}
+                  <span className="ml-1 text-xs font-normal text-gray-500">
+                    ({posRows.length})
+                  </span>
+                </span>
+                <span
+                  aria-hidden
+                  className="text-gray-400 transition group-open:rotate-90"
+                >
+                  ▸
+                </span>
+              </summary>
+              <ul className="mt-3 flex flex-col gap-1.5">
+                {posRows.map((row) => (
+                  <WordRow key={row.word} row={row} />
+                ))}
+              </ul>
+            </details>
+          );
+        },
+      )}
+    </section>
+  );
+};
+
+// ─── Grammar mastery section ──────────────────────────────────────────────────
+
+const GrammarRankingSection = ({
+  rows,
+}: {
+  rows: GrammarMasteryRow[];
+}): JSX.Element => (
+  <section
+    aria-label="Grammar by master score"
+    className="rounded-xl border border-gray-200 bg-white px-5 py-4 shadow-sm"
+  >
+    <header className="mb-2 flex items-center justify-between">
+      <h2 className="text-sm font-semibold text-gray-800">Grammar ranked</h2>
+      <span className="text-[11px] text-gray-500">
+        Lowest first · {rows.length} concept{rows.length === 1 ? "" : "s"}
+      </span>
+    </header>
+    {rows.length === 0 ? (
+      <p className="py-2 text-xs text-gray-400">No grammar data yet.</p>
+    ) : (
+      <ul className="flex flex-col gap-2">
+        {rows.map((row) => {
+          const band: ItemMasteryBand = row.isUntrained
+            ? "weak"
+            : row.mastery >= 0.8
+              ? "mastered"
+              : row.mastery >= 0.6
+                ? "stabilizing"
+                : "weak";
+
+          return (
+            <li
+              key={row.item}
+              className="flex items-start gap-2 rounded-lg border border-gray-100 bg-white px-3 py-2"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="text-sm text-gray-900">{row.item}</p>
+                {row.latestRationale && (
+                  <p className="mt-0.5 text-[11px] italic text-gray-500">
+                    {row.latestRationale}
+                  </p>
+                )}
+              </div>
+              <div className="flex shrink-0 flex-col items-end gap-0.5">
+                {row.isUntrained ? (
+                  <span className="rounded-full border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] text-gray-400">
+                    unseen
+                  </span>
+                ) : (
+                  <>
+                    <span className="text-sm font-semibold tabular-nums text-gray-900">
+                      {formatPct(row.mastery)}
+                    </span>
+                    <span
+                      className={`rounded-full border px-1.5 py-0.5 text-[10px] ${BAND_BADGE_CLASS[band]}`}
+                    >
+                      {band}
+                    </span>
+                  </>
+                )}
+                <span className="text-[10px] tabular-nums text-gray-400">
+                  {Math.round(row.trialsEff)} trials
+                </span>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    )}
+  </section>
+);
+
+// ─── Practice next callout ────────────────────────────────────────────────────
+
+interface PracticeItem {
+  label: string;
+  sublabel: string;
+  mastery: number;
+  kind: "word" | "grammar";
+}
+
+const PracticeNextSection = ({
+  items,
+}: {
+  items: PracticeItem[];
+}): JSX.Element | null => {
+  if (items.length === 0) return null;
+
+  return (
+    <section
+      aria-label="Suggested practice"
+      className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4"
+    >
+      <h2 className="mb-3 text-sm font-semibold text-amber-900">
+        Practice next
+      </h2>
+      <p className="mb-3 text-[11px] text-amber-700">
+        Lowest-mastery items from this lesson — focus here in your next session.
+      </p>
+      <ol className="flex flex-col gap-2">
+        {items.map((item, idx) => (
+          <li key={item.label} className="flex items-center gap-2">
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-200 text-[10px] font-semibold text-amber-800">
+              {idx + 1}
+            </span>
+            <div className="min-w-0 flex-1">
+              <span className="text-sm text-amber-900">{item.label}</span>
+              <span className="ml-1.5 text-[10px] text-amber-600">
+                {item.sublabel}
+              </span>
+            </div>
+            <span className="shrink-0 text-sm font-semibold tabular-nums text-amber-800">
+              {formatPct(item.mastery)}
+            </span>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+};
+
+// ─── Back header ──────────────────────────────────────────────────────────────
+
 const BackHeader = ({
   lessonId,
   lessonTitle,
@@ -298,6 +728,8 @@ const BackHeader = ({
   </header>
 );
 
+// ─── Root client component ────────────────────────────────────────────────────
+
 export function LessonReportClient({
   lessonId,
   lessonTitle,
@@ -315,6 +747,14 @@ export function LessonReportClient({
     () => checkpoint?.progress ?? [],
     [checkpoint?.progress],
   );
+  const wordScores = useMemo(
+    () => checkpoint?.wordScores ?? {},
+    [checkpoint?.wordScores],
+  );
+  const grammarItemScores = useMemo(
+    () => checkpoint?.grammarItemScores ?? {},
+    [checkpoint?.grammarItemScores],
+  );
 
   const summary = useMemo(
     () => computeLessonReportSummary(entries),
@@ -328,6 +768,45 @@ export function LessonReportClient({
     () => buildPhrasesByMasterScore(entries, progress),
     [entries, progress],
   );
+  const wordRows = useMemo(
+    () => buildWordsByMastery(entries, wordScores),
+    [entries, wordScores],
+  );
+  const grammarRows = useMemo(
+    () => buildGrammarItemsByMastery(entries, grammarItemScores, incorrectPhraseRecords),
+    [entries, grammarItemScores, incorrectPhraseRecords],
+  );
+  const wordBandSummary = useMemo(() => summarizeItemBands(wordRows), [wordRows]);
+  const grammarBandSummary = useMemo(
+    () => summarizeItemBands(grammarRows),
+    [grammarRows],
+  );
+  const avgByPos = useMemo(() => averageMasteryByPos(wordRows), [wordRows]);
+
+  const practiceNextItems = useMemo((): PracticeItem[] => {
+    const wordItems: PracticeItem[] = wordRows
+      .filter((r) => !r.isUntrained)
+      .slice(0, 5)
+      .map((r) => ({
+        label: r.displayWord,
+        sublabel: POS_LABEL[r.type] ?? r.type,
+        mastery: r.mastery,
+        kind: "word" as const,
+      }));
+    const grammarItems: PracticeItem[] = grammarRows
+      .filter((r) => !r.isUntrained)
+      .slice(0, 5)
+      .map((r) => ({
+        label: r.item,
+        sublabel: "grammar",
+        mastery: r.mastery,
+        kind: "grammar" as const,
+      }));
+
+    return [...wordItems, ...grammarItems]
+      .sort((a, b) => a.mastery - b.mastery)
+      .slice(0, 5);
+  }, [wordRows, grammarRows]);
 
   const completedAtMs = useMemo(() => {
     if (entries.length === 0) return null;
@@ -377,6 +856,30 @@ export function LessonReportClient({
           <div className="flex flex-col gap-5">
             <SummarySection stats={summary} completedAtMs={completedAtMs} />
 
+            {/* Practice next — surfaces lowest-mastery items early */}
+            <PracticeNextSection items={practiceNextItems} />
+
+            {/* Mastery health snapshot */}
+            <MasteryHealthSection
+              wordSummary={wordBandSummary}
+              grammarSummary={grammarBandSummary}
+            />
+
+            {/* POS strength bars */}
+            <PosStrengthSection avgByPos={avgByPos} />
+
+            {/* Word rankings */}
+            <WordsRankingSection rows={wordRows} />
+
+            {/* Grammar ranking */}
+            <section aria-label="Grammar" className="flex flex-col gap-3">
+              <h2 className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                Grammar
+              </h2>
+              <GrammarRankingSection rows={grammarRows} />
+            </section>
+
+            {/* Failed attempts */}
             {buckets.once.length === 0 &&
             buckets.twice.length === 0 &&
             buckets.threePlus.length === 0 ? (
@@ -412,6 +915,7 @@ export function LessonReportClient({
               </div>
             )}
 
+            {/* Phrase-level mastery */}
             <MasterySection rows={masteryRows} />
           </div>
         ) : null}

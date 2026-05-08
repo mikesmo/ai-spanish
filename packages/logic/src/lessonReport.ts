@@ -2,6 +2,12 @@ import type { Attempt, PhraseEvent, PracticeAttempt, RevealEvent } from './event
 import { buildPresentationOrdinalByEntryId } from './sessionHistoryPresentationOrdinals';
 import type { HistoryEntry } from './useSessionHistory';
 import type { Phrase, PhraseProgress, PhraseState } from './types';
+import type { PartOfSpeech } from './weights';
+import { PART_OF_SPEECH_VALUES } from './weights';
+import { normalizeStr } from './comparison';
+import { classifyItemMastery, isUntrained } from './itemMastery';
+import type { ItemScore, ItemMasteryBand } from './itemMastery';
+import type { IncorrectPhraseRecord } from './incorrectPhraseTracker';
 
 export interface LessonReportSummary {
   totalEvents: number;
@@ -229,3 +235,296 @@ export const countPracticeEvents = (entries: readonly HistoryEntry[]): number =>
   entries.filter((h): h is HistoryEntry & { event: PracticeAttempt } =>
     h.event.eventType === 'practice',
   ).length;
+
+// ─── Per-word and per-grammar-item mastery helpers ────────────────────────────
+
+export interface WordMasteryRow {
+  /** Normalized word string (lowercase, diacritic-normalized per `normalizeStr`). */
+  word: string;
+  /** Display form: the first raw word string seen across all phrases. */
+  displayWord: string;
+  type: PartOfSpeech;
+  mastery: number;
+  trialsEff: number;
+  stability: number;
+  lastUpdatedAtEventSeq: number;
+  /** Phrase slugs in which this word appeared in the lesson deck. */
+  appearedInPhraseIds: string[];
+  /**
+   * True when the tracker has never recorded a trial for this word.
+   * Shows `—` instead of `0%` in the UI.
+   */
+  isUntrained: boolean;
+}
+
+export interface GrammarMasteryRow {
+  /** Grammar item string (comma-split token from Spanish.grammar). */
+  item: string;
+  mastery: number;
+  trialsEff: number;
+  stability: number;
+  lastUpdatedAtEventSeq: number;
+  /**
+   * The most recent AI rationale string from any unresolved
+   * `IncorrectPhraseRecord.incorrectGrammarItems` entry for this item.
+   * Undefined when the AI has never flagged this item or all flags resolved.
+   */
+  latestRationale?: string;
+  /** Phrase slugs in which this grammar item appeared in the lesson deck. */
+  phraseIds: string[];
+  isUntrained: boolean;
+}
+
+export interface ItemBandSummary {
+  weak: number;
+  stabilizing: number;
+  mastered: number;
+  untrained: number;
+  total: number;
+}
+
+/**
+ * Builds a merged word-mastery ranking from the lesson history and the
+ * cross-phrase wordScores map from the session checkpoint. Words that appeared
+ * in the lesson deck but have no score entry are included with `isUntrained:
+ * true` and `mastery: 0` so they always sort to the bottom of the ranking.
+ *
+ * Sorted ascending by mastery (lowest first). Untrained rows are sorted below
+ * all trained rows.
+ */
+export const buildWordsByMastery = (
+  entries: readonly HistoryEntry[],
+  wordScores: Record<string, ItemScore>,
+): WordMasteryRow[] => {
+  // Collect all words that appeared in the deck: normalized → { type, displayWord, phraseIds }
+  const wordMeta = new Map<
+    string,
+    { type: PartOfSpeech; displayWord: string; phraseIds: Set<string> }
+  >();
+
+  for (const entry of entries) {
+    const phraseId = entry.phrase.name;
+    for (const w of entry.phrase.Spanish.words) {
+      const key = normalizeStr(w.word);
+      const existing = wordMeta.get(key);
+      if (existing) {
+        existing.phraseIds.add(phraseId);
+      } else {
+        wordMeta.set(key, {
+          type: w.type,
+          displayWord: w.word,
+          phraseIds: new Set([phraseId]),
+        });
+      }
+    }
+  }
+
+  const rows: WordMasteryRow[] = [];
+  for (const [word, meta] of wordMeta) {
+    const score = wordScores[word];
+    if (score) {
+      rows.push({
+        word,
+        displayWord: meta.displayWord,
+        type: meta.type,
+        mastery: score.mastery,
+        trialsEff: score.trialsEff,
+        stability: score.stability,
+        lastUpdatedAtEventSeq: score.lastUpdatedAtEventSeq,
+        appearedInPhraseIds: Array.from(meta.phraseIds),
+        isUntrained: isUntrained(score),
+      });
+    } else {
+      rows.push({
+        word,
+        displayWord: meta.displayWord,
+        type: meta.type,
+        mastery: 0,
+        trialsEff: 0,
+        stability: 0,
+        lastUpdatedAtEventSeq: 0,
+        appearedInPhraseIds: Array.from(meta.phraseIds),
+        isUntrained: true,
+      });
+    }
+  }
+
+  // Trained rows sorted ascending by mastery; untrained rows last (alphabetical within).
+  rows.sort((a, b) => {
+    if (a.isUntrained !== b.isUntrained) return a.isUntrained ? 1 : -1;
+    if (a.mastery !== b.mastery) return a.mastery - b.mastery;
+    return a.word.localeCompare(b.word);
+  });
+
+  return rows;
+};
+
+/**
+ * Partitions `WordMasteryRow[]` by part of speech. Parts of speech with no
+ * rows are omitted from the result. The rows within each group preserve the
+ * same sort order produced by `buildWordsByMastery`.
+ */
+export const groupWordsByPos = (
+  rows: readonly WordMasteryRow[],
+): Partial<Record<PartOfSpeech, WordMasteryRow[]>> => {
+  const grouped: Partial<Record<PartOfSpeech, WordMasteryRow[]>> = {};
+  for (const row of rows) {
+    const group = grouped[row.type];
+    if (group) {
+      group.push(row);
+    } else {
+      grouped[row.type] = [row];
+    }
+  }
+  return grouped;
+};
+
+/**
+ * Builds a grammar-item mastery ranking from the lesson history and the
+ * cross-phrase `grammarItemScores` map. Grammar items that appeared in the
+ * lesson deck but have no score entry are included with `isUntrained: true`.
+ * The `latestRationale` is pulled from the most recent unresolved entry across
+ * all `IncorrectPhraseRecord.incorrectGrammarItems` for that item.
+ *
+ * Sorted ascending by mastery (lowest first). Untrained rows are sorted last.
+ */
+export const buildGrammarItemsByMastery = (
+  entries: readonly HistoryEntry[],
+  grammarItemScores: Record<string, ItemScore>,
+  incorrectPhraseRecords: readonly IncorrectPhraseRecord[],
+): GrammarMasteryRow[] => {
+  // Collect all grammar items from the deck.
+  const itemMeta = new Map<string, Set<string>>(); // item → phraseId set
+  for (const entry of entries) {
+    const phraseId = entry.phrase.name;
+    const items = entry.phrase.Spanish.grammar
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+    for (const item of items) {
+      const existing = itemMeta.get(item);
+      if (existing) {
+        existing.add(phraseId);
+      } else {
+        itemMeta.set(item, new Set([phraseId]));
+      }
+    }
+  }
+
+  // Build a map of item → latest rationale from unresolved incorrect entries.
+  // "Latest" = highest `failedAtEventSeq` among matching entries.
+  const latestRationaleByItem = new Map<string, { rationale: string; failedAtEventSeq: number }>();
+  for (const record of incorrectPhraseRecords) {
+    for (const entry of record.incorrectGrammarItems) {
+      if (!entry.rationale) continue;
+      const existing = latestRationaleByItem.get(entry.item);
+      if (
+        !existing ||
+        record.failedAtEventSeq > existing.failedAtEventSeq
+      ) {
+        latestRationaleByItem.set(entry.item, {
+          rationale: entry.rationale,
+          failedAtEventSeq: record.failedAtEventSeq,
+        });
+      }
+    }
+  }
+
+  const rows: GrammarMasteryRow[] = [];
+  for (const [item, phraseSet] of itemMeta) {
+    const score = grammarItemScores[item];
+    const rationaleEntry = latestRationaleByItem.get(item);
+    if (score) {
+      rows.push({
+        item,
+        mastery: score.mastery,
+        trialsEff: score.trialsEff,
+        stability: score.stability,
+        lastUpdatedAtEventSeq: score.lastUpdatedAtEventSeq,
+        latestRationale: rationaleEntry?.rationale,
+        phraseIds: Array.from(phraseSet),
+        isUntrained: isUntrained(score),
+      });
+    } else {
+      rows.push({
+        item,
+        mastery: 0,
+        trialsEff: 0,
+        stability: 0,
+        lastUpdatedAtEventSeq: 0,
+        latestRationale: rationaleEntry?.rationale,
+        phraseIds: Array.from(phraseSet),
+        isUntrained: true,
+      });
+    }
+  }
+
+  rows.sort((a, b) => {
+    if (a.isUntrained !== b.isUntrained) return a.isUntrained ? 1 : -1;
+    if (a.mastery !== b.mastery) return a.mastery - b.mastery;
+    return a.item.localeCompare(b.item);
+  });
+
+  return rows;
+};
+
+/**
+ * Counts how many rows fall into each mastery band (weak / stabilizing /
+ * mastered) and how many are untrained. Accepts both `WordMasteryRow[]` and
+ * `GrammarMasteryRow[]` — any array of objects with `mastery` and `isUntrained`.
+ */
+export const summarizeItemBands = (
+  rows: readonly { mastery: number; isUntrained: boolean }[],
+): ItemBandSummary => {
+  let weak = 0;
+  let stabilizing = 0;
+  let mastered = 0;
+  let untrained = 0;
+
+  for (const row of rows) {
+    if (row.isUntrained) {
+      untrained++;
+    } else {
+      const band: ItemMasteryBand = classifyItemMastery(row.mastery);
+      if (band === 'weak') weak++;
+      else if (band === 'stabilizing') stabilizing++;
+      else mastered++;
+    }
+  }
+
+  return { weak, stabilizing, mastered, untrained, total: rows.length };
+};
+
+/**
+ * Computes the average mastery score per part of speech from a word mastery
+ * row list. Parts of speech with only untrained rows return `null` (no data).
+ * Parts of speech not present in the list are omitted from the result.
+ */
+export const averageMasteryByPos = (
+  rows: readonly WordMasteryRow[],
+): Partial<Record<PartOfSpeech, number | null>> => {
+  const sums: Partial<Record<PartOfSpeech, { sum: number; count: number }>> = {};
+
+  for (const row of rows) {
+    if (row.isUntrained) continue;
+    const pos = row.type;
+    const existing = sums[pos];
+    if (existing) {
+      existing.sum += row.mastery;
+      existing.count++;
+    } else {
+      sums[pos] = { sum: row.mastery, count: 1 };
+    }
+  }
+
+  const result: Partial<Record<PartOfSpeech, number | null>> = {};
+  // Include all POS values that appeared in the rows, marking untrained-only ones as null.
+  const posInRows = new Set(rows.map((r) => r.type));
+  for (const pos of PART_OF_SPEECH_VALUES) {
+    if (!posInRows.has(pos)) continue;
+    const entry = sums[pos];
+    result[pos] = entry && entry.count > 0 ? entry.sum / entry.count : null;
+  }
+
+  return result;
+};

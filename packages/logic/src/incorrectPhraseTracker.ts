@@ -199,6 +199,11 @@ export interface IncorrectPhraseTracker {
   getWordScores(): ReadonlyMap<string, ItemScore>;
 }
 
+export interface TrackerSeedScores {
+  wordScores?: Record<string, ItemScore>;
+  grammarItemScores?: Record<string, ItemScore>;
+}
+
 /**
  * Creates an in-memory tracker for the incorrect-phrase redemption feature.
  * One instance per lesson session, created in `useLessonSession`.
@@ -206,9 +211,15 @@ export interface IncorrectPhraseTracker {
  * When `seedRecords` is provided (e.g. on checkpoint resume), the records and
  * the cross-phrase mastery maps are rebuilt from the parsed entries. For each
  * (item|word) string, the entry with the highest `lastUpdatedAtEventSeq` wins.
+ *
+ * When `seedScores` is provided, those values are merged on top of any
+ * entry-derived seeds. This covers items that always succeeded and therefore
+ * have no `IncorrectPhraseRecord` entry — the checkpoint's dedicated score maps
+ * are the only place such items are persisted.
  */
 export function createIncorrectPhraseTracker(
   seedRecords?: readonly IncorrectPhraseRecord[],
+  seedScores?: TrackerSeedScores,
 ): IncorrectPhraseTracker {
   const records = new Map<string, IncorrectPhraseRecord>();
   /** Cross-phrase grammar item mastery — source of truth during a session. */
@@ -242,6 +253,25 @@ export function createIncorrectPhraseTracker(
     for (const r of records.values()) {
       for (const g of r.incorrectGrammarItems) seedFromEntries(grammarItemScores, g.item, g.score);
       for (const w of r.incorrectWordEntries) seedFromEntries(wordScores, w.word, w.score);
+    }
+  }
+
+  // Apply explicit score maps from the checkpoint. These cover items that were
+  // always answered correctly (never produced an IncorrectPhraseRecord entry)
+  // and therefore have no entry-based seed. The explicit map always wins when
+  // its lastUpdatedAtEventSeq is higher than the entry-derived value.
+  if (seedScores) {
+    for (const [word, score] of Object.entries(seedScores.wordScores ?? {})) {
+      const existing = wordScores.get(word);
+      if (!existing || score.lastUpdatedAtEventSeq >= existing.lastUpdatedAtEventSeq) {
+        wordScores.set(word, score);
+      }
+    }
+    for (const [item, score] of Object.entries(seedScores.grammarItemScores ?? {})) {
+      const existing = grammarItemScores.get(item);
+      if (!existing || score.lastUpdatedAtEventSeq >= existing.lastUpdatedAtEventSeq) {
+        grammarItemScores.set(item, score);
+      }
     }
   }
 

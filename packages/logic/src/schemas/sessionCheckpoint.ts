@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { incorrectPhraseRecordSchema } from './incorrectPhraseRecord';
+import { incorrectPhraseRecordSchema, itemScoreSchema } from './incorrectPhraseRecord';
 import { historyEntrySchema } from './sessionHistory';
 
 export const phraseProgressSchema = z.object({
@@ -47,6 +47,19 @@ export const sessionCheckpointSchema = z.object({
    * existed.
    */
   history: z.array(historyEntrySchema).optional(),
+  /**
+   * Cross-phrase word mastery scores keyed by normalized word string.
+   * Covers every word the tracker has updated — including always-correct ones —
+   * so the lesson report can build a complete ranking without replaying history.
+   * Optional + default {} for backward compatibility.
+   */
+  wordScores: z.record(z.string(), itemScoreSchema).optional().default({}),
+  /**
+   * Cross-phrase grammar-item mastery scores keyed by grammar item string
+   * (comma-split token from Spanish.grammar). Same coverage guarantee as
+   * `wordScores`. Optional + default {} for backward compatibility.
+   */
+  grammarItemScores: z.record(z.string(), itemScoreSchema).optional().default({}),
 });
 
 export type SessionCheckpointParsed = z.infer<typeof sessionCheckpointSchema>;
