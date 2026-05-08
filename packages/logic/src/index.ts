@@ -66,7 +66,24 @@ export type {
   IncorrectPhraseRecord,
   IncorrectPhraseTracker,
   ResolvedWordEntry,
+  WordMistakeEntry,
 } from './incorrectPhraseTracker';
+export {
+  ITEM_DECAY_GAMMA,
+  ITEM_LAPLACE_ALPHA,
+  ITEM_CONFIDENCE_K,
+  ITEM_W_P_HAT,
+  ITEM_W_STABILITY,
+  ITEM_W_CONFIDENCE,
+  ITEM_REVEAL_STABILITY_DECAY,
+  classifyItemMastery,
+  computeItemMastery,
+  createInitialItemScore,
+  decayItemOnReveal,
+  isUntrained,
+  updateItemScore,
+} from './itemMastery';
+export type { ItemMasteryBand, ItemScore } from './itemMastery';
 export { useSessionHistory } from './useSessionHistory';
 export type {
   HistoryEntry,
