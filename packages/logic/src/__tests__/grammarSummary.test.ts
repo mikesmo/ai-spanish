@@ -191,6 +191,13 @@ describe('buildGrammarSummaryPrompts', () => {
     expect(userPrompt).toContain('45%');
   });
 
+  it('guides the model to vary phrasing and add examples only when helpful', () => {
+    const { systemPrompt } = buildGrammarSummaryPrompts(grammar, row, [entry]);
+    expect(systemPrompt).toContain('Vary your sentence openings');
+    expect(systemPrompt).toContain('include a brief example or contrast');
+    expect(systemPrompt).toContain('Skip examples when they would feel forced');
+  });
+
   it('only includes history entries that contain the grammar item', () => {
     const otherPhrase = phraseWithGrammar('p2', 'ser vs estar');
     const otherEntry = makeAttemptEntry('e2', otherPhrase);
