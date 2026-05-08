@@ -8,12 +8,14 @@ import {
   buildLessonCompletionPayload,
   createLessonCompletionRunId,
   getLessonTitle,
+  MASTERY_STABILIZING_CEIL,
   pickRandomPhraseEventsForCard,
   useLessonSessionWithHistory,
   type Phrase,
 } from "@ai-spanish/logic";
 import { useLessonQuery } from "../../hooks/useLessonQuery";
 import { postLessonCompletion } from "@/lib/postLessonCompletion";
+import { postGrammarGrading } from "@/lib/grammarGrading";
 
 interface Props {
   lessonId: string;
@@ -56,37 +58,52 @@ function LessonSimRunner({
 
   const deckFingerprintRef = useRef(buildDeckFingerprint(phrases));
 
-  const session = useLessonSessionWithHistory(phrases, {});
+  const session = useLessonSessionWithHistory(phrases, { postGrammarGrading });
   const sessionRef = useRef(session);
   sessionRef.current = session;
 
+  const {
+    getSessionCheckpoint,
+    presentationVersion,
+    isComplete,
+    pendingGradingCount,
+  } = session;
+
+  const [waitingToAdvance, setWaitingToAdvance] = useState(false);
+
   // Step effect: fires after every advance() updates presentationVersion.
+  // Processes events for the current card then sets waitingToAdvance so the
+  // advance effect can gate on grading completion before moving forward.
   useEffect(() => {
     if (!runningRef.current) return;
 
     const s = sessionRef.current;
     if (s.isComplete) return;
 
-    const tid = window.setTimeout(() => {
-      if (!runningRef.current) return;
-      const snap = sessionRef.current;
-      if (snap.isComplete) return;
+    const phrase = s.currentPhrase;
+    s.bindCurrentPhrase(phrase);
+    s.onPresentationStart?.(phrase);
+    const events = pickRandomPhraseEventsForCard(phrase, Math.random);
+    events.forEach((ev) => s.onPhraseEvent(ev));
+    setWaitingToAdvance(true);
+  }, [simStatus, presentationVersion]);
 
-      const phrase = snap.currentPhrase;
-      snap.bindCurrentPhrase(phrase);
-      snap.onPresentationStart?.(phrase);
-      const events = pickRandomPhraseEventsForCard(phrase, Math.random);
-      events.forEach((ev) => snap.onPhraseEvent(ev));
-      snap.advance();
-    }, 0);
+  // Advance effect: calls advance() only after all pending AI grading has
+  // resolved for the current card. This ensures grammar results can influence
+  // whether the card is revisited before we move on.
+  useEffect(() => {
+    if (!waitingToAdvance) return;
+    if (!runningRef.current) return;
+    if (sessionRef.current.isComplete) return;
+    if (pendingGradingCount > 0) return;
 
-    return () => window.clearTimeout(tid);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- drive steps off presentation bumps
-  }, [simStatus, session.presentationVersion]);
+    setWaitingToAdvance(false);
+    sessionRef.current.advance();
+  }, [waitingToAdvance, pendingGradingCount]);
 
   // Completion effect: when session drains, post results.
   useEffect(() => {
-    if (!session.isComplete || simStatus !== "running") return;
+    if (!isComplete || simStatus !== "running") return;
 
     runningRef.current = false;
     const elapsedMs = Date.now() - startTimeRef.current;
@@ -117,12 +134,13 @@ function LessonSimRunner({
       setResult({ historyLength, incorrectCount, elapsedMs, posted });
       setSimStatus("done");
     });
-  }, [session.isComplete, simStatus, lessonId, queryClient]);
+  }, [isComplete, simStatus, lessonId, lessonTitle, queryClient]);
 
   const handleStart = () => {
     lessonRunIdRef.current = createLessonCompletionRunId();
     startTimeRef.current = Date.now();
     setResult(null);
+    setWaitingToAdvance(false);
     setSimStatus("running");
     runningRef.current = true;
 
@@ -132,15 +150,37 @@ function LessonSimRunner({
     s.onPresentationStart?.(phrase);
     const events = pickRandomPhraseEventsForCard(phrase, Math.random);
     events.forEach((ev) => s.onPhraseEvent(ev));
-    s.advance();
+    setWaitingToAdvance(true);
   };
 
   const handleStop = () => {
     runningRef.current = false;
+    setWaitingToAdvance(false);
     setSimStatus("idle");
   };
 
   const isRunning = simStatus === "running";
+
+  const cp = getSessionCheckpoint({
+    lessonId,
+    deckFingerprint: deckFingerprintRef.current,
+  });
+  const progressById = new Map(cp.progress.map((p) => [p.phraseId, p]));
+  const simRows = phrases.map((phrase, deckIndex) => {
+    const prog = progressById.get(phrase.name);
+    const isMastered =
+      prog != null && prog.masteryScore >= MASTERY_STABILIZING_CEIL;
+    return {
+      key: phrase.name,
+      deckIndex: deckIndex + 1,
+      label: phrase.English.question,
+      isMastered,
+    };
+  });
+  const masteredCount = simRows.filter((r) => r.isMastered).length;
+  const simTotal = phrases.length;
+  const progressFraction = simTotal > 0 ? masteredCount / simTotal : 0;
+  const progressPercent = Math.round(progressFraction * 100);
 
   return (
     <>
@@ -160,6 +200,62 @@ function LessonSimRunner({
           <span className="text-sm text-gray-400">Running…</span>
         )}
       </div>
+
+      {(isRunning || simStatus === "done") && (
+        <div className="mb-8 rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+          <div className="mb-1 flex items-baseline justify-between gap-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+              Phrases mastered
+            </p>
+            <p className="text-sm tabular-nums text-gray-600">
+              {masteredCount} / {simTotal}
+              <span className="text-gray-400"> ({progressPercent}%)</span>
+            </p>
+          </div>
+          <div
+            className="mb-4 h-2.5 w-full overflow-hidden rounded-full bg-gray-100"
+            role="progressbar"
+            aria-valuenow={progressPercent}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label="Lesson phrases mastered"
+          >
+            <div
+              className="h-full rounded-full bg-gray-900 transition-[width] duration-300 ease-out"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+          <ul className="max-h-48 space-y-1.5 overflow-y-auto text-sm">
+            {simRows.map((row) => (
+              <li
+                key={row.key}
+                className={`flex items-start gap-2 rounded-md px-2 py-1 ${
+                  row.isMastered ? "bg-green-50 text-green-900" : "text-gray-600"
+                }`}
+              >
+                <span
+                  className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-medium ${
+                    row.isMastered
+                      ? "bg-green-600 text-white"
+                      : "bg-gray-200 text-gray-500"
+                  }`}
+                  aria-hidden
+                >
+                  {row.isMastered ? "✓" : row.deckIndex}
+                </span>
+                <span
+                  className={`min-w-0 flex-1 leading-snug ${
+                    row.isMastered ? "" : "text-gray-700"
+                  }`}
+                  title={row.label}
+                >
+                  {row.label}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {simStatus === "done" && result && (
         <div className="rounded-xl border border-gray-100 bg-gray-50 p-5">
