@@ -276,12 +276,15 @@ const GrammarSection = ({
   phrase,
   incorrectPhraseRecord,
   suppressResolvedDisplay = false,
+  suppressScores = false,
   gradingStatus,
   grammarItemScoreLookup,
 }: {
   phrase: Phrase;
   incorrectPhraseRecord: IncorrectPhraseRecord | undefined;
   suppressResolvedDisplay?: boolean;
+  /** When true, hides per-item mastery scores (used for practice/retry rows). */
+  suppressScores?: boolean;
   gradingStatus?: GrammarGradingStatus;
   grammarItemScoreLookup: ReadonlyMap<string, ItemScore>;
 }): JSX.Element => {
@@ -367,7 +370,7 @@ const GrammarSection = ({
                   {r.isFailed && r.rationale ? r.rationale : <span className="text-gray-400">—</span>}
                 </td>
                 <td className="py-1 pr-2 text-right">
-                  <MasteryCell score={r.score} isPending={r.isPending} />
+                  <MasteryCell score={suppressScores ? undefined : r.score} isPending={r.isPending} />
                 </td>
               </tr>
             ))
@@ -845,7 +848,7 @@ const ScoredEventDetail = ({
                   )}
                 </td>
                 <td className="py-1 pr-2 text-right">
-                  <MasteryCell score={r.score} />
+                  <MasteryCell score={isPractice ? undefined : r.score} />
                 </td>
               </tr>
             ))}
@@ -857,6 +860,7 @@ const ScoredEventDetail = ({
         phrase={phrase}
         incorrectPhraseRecord={incorrectPhraseRecord}
         suppressResolvedDisplay={suppressGrammarResolvedDisplay}
+        suppressScores={isPractice}
         gradingStatus={gradingStatus}
         grammarItemScoreLookup={grammarItemScoreLookup}
       />
