@@ -10,7 +10,9 @@ import {
   filterHistoryEntriesForGrammarItemTrail,
   filterHistoryEntriesForWordItemTrail,
   groupWordsByPos,
+  isReportEligibleItem,
   lastHistoryDisplaySeqByPhrase,
+  MIN_REPORT_ITEM_TRIALS,
   phraseContainsGrammarItem,
   phraseContainsNormalizedWord,
   summarizeItemBands,
@@ -891,5 +893,74 @@ describe('buildItemScoreLookupsForHistoryDetail', () => {
     );
     expect(wordScoreLookup.get('como')?.mastery).toBeCloseTo(0.7);
     expect(grammarItemScoreLookup.get('ser vs estar')?.mastery).toBeCloseTo(0.6);
+  });
+});
+
+// ─── isReportEligibleItem ─────────────────────────────────────────────────────
+
+describe('isReportEligibleItem', () => {
+  it('returns false for an untrained row regardless of trialsEff', () => {
+    expect(isReportEligibleItem({ isUntrained: true, trialsEff: 0 })).toBe(false);
+    expect(isReportEligibleItem({ isUntrained: true, trialsEff: 10 })).toBe(false);
+  });
+
+  it('returns false when trialsEff is below the threshold', () => {
+    expect(isReportEligibleItem({ isUntrained: false, trialsEff: 0 })).toBe(false);
+    expect(isReportEligibleItem({ isUntrained: false, trialsEff: 1 })).toBe(false);
+    expect(isReportEligibleItem({ isUntrained: false, trialsEff: 2.9 })).toBe(false);
+  });
+
+  it('returns true when trialsEff meets the threshold exactly', () => {
+    expect(isReportEligibleItem({ isUntrained: false, trialsEff: MIN_REPORT_ITEM_TRIALS })).toBe(true);
+  });
+
+  it('returns true when trialsEff exceeds the threshold', () => {
+    expect(isReportEligibleItem({ isUntrained: false, trialsEff: 10 })).toBe(true);
+  });
+
+  it('filters out below-threshold rows from a mixed buildWordsByMastery result', () => {
+    const p = phraseWithWords('p1', [
+      { word: 'hablo', type: 'verb' },
+      { word: 'poco', type: 'noun' },
+    ]);
+    const scores: Record<string, ItemScore> = {
+      // hablo: 5 effective trials — eligible
+      hablo: makeScore(0.8, 5),
+      // poco: 1 effective trial — not eligible
+      poco: makeScore(0.3, 1),
+    };
+    const rows = buildWordsByMastery([entryForPhrase('e1', p)], scores);
+    const eligible = rows.filter(isReportEligibleItem);
+    expect(eligible).toHaveLength(1);
+    expect(eligible[0]?.word).toBe('hablo');
+  });
+
+  it('filters out below-threshold rows from a mixed buildGrammarItemsByMastery result', () => {
+    const p = phraseWithGrammar('p1', 'copula ser identity, formal usted');
+    const scores: Record<string, ItemScore> = {
+      'copula ser identity': makeScore(0.7, 5),
+      'formal usted': makeScore(0.4, 2),
+    };
+    const rows = buildGrammarItemsByMastery([entryForPhrase('e1', p)], scores, []);
+    const eligible = rows.filter(isReportEligibleItem);
+    expect(eligible).toHaveLength(1);
+    expect(eligible[0]?.item).toBe('copula ser identity');
+  });
+
+  it('summarizeItemBands on filtered rows excludes low-trial trained items', () => {
+    const p = phraseWithWords('p1', [
+      { word: 'hablo', type: 'verb' },
+      { word: 'poco', type: 'noun' },
+    ]);
+    const scores: Record<string, ItemScore> = {
+      hablo: makeScore(0.9, 5),
+      poco: makeScore(0.1, 1),
+    };
+    const allRows = buildWordsByMastery([entryForPhrase('e1', p)], scores);
+    const reportRows = allRows.filter(isReportEligibleItem);
+    const summary = summarizeItemBands(reportRows);
+    expect(summary.total).toBe(1);
+    expect(summary.mastered).toBe(1);
+    expect(summary.weak).toBe(0);
   });
 });

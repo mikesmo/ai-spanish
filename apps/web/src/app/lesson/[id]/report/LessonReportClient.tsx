@@ -11,6 +11,7 @@ import {
   filterHistoryEntriesForGrammarItemTrail,
   filterHistoryEntriesForWordItemTrail,
   groupWordsByPos,
+  isReportEligibleItem,
   normalizeStr,
   PART_OF_SPEECH_VALUES,
   summarizeItemBands,
@@ -964,16 +965,27 @@ export function LessonReportClient({
     () => buildGrammarItemsByMastery(entries, grammarItemScores, incorrectPhraseRecords),
     [entries, grammarItemScores, incorrectPhraseRecords],
   );
-  const wordBandSummary = useMemo(() => summarizeItemBands(wordRows), [wordRows]);
-  const grammarBandSummary = useMemo(
-    () => summarizeItemBands(grammarRows),
+
+  /** Words with enough evidence to appear in report rankings (trialsEff >= threshold). */
+  const reportWordRows = useMemo(
+    () => wordRows.filter(isReportEligibleItem),
+    [wordRows],
+  );
+  /** Grammar items with enough evidence to appear in report rankings. */
+  const reportGrammarRows = useMemo(
+    () => grammarRows.filter(isReportEligibleItem),
     [grammarRows],
   );
-  const avgByPos = useMemo(() => averageMasteryByPos(wordRows), [wordRows]);
+
+  const wordBandSummary = useMemo(() => summarizeItemBands(reportWordRows), [reportWordRows]);
+  const grammarBandSummary = useMemo(
+    () => summarizeItemBands(reportGrammarRows),
+    [reportGrammarRows],
+  );
+  const avgByPos = useMemo(() => averageMasteryByPos(reportWordRows), [reportWordRows]);
 
   const practiceNextItems = useMemo((): PracticeItem[] => {
-    const wordItems: PracticeItem[] = wordRows
-      .filter((r) => !r.isUntrained)
+    const wordItems: PracticeItem[] = reportWordRows
       .slice(0, 5)
       .map((r) => ({
         label: r.displayWord,
@@ -981,8 +993,7 @@ export function LessonReportClient({
         mastery: r.mastery,
         kind: "word" as const,
       }));
-    const grammarItems: PracticeItem[] = grammarRows
-      .filter((r) => !r.isUntrained)
+    const grammarItems: PracticeItem[] = reportGrammarRows
       .slice(0, 5)
       .map((r) => ({
         label: r.item,
@@ -994,7 +1005,7 @@ export function LessonReportClient({
     return [...wordItems, ...grammarItems]
       .sort((a, b) => a.mastery - b.mastery)
       .slice(0, 5);
-  }, [wordRows, grammarRows]);
+  }, [reportWordRows, reportGrammarRows]);
 
   const completedAtMs = useMemo(() => {
     if (entries.length === 0) return null;
@@ -1069,7 +1080,7 @@ export function LessonReportClient({
 
             {/* Word rankings */}
             <WordsRankingSection
-              rows={wordRows}
+              rows={reportWordRows}
               entries={entries}
               incorrectRecordsByPhraseId={incorrectRecordsByPhraseId}
               grammarItemScoreLookup={grammarItemScoreLookup}
@@ -1082,7 +1093,7 @@ export function LessonReportClient({
                 Grammar
               </h2>
               <GrammarRankingSection
-                rows={grammarRows}
+                rows={reportGrammarRows}
                 entries={entries}
                 incorrectRecordsByPhraseId={incorrectRecordsByPhraseId}
                 grammarItemScoreLookup={grammarItemScoreLookup}

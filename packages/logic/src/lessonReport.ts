@@ -236,6 +236,28 @@ export const countPracticeEvents = (entries: readonly HistoryEntry[]): number =>
     h.event.eventType === 'practice',
   ).length;
 
+// ─── Report eligibility threshold ────────────────────────────────────────────
+
+/**
+ * Minimum effective trial count required for a word or grammar item to appear
+ * in report rankings and aggregate report metrics. Items below this threshold
+ * lack sufficient evidence and would distort summaries (e.g. a single lucky
+ * or unlucky trial dominating "lowest first" lists).
+ */
+export const MIN_REPORT_ITEM_TRIALS = 3;
+
+/**
+ * Returns true when a word or grammar item row has enough evidence to be
+ * included in report rankings, mastery health summaries, and POS averages.
+ *
+ * A row qualifies when it is trained (`!isUntrained`) and its effective trial
+ * count meets the minimum threshold.
+ */
+export const isReportEligibleItem = (row: {
+  isUntrained: boolean;
+  trialsEff: number;
+}): boolean => !row.isUntrained && row.trialsEff >= MIN_REPORT_ITEM_TRIALS;
+
 // ─── Per-word and per-grammar-item mastery helpers ────────────────────────────
 
 export interface WordMasteryRow {
