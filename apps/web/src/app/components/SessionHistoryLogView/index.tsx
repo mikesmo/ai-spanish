@@ -752,7 +752,10 @@ const ScoredEventDetail = ({
     const alignment = alignWords(phrase.Spanish.words, spokenStub);
     const missingWords = alignment.missing.map((w) => w.word);
     return {
-      rows: buildAlignmentRows(phrase.Spanish.words, missingWords, incorrectPhraseRecord, wordScoreLookup),
+      // Practice events never write to the incorrectPhraseTracker, so we pass
+      // undefined here to prevent tracker data from a prior attempt bleeding
+      // into the "Resolved by" column of this retry row.
+      rows: buildAlignmentRows(phrase.Spanish.words, missingWords, undefined, wordScoreLookup),
       extraWordsDisplay: alignment.extra.map((w) => w.word),
     };
   }, [event, phrase.Spanish.words, incorrectPhraseRecord, wordScoreLookup]);
@@ -760,11 +763,11 @@ const ScoredEventDetail = ({
   const fullyRedeemedFailedAtEventSeqs =
     entry.incorrectPhraseRecordsFullyResolvedFailedAtEventSeqs ?? [];
 
-  /** Successful revisit: word rows are all matched (—); hide grammar self-seq too. */
+  /** Suppress "Resolved by" on practice rows (no tracker writes) and on
+   *  successful revisits where all words are already matched. */
   const suppressGrammarResolvedDisplay =
-    entry.isRepeatedPresentation &&
-    !isPractice &&
-    scoreSummary.isAccuracySuccess;
+    isPractice ||
+    (entry.isRepeatedPresentation && scoreSummary.isAccuracySuccess);
 
   return (
     <div className="bg-gray-50 border-t border-gray-200 px-3 py-3 space-y-4 text-[11px]">
