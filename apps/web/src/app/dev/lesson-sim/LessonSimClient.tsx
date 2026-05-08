@@ -141,16 +141,13 @@ function LessonSimRunner({
     startTimeRef.current = Date.now();
     setResult(null);
     setWaitingToAdvance(false);
-    setSimStatus("running");
     runningRef.current = true;
-
-    const s = sessionRef.current;
-    const phrase = s.currentPhrase;
-    s.bindCurrentPhrase(phrase);
-    s.onPresentationStart?.(phrase);
-    const events = pickRandomPhraseEventsForCard(phrase, Math.random);
-    events.forEach((ev) => s.onPhraseEvent(ev));
-    setWaitingToAdvance(true);
+    // Setting simStatus triggers the step effect, which processes the first
+    // phrase. Do NOT manually process the first phrase here — doing so AND
+    // relying on the step effect causes onPresentationStart to be called twice
+    // for the first card, which flags it as isRepeatedPresentation and produces
+    // a spurious (0/2) revisit badge.
+    setSimStatus("running");
   };
 
   const handleStop = () => {
