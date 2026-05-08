@@ -4,15 +4,22 @@ import {
   averageMasteryByPos,
   bucketPhrasesByFailedAttemptCount,
   buildGrammarItemsByMastery,
+  buildItemScoreLookupsForHistoryDetail,
   buildPhrasesByMasterScore,
   buildWordsByMastery,
   computeLessonReportSummary,
+  filterHistoryEntriesForGrammarItemTrail,
+  filterHistoryEntriesForWordItemTrail,
   groupWordsByPos,
+  normalizeStr,
   PART_OF_SPEECH_VALUES,
   summarizeItemBands,
   type GrammarMasteryRow,
+  type HistoryEntry,
+  type IncorrectPhraseRecord,
   type ItemBandSummary,
   type ItemMasteryBand,
+  type ItemScore,
   type PhraseMasteryRow,
   type PhraseRevisitRow,
   type PhraseState,
@@ -21,6 +28,7 @@ import {
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { HistorySidebar, HistoryToggle } from "../../../components/HistorySidebar";
+import { SessionHistoryEntryDetail } from "../../../components/SessionHistoryLogView";
 import { useLessonCompletionQuery } from "../../../hooks/useLessonCompletionQuery";
 
 interface Props {
@@ -452,9 +460,98 @@ const PosStrengthSection = ({
   );
 };
 
+// ─── Item trail panel ─────────────────────────────────────────────────────────
+
+const EVENT_LABEL: Record<string, string> = {
+  attempt: "attempt",
+  reveal: "reveal",
+  practice: "retry",
+};
+
+interface ItemTrailPanelProps {
+  trailEntries: HistoryEntry[];
+  incorrectRecordsByPhraseId: ReadonlyMap<string, IncorrectPhraseRecord>;
+  grammarItemScoreLookup: ReadonlyMap<string, ItemScore>;
+  wordScoreLookup: ReadonlyMap<string, ItemScore>;
+}
+
+const ItemTrailPanel = ({
+  trailEntries,
+  incorrectRecordsByPhraseId,
+  grammarItemScoreLookup,
+  wordScoreLookup,
+}: ItemTrailPanelProps): JSX.Element => {
+  if (trailEntries.length === 0) {
+    return (
+      <p className="mt-2 text-[11px] text-gray-400">No events recorded for this item.</p>
+    );
+  }
+
+  return (
+    <ol className="mt-2 flex flex-col gap-1">
+      {trailEntries.map((entry, idx) => {
+        const seq = entry.eventSeq ?? idx + 1;
+        const label = EVENT_LABEL[entry.event.eventType] ?? entry.event.eventType;
+        const spanish = entry.phrase.Spanish.answer;
+        return (
+          <li key={entry.id}>
+            <details className="group rounded border border-gray-100 bg-white">
+              <summary className="flex cursor-pointer list-none items-center gap-2 px-2 py-1.5 text-[11px] hover:bg-gray-50">
+                <span className="font-mono tabular-nums text-gray-400 w-5 shrink-0 text-right">
+                  #{seq}
+                </span>
+                <span
+                  className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] ${
+                    entry.event.eventType === "reveal"
+                      ? "border-red-200 bg-red-50 text-red-700"
+                      : entry.event.eventType === "attempt" && entry.scoreSummary?.isAccuracySuccess
+                        ? "border-amber-200 bg-amber-50 text-amber-700"
+                        : "border-gray-200 bg-gray-50 text-gray-600"
+                  }`}
+                >
+                  {label}
+                </span>
+                <span className="min-w-0 flex-1 truncate italic text-gray-700">{spanish}</span>
+                <span
+                  aria-hidden
+                  className="shrink-0 text-gray-400 transition group-open:rotate-90"
+                >
+                  ▸
+                </span>
+              </summary>
+              <div className="border-t border-gray-100">
+                <SessionHistoryEntryDetail
+                  entry={entry}
+                  incorrectPhraseRecord={incorrectRecordsByPhraseId.get(entry.phrase.name)}
+                  grammarItemScoreLookup={grammarItemScoreLookup}
+                  wordScoreLookup={wordScoreLookup}
+                />
+              </div>
+            </details>
+          </li>
+        );
+      })}
+    </ol>
+  );
+};
+
 // ─── Word mastery row component ───────────────────────────────────────────────
 
-const WordRow = ({ row }: { row: WordMasteryRow }): JSX.Element => {
+interface WordRowProps {
+  row: WordMasteryRow;
+  entries: readonly HistoryEntry[];
+  incorrectRecordsByPhraseId: ReadonlyMap<string, IncorrectPhraseRecord>;
+  grammarItemScoreLookup: ReadonlyMap<string, ItemScore>;
+  wordScoreLookup: ReadonlyMap<string, ItemScore>;
+}
+
+const WordRow = ({
+  row,
+  entries,
+  incorrectRecordsByPhraseId,
+  grammarItemScoreLookup,
+  wordScoreLookup,
+}: WordRowProps): JSX.Element => {
   const band: ItemMasteryBand = row.isUntrained
     ? "weak"
     : row.mastery >= 0.8
@@ -463,8 +560,14 @@ const WordRow = ({ row }: { row: WordMasteryRow }): JSX.Element => {
         ? "stabilizing"
         : "weak";
 
-  return (
-    <li className="flex items-center gap-2 rounded-lg border border-gray-100 bg-white px-3 py-2">
+  const hasTrail = !row.isUntrained && row.trialsEff > 0;
+  const trailEntries = useMemo(
+    () => (hasTrail ? filterHistoryEntriesForWordItemTrail(normalizeStr(row.word), entries) : []),
+    [hasTrail, row.word, entries],
+  );
+
+  const summary = (
+    <div className="flex items-center gap-2 w-full">
       <div className="min-w-0 flex-1">
         <span className="text-sm text-gray-900">{row.displayWord}</span>
       </div>
@@ -488,19 +591,60 @@ const WordRow = ({ row }: { row: WordMasteryRow }): JSX.Element => {
             </span>
           </>
         )}
+        {hasTrail && (
+          <span aria-hidden className="text-gray-400 text-[10px] group-open:rotate-90 transition">▸</span>
+        )}
       </div>
+    </div>
+  );
+
+  if (!hasTrail) {
+    return (
+      <li className="rounded-lg border border-gray-100 bg-white px-3 py-2">
+        {summary}
+      </li>
+    );
+  }
+
+  return (
+    <li className="group rounded-lg border border-gray-100 bg-white">
+      <details>
+        <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2">
+          {summary}
+        </summary>
+        <div className="border-t border-gray-100 px-3 pb-3">
+          <ItemTrailPanel
+            trailEntries={trailEntries}
+            incorrectRecordsByPhraseId={incorrectRecordsByPhraseId}
+            grammarItemScoreLookup={grammarItemScoreLookup}
+            wordScoreLookup={wordScoreLookup}
+          />
+        </div>
+      </details>
     </li>
   );
 };
 
 // ─── Words merged ranking + by type ──────────────────────────────────────────
 
+interface WordsRankingSectionProps {
+  rows: WordMasteryRow[];
+  entries: readonly HistoryEntry[];
+  incorrectRecordsByPhraseId: ReadonlyMap<string, IncorrectPhraseRecord>;
+  grammarItemScoreLookup: ReadonlyMap<string, ItemScore>;
+  wordScoreLookup: ReadonlyMap<string, ItemScore>;
+}
+
 const WordsRankingSection = ({
   rows,
-}: {
-  rows: WordMasteryRow[];
-}): JSX.Element => {
+  entries,
+  incorrectRecordsByPhraseId,
+  grammarItemScoreLookup,
+  wordScoreLookup,
+}: WordsRankingSectionProps): JSX.Element => {
   const grouped = useMemo(() => groupWordsByPos(rows), [rows]);
+
+  const trailProps = { entries, incorrectRecordsByPhraseId, grammarItemScoreLookup, wordScoreLookup };
 
   return (
     <section aria-label="Words by master score" className="flex flex-col gap-3">
@@ -523,7 +667,7 @@ const WordsRankingSection = ({
         ) : (
           <ul className="flex flex-col gap-1.5">
             {rows.map((row) => (
-              <WordRow key={row.word} row={row} />
+              <WordRow key={row.word} row={row} {...trailProps} />
             ))}
           </ul>
         )}
@@ -554,7 +698,7 @@ const WordsRankingSection = ({
               </summary>
               <ul className="mt-3 flex flex-col gap-1.5">
                 {posRows.map((row) => (
-                  <WordRow key={row.word} row={row} />
+                  <WordRow key={row.word} row={row} {...trailProps} />
                 ))}
               </ul>
             </details>
@@ -567,11 +711,21 @@ const WordsRankingSection = ({
 
 // ─── Grammar mastery section ──────────────────────────────────────────────────
 
+interface GrammarRankingSectionProps {
+  rows: GrammarMasteryRow[];
+  entries: readonly HistoryEntry[];
+  incorrectRecordsByPhraseId: ReadonlyMap<string, IncorrectPhraseRecord>;
+  grammarItemScoreLookup: ReadonlyMap<string, ItemScore>;
+  wordScoreLookup: ReadonlyMap<string, ItemScore>;
+}
+
 const GrammarRankingSection = ({
   rows,
-}: {
-  rows: GrammarMasteryRow[];
-}): JSX.Element => (
+  entries,
+  incorrectRecordsByPhraseId,
+  grammarItemScoreLookup,
+  wordScoreLookup,
+}: GrammarRankingSectionProps): JSX.Element => (
   <section
     aria-label="Grammar by master score"
     className="rounded-xl border border-gray-200 bg-white px-5 py-4 shadow-sm"
@@ -595,11 +749,13 @@ const GrammarRankingSection = ({
                 ? "stabilizing"
                 : "weak";
 
-          return (
-            <li
-              key={row.item}
-              className="flex items-start gap-2 rounded-lg border border-gray-100 bg-white px-3 py-2"
-            >
+          const hasTrail = !row.isUntrained && row.trialsEff > 0;
+          const trailEntries = hasTrail
+            ? filterHistoryEntriesForGrammarItemTrail(row.item, entries)
+            : [];
+
+          const rowContent = (
+            <>
               <div className="min-w-0 flex-1">
                 <p className="text-sm text-gray-900">{row.item}</p>
                 {row.latestRationale && (
@@ -628,7 +784,39 @@ const GrammarRankingSection = ({
                 <span className="text-[10px] tabular-nums text-gray-400">
                   {Math.round(row.trialsEff)} trials
                 </span>
+                {hasTrail && (
+                  <span aria-hidden className="text-gray-400 text-[10px] group-open:rotate-90 transition">▸</span>
+                )}
               </div>
+            </>
+          );
+
+          if (!hasTrail) {
+            return (
+              <li
+                key={row.item}
+                className="flex items-start gap-2 rounded-lg border border-gray-100 bg-white px-3 py-2"
+              >
+                {rowContent}
+              </li>
+            );
+          }
+
+          return (
+            <li key={row.item} className="group rounded-lg border border-gray-100 bg-white">
+              <details>
+                <summary className="flex cursor-pointer list-none items-start gap-2 px-3 py-2">
+                  {rowContent}
+                </summary>
+                <div className="border-t border-gray-100 px-3 pb-3">
+                  <ItemTrailPanel
+                    trailEntries={trailEntries}
+                    incorrectRecordsByPhraseId={incorrectRecordsByPhraseId}
+                    grammarItemScoreLookup={grammarItemScoreLookup}
+                    wordScoreLookup={wordScoreLookup}
+                  />
+                </div>
+              </details>
             </li>
           );
         })}
@@ -818,6 +1006,17 @@ export function LessonReportClient({
     return max > 0 ? max : null;
   }, [entries]);
 
+  const { grammarItemScoreLookup, wordScoreLookup } = useMemo(
+    () => buildItemScoreLookupsForHistoryDetail(incorrectPhraseRecords, wordScores, grammarItemScores),
+    [incorrectPhraseRecords, wordScores, grammarItemScores],
+  );
+
+  const incorrectRecordsByPhraseId = useMemo(() => {
+    const map = new Map<string, IncorrectPhraseRecord>();
+    for (const r of incorrectPhraseRecords) map.set(r.phraseId, r);
+    return map;
+  }, [incorrectPhraseRecords]);
+
   const hasCompletion = entries.length > 0;
 
   return (
@@ -869,14 +1068,26 @@ export function LessonReportClient({
             <PosStrengthSection avgByPos={avgByPos} />
 
             {/* Word rankings */}
-            <WordsRankingSection rows={wordRows} />
+            <WordsRankingSection
+              rows={wordRows}
+              entries={entries}
+              incorrectRecordsByPhraseId={incorrectRecordsByPhraseId}
+              grammarItemScoreLookup={grammarItemScoreLookup}
+              wordScoreLookup={wordScoreLookup}
+            />
 
             {/* Grammar ranking */}
             <section aria-label="Grammar" className="flex flex-col gap-3">
               <h2 className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
                 Grammar
               </h2>
-              <GrammarRankingSection rows={grammarRows} />
+              <GrammarRankingSection
+                rows={grammarRows}
+                entries={entries}
+                incorrectRecordsByPhraseId={incorrectRecordsByPhraseId}
+                grammarItemScoreLookup={grammarItemScoreLookup}
+                wordScoreLookup={wordScoreLookup}
+              />
             </section>
 
             {/* Failed attempts */}

@@ -3,17 +3,23 @@ import {
   averageMasteryByPos,
   bucketPhrasesByFailedAttemptCount,
   buildGrammarItemsByMastery,
+  buildItemScoreLookupsForHistoryDetail,
   buildPhrasesByMasterScore,
   buildWordsByMastery,
   computeLessonReportSummary,
+  filterHistoryEntriesForGrammarItemTrail,
+  filterHistoryEntriesForWordItemTrail,
   groupWordsByPos,
   lastHistoryDisplaySeqByPhrase,
+  phraseContainsGrammarItem,
+  phraseContainsNormalizedWord,
   summarizeItemBands,
 } from '../lessonReport';
 import type { HistoryEntry } from '../useSessionHistory';
 import type { Phrase, PhraseProgress } from '../types';
 import { POS_WEIGHTS } from '../weights';
 import type { ItemScore } from '../itemMastery';
+import type { IncorrectPhraseRecord } from '../incorrectPhraseTracker';
 
 const phrase = (name: string): Phrase => ({
   name,
@@ -636,5 +642,254 @@ describe('averageMasteryByPos', () => {
     const rows = buildWordsByMastery([entryForPhrase('e1', p)], {});
     const avgs = averageMasteryByPos(rows);
     expect(avgs.verb).toBeNull();
+  });
+});
+
+// ─── phraseContainsNormalizedWord ─────────────────────────────────────────────
+
+describe('phraseContainsNormalizedWord', () => {
+  const p = phraseWithWords('p', [
+    { word: 'Habla', type: 'verb' },
+    { word: 'usted', type: 'noun' },
+  ]);
+
+  it('matches when the word normalizes to the target', () => {
+    expect(phraseContainsNormalizedWord(p, 'habla')).toBe(true);
+    expect(phraseContainsNormalizedWord(p, 'usted')).toBe(true);
+  });
+
+  it('returns false when the word is not in the phrase', () => {
+    expect(phraseContainsNormalizedWord(p, 'hablo')).toBe(false);
+  });
+
+  it('strips diacritics when normalizing', () => {
+    const pAccent = phraseWithWords('q', [{ word: 'está', type: 'verb' }]);
+    expect(phraseContainsNormalizedWord(pAccent, 'esta')).toBe(true);
+  });
+});
+
+// ─── phraseContainsGrammarItem ────────────────────────────────────────────────
+
+describe('phraseContainsGrammarItem', () => {
+  const makePhrase = (grammar: string): Phrase => ({
+    name: 'x',
+    index: 0,
+    English: { 'first-intro': '', 'second-intro': '', question: '', 'follow-up': '', explain: '' },
+    Spanish: {
+      grammar,
+      answer: 'x',
+      words: [{ word: 'x', type: 'verb', weight: POS_WEIGHTS.verb }],
+    },
+  });
+
+  it('matches a single-item grammar string', () => {
+    expect(phraseContainsGrammarItem(makePhrase('polite address'), 'polite address')).toBe(true);
+  });
+
+  it('matches any token in a comma-separated list', () => {
+    const p = makePhrase('ser vs estar, polite address');
+    expect(phraseContainsGrammarItem(p, 'ser vs estar')).toBe(true);
+    expect(phraseContainsGrammarItem(p, 'polite address')).toBe(true);
+  });
+
+  it('returns false when the item is not in the grammar string', () => {
+    expect(phraseContainsGrammarItem(makePhrase('polite address'), 'subjunctive')).toBe(false);
+  });
+
+  it('trims whitespace around comma-separated tokens', () => {
+    expect(phraseContainsGrammarItem(makePhrase(' ser vs estar , polite address '), 'ser vs estar')).toBe(true);
+  });
+});
+
+// ─── filterHistoryEntriesForWordItemTrail ─────────────────────────────────────
+
+const makeRevealEntry = (id: string, p: Phrase): HistoryEntry => ({
+  id,
+  event: { eventType: 'reveal', phraseId: p.name, penaltyApplied: true, timestamp: 0 },
+  phrase: p,
+  scoreSummary: null,
+  stabilityBreakdown: { before: 0.5, after: 0.35, kind: 'reveal_decay' },
+  masteryBefore: 0.5,
+  masteryAfter: 0.3,
+  isRepeatedPresentation: false,
+  slotsAheadAtEvent: null,
+});
+
+const makePracticeEntry = (id: string, p: Phrase): HistoryEntry => ({
+  id,
+  event: {
+    eventType: 'practice',
+    phraseId: p.name,
+    transcript: [],
+    fluencyScore: null,
+    timestamp: 0,
+    accuracyBreakdown: { accuracy: 0.5, totalWeight: 1, missingPenalty: 0, extraPenalty: 0, rawExtraPenalty: 0 },
+    fluencyBreakdown: null,
+  },
+  phrase: p,
+  scoreSummary: null,
+  stabilityBreakdown: { before: 0, after: 0, kind: 'practice_unchanged' },
+  masteryBefore: 0,
+  masteryAfter: 0,
+  isRepeatedPresentation: false,
+  slotsAheadAtEvent: null,
+});
+
+describe('filterHistoryEntriesForWordItemTrail', () => {
+  const pA = phraseWithWords('A', [{ word: 'habla', type: 'verb' }, { word: 'usted', type: 'noun' }]);
+  const pB = phraseWithWords('B', [{ word: 'usted', type: 'noun' }]);
+  const pC = phraseWithWords('C', [{ word: 'como', type: 'verb' }]);
+
+  it('returns attempt and reveal entries for phrases containing the word', () => {
+    const entries: HistoryEntry[] = [
+      entryForPhrase('1', pA),
+      entryForPhrase('2', pC),
+      makeRevealEntry('3', pB),
+    ];
+    const trail = filterHistoryEntriesForWordItemTrail('usted', entries);
+    expect(trail.map((e) => e.id)).toEqual(['1', '3']);
+  });
+
+  it('excludes practice events even when the phrase contains the word', () => {
+    const entries: HistoryEntry[] = [
+      entryForPhrase('1', pA),
+      makePracticeEntry('2', pA),
+      makeRevealEntry('3', pA),
+    ];
+    const trail = filterHistoryEntriesForWordItemTrail('habla', entries);
+    expect(trail.map((e) => e.id)).toEqual(['1', '3']);
+  });
+
+  it('preserves chronological order', () => {
+    const entries: HistoryEntry[] = [
+      entryForPhrase('1', pB),
+      entryForPhrase('2', pB),
+      entryForPhrase('3', pB),
+    ];
+    expect(filterHistoryEntriesForWordItemTrail('usted', entries).map((e) => e.id)).toEqual(['1', '2', '3']);
+  });
+
+  it('returns an empty array when no entries match', () => {
+    expect(filterHistoryEntriesForWordItemTrail('desconocido', [entryForPhrase('1', pA)])).toHaveLength(0);
+  });
+});
+
+// ─── filterHistoryEntriesForGrammarItemTrail ──────────────────────────────────
+
+describe('filterHistoryEntriesForGrammarItemTrail', () => {
+  const pA = phraseWithGrammar('A', 'polite address, ser vs estar');
+  const pB = phraseWithGrammar('B', 'polite address');
+  const pC = phraseWithGrammar('C', 'subjunctive');
+
+  it('returns attempt and reveal entries for phrases containing the grammar item', () => {
+    const entries: HistoryEntry[] = [
+      entryForPhrase('1', pA),
+      entryForPhrase('2', pC),
+      makeRevealEntry('3', pB),
+    ];
+    const trail = filterHistoryEntriesForGrammarItemTrail('polite address', entries);
+    expect(trail.map((e) => e.id)).toEqual(['1', '3']);
+  });
+
+  it('excludes practice events', () => {
+    const entries: HistoryEntry[] = [
+      entryForPhrase('1', pA),
+      makePracticeEntry('2', pA),
+      makeRevealEntry('3', pA),
+    ];
+    const trail = filterHistoryEntriesForGrammarItemTrail('ser vs estar', entries);
+    expect(trail.map((e) => e.id)).toEqual(['1', '3']);
+  });
+
+  it('preserves chronological order', () => {
+    const entries: HistoryEntry[] = [
+      entryForPhrase('1', pB),
+      entryForPhrase('2', pB),
+    ];
+    expect(filterHistoryEntriesForGrammarItemTrail('polite address', entries).map((e) => e.id)).toEqual(['1', '2']);
+  });
+
+  it('returns an empty array when the grammar item is absent from all phrases', () => {
+    expect(filterHistoryEntriesForGrammarItemTrail('pluperfect', [entryForPhrase('1', pA)])).toHaveLength(0);
+  });
+});
+
+// ─── buildItemScoreLookupsForHistoryDetail ────────────────────────────────────
+
+describe('buildItemScoreLookupsForHistoryDetail', () => {
+  const baseScore = (mastery: number, seq: number): ItemScore => ({
+    mastery,
+    trialsEff: 5,
+    successSumEff: 5 * mastery,
+    stability: mastery,
+    lastUpdatedAtEventSeq: seq,
+  });
+
+  it('returns empty maps when all inputs are empty', () => {
+    const { grammarItemScoreLookup, wordScoreLookup } = buildItemScoreLookupsForHistoryDetail([], {}, {});
+    expect(grammarItemScoreLookup.size).toBe(0);
+    expect(wordScoreLookup.size).toBe(0);
+  });
+
+  it('seeds grammar scores from incorrectPhraseRecords', () => {
+    const record: IncorrectPhraseRecord = {
+      phraseId: 'A',
+      incorrectWords: [],
+      resolvedWords: [],
+      incorrectWordEntries: [],
+      incorrectGrammarItems: [
+        { item: 'polite address', failedAtEventSeq: 1, resolvedByEventSeq: null, score: baseScore(0.3, 1) },
+      ],
+      grammarGradingStatus: 'success',
+      failedAtEventSeq: 1,
+      isFullyResolved: false,
+    };
+    const { grammarItemScoreLookup } = buildItemScoreLookupsForHistoryDetail([record], {}, {});
+    expect(grammarItemScoreLookup.get('polite address')?.mastery).toBeCloseTo(0.3);
+  });
+
+  it('seeds word scores from incorrectPhraseRecords incorrectWordEntries', () => {
+    const record: IncorrectPhraseRecord = {
+      phraseId: 'A',
+      incorrectWords: ['habla'],
+      resolvedWords: [],
+      incorrectWordEntries: [{ word: 'habla', failedAtEventSeq: 1, resolvedByEventSeq: null, score: baseScore(0.4, 1) }],
+      incorrectGrammarItems: [],
+      grammarGradingStatus: 'success',
+      failedAtEventSeq: 1,
+      isFullyResolved: false,
+    };
+    const { wordScoreLookup } = buildItemScoreLookupsForHistoryDetail([record], {}, {});
+    expect(wordScoreLookup.get('habla')?.mastery).toBeCloseTo(0.4);
+  });
+
+  it('overlays checkpoint scores and latest eventSeq wins', () => {
+    const record: IncorrectPhraseRecord = {
+      phraseId: 'A',
+      incorrectWords: [],
+      resolvedWords: [],
+      incorrectWordEntries: [{ word: 'usted', failedAtEventSeq: 1, resolvedByEventSeq: null, score: baseScore(0.5, 3) }],
+      incorrectGrammarItems: [],
+      grammarGradingStatus: 'success',
+      failedAtEventSeq: 1,
+      isFullyResolved: false,
+    };
+    // checkpoint has a higher eventSeq — should win
+    const { wordScoreLookup } = buildItemScoreLookupsForHistoryDetail(
+      [record],
+      { usted: baseScore(0.9, 10) },
+      {},
+    );
+    expect(wordScoreLookup.get('usted')?.mastery).toBeCloseTo(0.9);
+  });
+
+  it('includes checkpoint-only items that never had an IncorrectPhraseRecord', () => {
+    const { wordScoreLookup, grammarItemScoreLookup } = buildItemScoreLookupsForHistoryDetail(
+      [],
+      { como: baseScore(0.7, 2) },
+      { 'ser vs estar': baseScore(0.6, 2) },
+    );
+    expect(wordScoreLookup.get('como')?.mastery).toBeCloseTo(0.7);
+    expect(grammarItemScoreLookup.get('ser vs estar')?.mastery).toBeCloseTo(0.6);
   });
 });

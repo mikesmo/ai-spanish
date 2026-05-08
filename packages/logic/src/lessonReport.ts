@@ -528,3 +528,111 @@ export const averageMasteryByPos = (
 
   return result;
 };
+
+// ─── Item mastery trail helpers ───────────────────────────────────────────────
+
+/**
+ * True when `phrase.Spanish.words` contains a word that normalizes to
+ * `normalizedWord` (uses the same `normalizeStr` used by the tracker).
+ */
+export const phraseContainsNormalizedWord = (
+  phrase: Phrase,
+  normalizedWord: string,
+): boolean =>
+  phrase.Spanish.words.some((w) => normalizeStr(w.word) === normalizedWord);
+
+/**
+ * True when `phrase.Spanish.grammar` contains `item` as one of its
+ * comma-separated tokens (trimmed, exact match — mirrors `buildGrammarItemsByMastery`).
+ */
+export const phraseContainsGrammarItem = (
+  phrase: Phrase,
+  item: string,
+): boolean =>
+  phrase.Spanish.grammar
+    .split(',')
+    .map((s) => s.trim())
+    .includes(item);
+
+/**
+ * Returns the chronological subset of `entries` where:
+ *  - the phrase contains `normalizedWord`, and
+ *  - the event type is `attempt` or `reveal` (practice does not update item mastery).
+ *
+ * Order is preserved (lesson chronological order = input array order).
+ */
+export const filterHistoryEntriesForWordItemTrail = (
+  normalizedWord: string,
+  entries: readonly HistoryEntry[],
+): HistoryEntry[] =>
+  entries.filter(
+    (e) =>
+      (e.event.eventType === 'attempt' || e.event.eventType === 'reveal') &&
+      phraseContainsNormalizedWord(e.phrase, normalizedWord),
+  );
+
+/**
+ * Returns the chronological subset of `entries` where:
+ *  - the phrase contains `item` in `Spanish.grammar`, and
+ *  - the event type is `attempt` or `reveal`.
+ *
+ * Note: `applyAiGrading` may skip a grammar bump for the "ambiguous" case
+ * (not-failed AND accuracy failure), so this list is an approximation —
+ * it may include at most one extra entry per ambiguous attempt.
+ */
+export const filterHistoryEntriesForGrammarItemTrail = (
+  item: string,
+  entries: readonly HistoryEntry[],
+): HistoryEntry[] =>
+  entries.filter(
+    (e) =>
+      (e.event.eventType === 'attempt' || e.event.eventType === 'reveal') &&
+      phraseContainsGrammarItem(e.phrase, item),
+  );
+
+export interface ItemScoreLookups {
+  grammarItemScoreLookup: ReadonlyMap<string, ItemScore>;
+  wordScoreLookup: ReadonlyMap<string, ItemScore>;
+}
+
+/**
+ * Builds merged word and grammar-item mastery score lookups suitable for
+ * passing to `SessionHistoryEntryDetail`.
+ *
+ * Sources (highest `lastUpdatedAtEventSeq` per key wins):
+ *  1. `IncorrectPhraseRecord.incorrectGrammarItems[].score` / `incorrectWordEntries[].score`
+ *     (covers failed items with tracker-denormalized scores).
+ *  2. `checkpointWordScores` / `checkpointGrammarItemScores` from the session
+ *     checkpoint (covers items that were always answered correctly and therefore
+ *     never produced an IncorrectPhraseRecord entry).
+ */
+export const buildItemScoreLookupsForHistoryDetail = (
+  incorrectPhraseRecords: readonly IncorrectPhraseRecord[],
+  checkpointWordScores: Record<string, ItemScore>,
+  checkpointGrammarItemScores: Record<string, ItemScore>,
+): ItemScoreLookups => {
+  const stash = (
+    target: Map<string, ItemScore>,
+    key: string,
+    score: ItemScore | undefined,
+  ): void => {
+    if (!score) return;
+    const existing = target.get(key);
+    if (!existing || score.lastUpdatedAtEventSeq > existing.lastUpdatedAtEventSeq) {
+      target.set(key, score);
+    }
+  };
+
+  const grammar = new Map<string, ItemScore>();
+  const word = new Map<string, ItemScore>();
+
+  for (const record of incorrectPhraseRecords) {
+    for (const g of record.incorrectGrammarItems) stash(grammar, g.item, g.score);
+    for (const w of record.incorrectWordEntries ?? []) stash(word, w.word, w.score);
+  }
+
+  for (const [key, score] of Object.entries(checkpointWordScores)) stash(word, key, score);
+  for (const [key, score] of Object.entries(checkpointGrammarItemScores)) stash(grammar, key, score);
+
+  return { grammarItemScoreLookup: grammar, wordScoreLookup: word };
+};

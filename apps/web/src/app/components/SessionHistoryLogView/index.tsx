@@ -1754,3 +1754,56 @@ export const SessionHistoryLogView = ({
     </div>
   );
 };
+
+// ---------------------------------------------------------------------------
+// SessionHistoryEntryDetail — public re-export of the per-row detail panel
+// ---------------------------------------------------------------------------
+
+export interface SessionHistoryEntryDetailProps {
+  entry: HistoryEntry;
+  incorrectPhraseRecord: IncorrectPhraseRecord | undefined;
+  grammarItemScoreLookup: ReadonlyMap<string, ItemScore>;
+  wordScoreLookup: ReadonlyMap<string, ItemScore>;
+}
+
+/**
+ * Renders the expandable detail panel for a single history entry. Dispatches
+ * to `RevealEventDetail` for reveal events and `ScoredEventDetail` for scored
+ * attempt / practice events. Renders nothing for entries with no score data
+ * (should not occur in practice).
+ */
+export const SessionHistoryEntryDetail = ({
+  entry,
+  incorrectPhraseRecord,
+  grammarItemScoreLookup,
+  wordScoreLookup,
+}: SessionHistoryEntryDetailProps): JSX.Element | null => {
+  const { event } = entry;
+
+  if (event.eventType === "reveal") {
+    return (
+      <RevealEventDetail
+        entry={entry}
+        incorrectPhraseRecord={incorrectPhraseRecord}
+        grammarItemScoreLookup={grammarItemScoreLookup}
+      />
+    );
+  }
+
+  if (
+    (event.eventType === "attempt" || event.eventType === "practice") &&
+    entry.scoreSummary != null
+  ) {
+    return (
+      <ScoredEventDetail
+        entry={entry as ScoredEntry}
+        isPractice={event.eventType === "practice"}
+        incorrectPhraseRecord={incorrectPhraseRecord}
+        grammarItemScoreLookup={grammarItemScoreLookup}
+        wordScoreLookup={wordScoreLookup}
+      />
+    );
+  }
+
+  return null;
+};
