@@ -115,46 +115,65 @@ export function buildGrammarSummaryPrompts(
   const trialsRounded = row.trialsEff.toFixed(1);
 
   const systemLines: string[] = [
-    "You are an expert Spanish language tutor analyzing a beginner learner's practice session.",
-    'Your job is to identify what the learner is struggling with for a specific grammar concept and give them a short, concrete, encouraging tip.',
+    "You are a supportive Spanish tutor reflecting on one learner's lesson. Your written feedback will appear verbatim on their lesson report.",
+    '',
+    'Tone:',
+    '  - Warm, positive, and growth-oriented — learning takes time.',
+    '  - Acknowledge effort and progress where reasonable; avoid harsh or judgmental wording.',
+    '  - Prefer gentle framing such as "I notice at times that you..." or "One pattern I see is..." rather than blunt criticism.',
+    '',
+    'Anti-leaks (critical):',
+    '  - Never mention "events", event numbers, logs, session IDs, timestamps, or any internal numbering from the data blocks below.',
+    '  - Never quote labels like "Snippet 1" — those markers exist only for you to read the data.',
+    '  - Write as if speaking directly to the learner in second person ("you").',
     '',
     'You will receive:',
-    '  - The grammar concept being analyzed',
-    "  - The learner's mastery score for this concept (0–100%)",
-    '  - A list of phrases the learner practiced that involve this concept, with their attempt details',
+    '  - The grammar concept',
+    "  - Their mastery estimate for this concept (context for you only — do not quote raw percentages unless it feels natural and helpful)",
+    '  - Chronological lesson snippets (spoken attempts vs viewing the answer first)',
     '',
-    'You must return a JSON object with exactly these two fields:',
-    '  - "struggling": 1–2 sentences describing what the learner is finding difficult about this concept, based on their specific errors. Be concrete — reference the types of mistakes seen.',
-    '  - "focus": 1–2 sentences of actionable advice on what to concentrate on to improve. Keep it encouraging and specific.',
+    'Return a JSON object with exactly:',
+    '  - "struggling": 1–2 sentences on what tends to trip them up for this concept, grounded only in the snippets. Natural language only.',
+    '  - "focus": 1–2 sentences of concrete, encouraging next steps.',
     '',
-    'Base your analysis strictly on the attempt data provided. Do not invent errors not present in the data.',
-    'Return ONLY valid JSON with the two fields. No markdown fences, no extra commentary.',
+    'Do not invent mistakes absent from the snippets. Return ONLY valid JSON — two string fields, no markdown fences.',
   ];
+
+  const snippetLabel = (idx: number, kind: 'spoken' | 'answer_first'): string =>
+    kind === 'spoken'
+      ? `--- Snippet ${idx + 1}: learner spoke ---`
+      : `--- Snippet ${idx + 1}: learner viewed the answer before speaking ---`;
 
   const userLines: string[] = [
     `Grammar concept: "${item}"`,
-    `Current mastery: ${masteryPct}% (effective trials: ${trialsRounded})`,
+    `Estimated mastery for this concept (internal): ${masteryPct}% (effective exposure weight: ${trialsRounded})`,
     '',
-    `Attempt history (${attempts.length} event${attempts.length === 1 ? '' : 's'}):`,
+    `Lesson snippets for this concept (${attempts.length} snippet${attempts.length === 1 ? '' : 's'}):`,
   ];
 
   attempts.forEach((a, idx) => {
     userLines.push('');
-    userLines.push(`--- Event ${idx + 1} (${a.eventType}) ---`);
-    userLines.push(`English: "${a.english}"`);
-    userLines.push(`Expected Spanish: "${a.expectedSpanish}"`);
+    userLines.push(
+      snippetLabel(idx, a.eventType === 'attempt' ? 'spoken' : 'answer_first'),
+    );
+    userLines.push(`English prompt: "${a.english}"`);
+    userLines.push(`Target Spanish: "${a.expectedSpanish}"`);
     if (a.eventType === 'attempt') {
-      userLines.push(`Transcript: "${a.transcript || '(nothing said)'}"`);
-      userLines.push(`Missing words: ${a.missingWords.length > 0 ? a.missingWords.join(', ') : 'none'}`);
+      userLines.push(`What they said: "${a.transcript || '(nothing captured)'}"`);
+      userLines.push(`Missing target words: ${a.missingWords.length > 0 ? a.missingWords.join(', ') : 'none'}`);
       userLines.push(`Extra words: ${a.extraWords.length > 0 ? a.extraWords.join(', ') : 'none'}`);
       if (a.accuracyScore !== null) {
-        userLines.push(`Accuracy: ${Math.round(a.accuracyScore * 100)}% (${a.isAccuracySuccess ? 'passed' : 'failed'})`);
+        userLines.push(
+          `Weighted accuracy: ${Math.round(a.accuracyScore * 100)}% (${a.isAccuracySuccess ? 'met lesson threshold' : 'below lesson threshold'})`,
+        );
       }
       if (a.aiRationaleForThisItem) {
-        userLines.push(`AI grammar note: ${a.aiRationaleForThisItem}`);
+        userLines.push(`Classifier note (internal — paraphrase kindly if useful): ${a.aiRationaleForThisItem}`);
       }
     } else {
-      userLines.push('(Learner revealed the answer without attempting)');
+      userLines.push(
+        '(They chose to see the full answer before producing their own response.)',
+      );
     }
   });
 

@@ -199,9 +199,9 @@ describe('buildGrammarSummaryPrompts', () => {
       row,
       [entry, otherEntry],
     );
-    // Event 1 (matching phrase) should appear; event 2 should not
-    expect(userPrompt).toContain('Event 1');
-    expect(userPrompt).not.toContain('Event 2');
+    // Only the matching phrase's snippet appears in the prompt.
+    expect(userPrompt).toContain('Snippet 1');
+    expect(userPrompt).not.toContain('Snippet 2');
   });
 
   it('includes expected Spanish in the user prompt', () => {
@@ -236,7 +236,7 @@ describe('buildGrammarSummaryPrompts', () => {
     expect(userPrompt).not.toContain('Wrong verb.');
   });
 
-  it('handles reveal events in the history', () => {
+  it('handles answer-first moments in the history', () => {
     const revealEntry: HistoryEntry = {
       ...makeAttemptEntry('e1', p),
       event: {
@@ -248,13 +248,13 @@ describe('buildGrammarSummaryPrompts', () => {
       scoreSummary: null,
     };
     const { userPrompt } = buildGrammarSummaryPrompts(grammar, row, [revealEntry]);
-    expect(userPrompt).toContain('reveal');
-    expect(userPrompt).toContain('revealed the answer');
+    expect(userPrompt).toContain('viewed the answer before speaking');
+    expect(userPrompt).toContain('chose to see the full answer');
   });
 
-  it('mentions zero events gracefully when no trail exists', () => {
+  it('mentions zero snippets gracefully when no trail exists', () => {
     const { userPrompt } = buildGrammarSummaryPrompts(grammar, row, []);
-    expect(userPrompt).toContain('0 event');
+    expect(userPrompt).toContain('0 snippets');
   });
 });
 
