@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { historyEntrySchema } from './sessionHistory';
 import { sessionCheckpointSchema } from './sessionCheckpoint';
+import { grammarSummarySchema } from './grammarSummary';
 
 /**
  * Persisted artifact when the learner finishes a lesson (queue drained).
@@ -15,6 +16,11 @@ export const lessonSessionCompletionPayloadSchema = z.object({
   completedAtMs: z.number().int().nonnegative(),
   entries: z.array(historyEntrySchema),
   checkpoint: sessionCheckpointSchema,
+  /**
+   * AI-generated summaries for the worst weak/stabilizing grammar items.
+   * Generated server-side at completion time; absent on older persisted records.
+   */
+  grammarSummaries: z.array(grammarSummarySchema).optional(),
 });
 
 export type LessonSessionCompletionPayload = z.infer<

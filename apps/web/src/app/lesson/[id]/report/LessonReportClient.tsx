@@ -16,6 +16,7 @@ import {
   PART_OF_SPEECH_VALUES,
   summarizeItemBands,
   type GrammarMasteryRow,
+  type GrammarSummary,
   type HistoryEntry,
   type IncorrectPhraseRecord,
   type ItemBandSummary,
@@ -835,6 +836,82 @@ interface PracticeItem {
   kind: "word" | "grammar";
 }
 
+// ─── Grammar focus summary ─────────────────────────────────────────────────────
+
+const BAND_BORDER_CLASS: Record<'weak' | 'stabilizing', string> = {
+  weak: 'border-red-200',
+  stabilizing: 'border-amber-200',
+};
+
+const BAND_HEADER_CLASS: Record<'weak' | 'stabilizing', string> = {
+  weak: 'text-red-700',
+  stabilizing: 'text-amber-700',
+};
+
+const GrammarFocusSection = ({
+  summaries,
+}: {
+  summaries: GrammarSummary[];
+}): JSX.Element | null => {
+  if (summaries.length === 0) return null;
+
+  return (
+    <section
+      aria-label="Grammar focus"
+      className="flex flex-col gap-3"
+    >
+      <h2 className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+        Grammar focus
+      </h2>
+      <p className="text-[11px] text-gray-500 -mt-1">
+        AI-generated coaching for your weakest grammar items this lesson.
+      </p>
+      {summaries.map((s) => (
+        <div
+          key={s.item}
+          className={`rounded-xl border bg-white px-5 py-4 shadow-sm ${BAND_BORDER_CLASS[s.band]}`}
+        >
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <h3 className={`text-sm font-semibold ${BAND_HEADER_CLASS[s.band]}`}>
+              {s.item}
+            </h3>
+            <span
+              className={`shrink-0 text-xs font-semibold tabular-nums ${BAND_HEADER_CLASS[s.band]}`}
+              title={`Mastery: ${Math.round(s.mastery * 100)}% · Band: ${s.band} · Effective trials: ${s.trialsEff.toFixed(1)}`}
+            >
+              {Math.round(s.mastery * 100)}%
+            </span>
+          </div>
+          {s.status === 'success' ? (
+            <div className="flex flex-col gap-3">
+              <div>
+                <p className="text-[11px] font-semibold text-gray-700 mb-0.5">
+                  What you&apos;re finding difficult
+                </p>
+                <p className="text-[11px] text-gray-600 leading-relaxed">
+                  {s.struggling}
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] font-semibold text-gray-700 mb-0.5">
+                  What to focus on
+                </p>
+                <p className="text-[11px] text-gray-600 leading-relaxed">
+                  {s.focus}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-[11px] text-gray-400 italic">
+              Summary unavailable for this item.
+            </p>
+          )}
+        </div>
+      ))}
+    </section>
+  );
+};
+
 const PracticeNextSection = ({
   items,
 }: {
@@ -927,6 +1004,7 @@ export function LessonReportClient({
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
   const entries = useMemo(() => data?.entries ?? [], [data?.entries]);
+  const grammarSummaries = useMemo(() => data?.grammarSummaries ?? [], [data?.grammarSummaries]);
   const checkpoint = data?.latestCheckpoint ?? null;
   const incorrectPhraseRecords = useMemo(
     () => checkpoint?.incorrectPhraseRecords ?? [],
@@ -1068,6 +1146,9 @@ export function LessonReportClient({
 
             {/* Practice next — surfaces lowest-mastery items early */}
             <PracticeNextSection items={practiceNextItems} />
+
+            {/* AI-generated grammar coaching for the weakest items */}
+            <GrammarFocusSection summaries={grammarSummaries} />
 
             {/* Mastery health snapshot */}
             <MasteryHealthSection

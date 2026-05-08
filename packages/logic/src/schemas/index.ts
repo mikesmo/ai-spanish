@@ -1,4 +1,5 @@
 export * from './completedLessonsList';
+export * from './grammarSummary';
 export * from './lessonCatalogApi';
 export * from './lessonFile';
 export * from './lessonSessionCompletion';

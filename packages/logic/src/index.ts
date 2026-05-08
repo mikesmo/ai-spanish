@@ -203,6 +203,11 @@ export {
   type GrammarGradingPrompts,
 } from './grammarGradingPrompt';
 export {
+  buildGrammarSummaryPrompts,
+  selectGrammarItemsForSummary,
+  type GrammarSummaryPrompts,
+} from './grammarSummary';
+export {
   useGrammarGrading,
   type PostGrammarGrading,
   type UseGrammarGradingOptions,

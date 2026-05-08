@@ -1,10 +1,13 @@
 import {
+  buildGrammarItemsByMastery,
   completedLessonsListResponseSchema,
   lessonSessionCompletionPayloadSchema,
+  selectGrammarItemsForSummary,
   sessionHistoryGetResponseSchema,
 } from '@ai-spanish/logic';
 import { type NextRequest, NextResponse } from 'next/server';
 import { resolveAuthenticatedSupabaseForApi } from '@/lib/auth/resolveAuthenticatedSupabaseForApi';
+import { generateGrammarSummaries } from '@/lib/grammarSummaryService';
 
 function jsonError(status: number, message: string, issues?: unknown): NextResponse {
   return NextResponse.json(
@@ -38,13 +41,29 @@ export async function POST(request: NextRequest): Promise<Response> {
   const payload = parsedPayload.data;
   const completedAtIso = new Date(payload.completedAtMs).toISOString();
 
+  // Generate AI grammar summaries synchronously before persisting so they are
+  // baked into the stored payload. Skip when ANTHROPIC_API_KEY is absent.
+  let payloadToStore = payload;
+  if (process.env.ANTHROPIC_API_KEY) {
+    const grammarRows = buildGrammarItemsByMastery(
+      payload.entries,
+      payload.checkpoint.grammarItemScores ?? {},
+      payload.checkpoint.incorrectPhraseRecords ?? [],
+    );
+    const targets = selectGrammarItemsForSummary(grammarRows);
+    if (targets.length > 0) {
+      const grammarSummaries = await generateGrammarSummaries(targets, payload.entries);
+      payloadToStore = { ...payload, grammarSummaries };
+    }
+  }
+
   const { error } = await auth.data.supabase.from('user_lesson_completions').upsert(
     {
       user_id: auth.data.userId,
-      run_id: payload.runId,
-      lesson_id: payload.lessonId,
+      run_id: payloadToStore.runId,
+      lesson_id: payloadToStore.lessonId,
       completed_at: completedAtIso,
-      payload,
+      payload: payloadToStore,
     },
     { onConflict: 'user_id,run_id' },
   );
@@ -137,6 +156,7 @@ export async function GET(request: NextRequest): Promise<Response> {
     lessonId: p.lessonId,
     entries: p.entries,
     latestCheckpoint: p.checkpoint,
+    grammarSummaries: p.grammarSummaries,
   });
   return NextResponse.json(response);
 }
