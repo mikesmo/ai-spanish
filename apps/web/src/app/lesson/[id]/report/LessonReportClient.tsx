@@ -69,12 +69,6 @@ const BAND_BADGE_CLASS: Record<ItemMasteryBand, string> = {
   mastered: "bg-emerald-50 text-emerald-700 border-emerald-200",
 };
 
-const BAND_BAR_CLASS: Record<ItemMasteryBand, string> = {
-  weak: "bg-red-400",
-  stabilizing: "bg-amber-400",
-  mastered: "bg-emerald-500",
-};
-
 const noLiveSlots = (): number | null => null;
 
 /** Matches session history `#` column for this phrase's last row (`eventSeq ?? chronological index`). */

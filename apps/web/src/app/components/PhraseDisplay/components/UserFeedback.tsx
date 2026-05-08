@@ -269,8 +269,6 @@ export const UserFeedback = ({
   speed,
   onSpeedChange,
   onReplay,
-  onStopAnswerAudio,
-  onExplainInterrupted,
   onTryAgain,
   onNext,
   isExplainAckOpen,

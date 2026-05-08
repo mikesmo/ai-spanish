@@ -605,9 +605,9 @@ export const filterHistoryEntriesForWordItemTrail = (
 export const filterHistoryEntriesForGrammarItemTrail = (
   item: string,
   entries: readonly HistoryEntry[],
-): HistoryEntry[] =>
+): Array<HistoryEntry & { event: Attempt | RevealEvent }> =>
   entries.filter(
-    (e) =>
+    (e): e is HistoryEntry & { event: Attempt | RevealEvent } =>
       (e.event.eventType === 'attempt' || e.event.eventType === 'reveal') &&
       phraseContainsGrammarItem(e.phrase, item),
   );

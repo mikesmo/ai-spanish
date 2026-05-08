@@ -1628,7 +1628,6 @@ export const SessionHistoryLogView = ({
   incorrectPhraseRecords,
   emptyStateMessage,
   className,
-  pendingGradingCount = 0,
 }: SessionHistoryLogViewProps): JSX.Element => {
   const reversed = useMemo(() => [...history].reverse(), [history]);
 
