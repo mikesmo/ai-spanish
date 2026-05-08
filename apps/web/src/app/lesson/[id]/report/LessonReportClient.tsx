@@ -1150,6 +1150,20 @@ export function LessonReportClient({
             {/* AI-generated grammar coaching for the weakest items */}
             <GrammarFocusSection summaries={grammarSummaries} />
 
+            {/* Grammar ranked — immediately after grammar focus summary */}
+            <section aria-label="Grammar" className="flex flex-col gap-3">
+              <h2 className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                Grammar
+              </h2>
+              <GrammarRankingSection
+                rows={reportGrammarRows}
+                entries={entries}
+                incorrectRecordsByPhraseId={incorrectRecordsByPhraseId}
+                grammarItemScoreLookup={grammarItemScoreLookup}
+                wordScoreLookup={wordScoreLookup}
+              />
+            </section>
+
             {/* Mastery health snapshot */}
             <MasteryHealthSection
               wordSummary={wordBandSummary}
@@ -1167,20 +1181,6 @@ export function LessonReportClient({
               grammarItemScoreLookup={grammarItemScoreLookup}
               wordScoreLookup={wordScoreLookup}
             />
-
-            {/* Grammar ranking */}
-            <section aria-label="Grammar" className="flex flex-col gap-3">
-              <h2 className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                Grammar
-              </h2>
-              <GrammarRankingSection
-                rows={reportGrammarRows}
-                entries={entries}
-                incorrectRecordsByPhraseId={incorrectRecordsByPhraseId}
-                grammarItemScoreLookup={grammarItemScoreLookup}
-                wordScoreLookup={wordScoreLookup}
-              />
-            </section>
 
             {/* Failed attempts */}
             {buckets.once.length === 0 &&
@@ -1205,7 +1205,6 @@ export function LessonReportClient({
                 <RevisitBucket
                   title="Phrases that failed once"
                   rows={buckets.once}
-                  defaultOpen
                 />
                 <RevisitBucket
                   title="Phrases that failed twice"
