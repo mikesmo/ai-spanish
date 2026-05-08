@@ -1,5 +1,5 @@
 /**
- * Server-only helper that generates AI-written focus summaries for the worst
+ * Server-only helper that generates AI-written focus summaries for up to three of the worst
  * weak/stabilizing grammar items at lesson completion.
  *
  * Called synchronously from POST /api/lesson-completions before the upsert

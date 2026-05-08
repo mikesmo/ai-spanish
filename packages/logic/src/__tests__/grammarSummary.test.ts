@@ -132,11 +132,11 @@ describe('selectGrammarItemsForSummary', () => {
     expect(result[0]?.item).toBe('verb conjugation');
   });
 
-  it('returns at most 5 items', () => {
+  it('returns at most 3 items', () => {
     const rows = Array.from({ length: 8 }, (_, i) =>
       makeGrammarRow(`item ${i}`, 0.3 + i * 0.01, 5),
     );
-    expect(selectGrammarItemsForSummary(rows)).toHaveLength(5);
+    expect(selectGrammarItemsForSummary(rows)).toHaveLength(3);
   });
 
   it('sorts ascending by mastery (lowest first)', () => {

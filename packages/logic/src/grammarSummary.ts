@@ -17,8 +17,10 @@ import type { HistoryEntry } from './useSessionHistory';
 // Selection
 // ---------------------------------------------------------------------------
 
+const MAX_GRAMMAR_SUMMARY_ITEMS = 3;
+
 /**
- * Returns up to 5 grammar items eligible for an AI-generated focus summary:
+ * Returns up to three grammar items eligible for an AI-generated focus summary:
  * - Must meet the report evidence threshold (`isReportEligibleItem`, trialsEff ≥ 3).
  * - Must be in the `weak` or `stabilizing` mastery band.
  * - Sorted ascending by mastery (lowest first).
@@ -33,7 +35,7 @@ export const selectGrammarItemsForSummary = (
       return band === 'weak' || band === 'stabilizing';
     })
     .sort((a, b) => a.mastery - b.mastery)
-    .slice(0, 5);
+    .slice(0, MAX_GRAMMAR_SUMMARY_ITEMS);
 
 // ---------------------------------------------------------------------------
 // Prompt building
