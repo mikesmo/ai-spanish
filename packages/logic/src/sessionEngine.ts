@@ -156,6 +156,20 @@ export function createSessionEngine(
     for (const p of cp.progress) {
       store.put(p);
     }
+
+    // If the phrase being resumed also appears in the queue it means the user
+    // exited after a miss (which reinserted the phrase) but before tapping
+    // "Next" (which would have called pickNext and advanced currentPhraseId).
+    // The reinserted copy is a phantom duplicate: we are about to present the
+    // phrase fresh from currentPhraseId, so remove one queue occurrence to
+    // prevent the card from appearing an extra time on the next pickNext call.
+    if (currentPhraseId !== null) {
+      const dupIdx = queue.findIndex((p) => p.name === currentPhraseId);
+      if (dupIdx !== -1) {
+        queue.splice(dupIdx, 1);
+      }
+    }
+
   } else {
     queue = [...deck];
     currentPhraseId = null;
@@ -224,10 +238,11 @@ export function createSessionEngine(
       for (const [id, count] of reinsertCount) {
         reinsertCountRecord[id] = count;
       }
+      const queuePhraseIds = queue.map((p) => p.name);
       return {
         schemaVersion: 1 as const,
         lessonId,
-        queuePhraseIds: queue.map((p) => p.name),
+        queuePhraseIds,
         currentPresentedPhraseId: currentPhraseId,
         reinsertCount: reinsertCountRecord,
         progress: store.all(),

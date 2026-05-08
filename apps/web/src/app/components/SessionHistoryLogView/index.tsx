@@ -27,8 +27,10 @@ import {
   alignWords,
   buildPresentationOrdinalByEntryId,
   buildRevisitRefDisplayByEntryId,
+  classifyItemMastery,
   computeLessonReportSummary,
   fluencyForMastery,
+  isUntrained,
   normalizeStr,
   type AccuracyBreakdown,
   type Attempt,
@@ -37,12 +39,14 @@ import {
   type HistoryEntry,
   type IncorrectGrammarItemEntry,
   type IncorrectPhraseRecord,
+  type ItemScore,
   type LessonReportSummary,
   type Phrase,
   type PracticeAttempt,
   type ScoreSummary,
   type StabilityBreakdownSnapshot,
   type WordMeta,
+  type WordMistakeEntry,
 } from "@ai-spanish/logic";
 
 // ---------------------------------------------------------------------------
@@ -129,7 +133,40 @@ interface WordAlignmentRow {
   status: "matched" | "missing";
   /** Per-session event seq of the event that resolved this missing word, if resolved. */
   resolvedByEventSeq?: number;
+  /** Cross-phrase mastery snapshot for this word, if known. */
+  score?: ItemScore;
 }
+
+/**
+ * Per-item mastery cell used in both the GrammarSection table and the
+ * word-alignment table. Renders a colored percentage with a tooltip exposing
+ * the underlying numbers, or "—" when grading is pending or the score is
+ * absent / untrained.
+ */
+const MasteryCell = ({
+  score,
+  isPending,
+}: {
+  score?: ItemScore;
+  isPending?: boolean;
+}): JSX.Element => {
+  if (isPending || !score || isUntrained(score)) {
+    return <span className="text-gray-400">—</span>;
+  }
+  const band = classifyItemMastery(score.mastery);
+  const colorClass =
+    band === "weak"
+      ? "text-red-600"
+      : band === "stabilizing"
+        ? "text-amber-600"
+        : "text-emerald-600";
+  const title = `n=${score.trialsEff.toFixed(1)} S=${score.stability.toFixed(2)} MI=${score.mastery.toFixed(2)} (${band})`;
+  return (
+    <span className={`${colorClass} font-mono tabular-nums`} title={title}>
+      {Math.round(score.mastery * 100)}%
+    </span>
+  );
+};
 
 type GrammarRow = {
   item: string;
@@ -141,6 +178,8 @@ type GrammarRow = {
   resolvedByEventSeq: number | null;
   /** AI-generated one-sentence rationale for why this item was violated. Only set when isFailed. */
   rationale?: string;
+  /** Cross-phrase mastery snapshot for this grammar item, if known. */
+  score?: ItemScore;
 };
 
 const splitCommaPhraseList = (raw: string): string[] =>
@@ -155,12 +194,17 @@ const splitCommaPhraseList = (raw: string): string[] =>
  * - When `gradingStatus === 'pending'`: all rows shown as pending (no classification yet).
  * - When `gradingStatus === 'failed'` or legacy: falls back to single-bucket resolution.
  * - When `gradingStatus === 'n/a'` or undefined: plain rows with legacy resolution.
+ *
+ * `grammarItemScoreLookup` provides cross-phrase mastery scores keyed by item
+ * string. Used to render the "Mastery" column even on phrases where the item
+ * has never been recorded as failed.
  */
 const buildGrammarRows = (
   phrase: Phrase,
   incorrectPhraseRecord: IncorrectPhraseRecord | undefined,
   gradingStatus: GrammarGradingStatus | undefined,
   suppressResolvedDisplay: boolean,
+  grammarItemScoreLookup: ReadonlyMap<string, ItemScore>,
 ): GrammarRow[] => {
   const items = splitCommaPhraseList(phrase.Spanish.grammar);
 
@@ -170,6 +214,7 @@ const buildGrammarRows = (
       isFailed: false,
       isPending: true,
       resolvedByEventSeq: null,
+      score: grammarItemScoreLookup.get(item),
     }));
   }
 
@@ -186,6 +231,7 @@ const buildGrammarRows = (
         resolvedByEventSeq:
           !suppressResolvedDisplay && entry ? entry.resolvedByEventSeq : null,
         rationale: entry?.rationale,
+        score: entry?.score ?? grammarItemScoreLookup.get(item),
       };
     });
   }
@@ -206,6 +252,7 @@ const buildGrammarRows = (
         resolvedByEventSeq:
           !suppressResolvedDisplay && entry ? entry.resolvedByEventSeq : null,
         rationale: entry?.rationale,
+        score: entry?.score ?? grammarItemScoreLookup.get(item),
       };
     });
   }
@@ -215,28 +262,45 @@ const buildGrammarRows = (
     isFailed: false,
     isPending: false,
     resolvedByEventSeq: null,
+    score: grammarItemScoreLookup.get(item),
   }));
 };
 
 /**
  * Grammar section: `Spanish.grammar` tags only.
  * Renders AI-classified failed items in red, pending items in muted style,
- * and per-item "Resolved by" event-seq links.
+ * per-item "Resolved by" event-seq links, the AI rationale, and the
+ * cross-phrase per-item mastery percentage.
  */
 const GrammarSection = ({
   phrase,
   incorrectPhraseRecord,
   suppressResolvedDisplay = false,
   gradingStatus,
+  grammarItemScoreLookup,
 }: {
   phrase: Phrase;
   incorrectPhraseRecord: IncorrectPhraseRecord | undefined;
   suppressResolvedDisplay?: boolean;
   gradingStatus?: GrammarGradingStatus;
+  grammarItemScoreLookup: ReadonlyMap<string, ItemScore>;
 }): JSX.Element => {
   const rows = useMemo(
-    () => buildGrammarRows(phrase, incorrectPhraseRecord, gradingStatus, suppressResolvedDisplay),
-    [phrase, incorrectPhraseRecord, gradingStatus, suppressResolvedDisplay],
+    () =>
+      buildGrammarRows(
+        phrase,
+        incorrectPhraseRecord,
+        gradingStatus,
+        suppressResolvedDisplay,
+        grammarItemScoreLookup,
+      ),
+    [
+      phrase,
+      incorrectPhraseRecord,
+      gradingStatus,
+      suppressResolvedDisplay,
+      grammarItemScoreLookup,
+    ],
   );
   return (
     <div>
@@ -259,12 +323,18 @@ const GrammarSection = ({
             <th className="py-1 pr-2 font-medium">Grammar</th>
             <th className="py-1 pr-2 font-medium">Resolved by</th>
             <th className="py-1 pr-2 font-medium">Reason</th>
+            <th
+              className="py-1 pr-2 font-medium text-right"
+              title="Cross-phrase mastery score for this grammar item (0–100%). Hover the cell for trial count, stability, and band."
+            >
+              Mastery
+            </th>
           </tr>
         </thead>
         <tbody>
           {rows.length === 0 ? (
             <tr className="border-b border-gray-100">
-              <td colSpan={3} className="py-1 pr-2 text-gray-500 normal-case">
+              <td colSpan={4} className="py-1 pr-2 text-gray-500 normal-case">
                 —
               </td>
             </tr>
@@ -295,6 +365,9 @@ const GrammarSection = ({
                 </td>
                 <td className="py-1 pr-2 normal-case text-gray-600">
                   {r.isFailed && r.rationale ? r.rationale : <span className="text-gray-400">—</span>}
+                </td>
+                <td className="py-1 pr-2 text-right">
+                  <MasteryCell score={r.score} isPending={r.isPending} />
                 </td>
               </tr>
             ))
@@ -348,11 +421,15 @@ const NewTeachingContentSection = ({ phrase }: { phrase: Phrase }): JSX.Element 
 const buildAlignmentRows = (
   words: WordMeta[],
   missingWords: string[],
-  record?: IncorrectPhraseRecord,
+  record: IncorrectPhraseRecord | undefined,
+  wordScoreLookup: ReadonlyMap<string, ItemScore>,
 ): WordAlignmentRow[] => {
   const missingSet = new Set(missingWords.map((w) => normalizeStr(w)));
   const resolvedMap = new Map<string, number>(
     record?.resolvedWords.map((r) => [r.word, r.resolvedByEventSeq]) ?? [],
+  );
+  const wordEntryMap = new Map<string, WordMistakeEntry>(
+    record?.incorrectWordEntries?.map((e) => [e.word, e]) ?? [],
   );
   return words.map((w) => {
     const normalized = normalizeStr(w.word);
@@ -363,6 +440,7 @@ const buildAlignmentRows = (
       weight: w.weight,
       status: isMissing ? "missing" : "matched",
       resolvedByEventSeq: isMissing ? resolvedMap.get(normalized) : undefined,
+      score: wordEntryMap.get(normalized)?.score ?? wordScoreLookup.get(normalized),
     };
   });
 };
@@ -641,10 +719,14 @@ const ScoredEventDetail = ({
   entry,
   isPractice,
   incorrectPhraseRecord,
+  grammarItemScoreLookup,
+  wordScoreLookup,
 }: {
   entry: ScoredEntry;
   isPractice: boolean;
   incorrectPhraseRecord: IncorrectPhraseRecord | undefined;
+  grammarItemScoreLookup: ReadonlyMap<string, ItemScore>;
+  wordScoreLookup: ReadonlyMap<string, ItemScore>;
 }): JSX.Element => {
   const gradingStatus = entry.gradingStatus;
   const { event, phrase, scoreSummary, stabilityBreakdown } = entry;
@@ -658,7 +740,7 @@ const ScoredEventDetail = ({
   const { rows, extraWordsDisplay } = useMemo(() => {
     if (event.eventType === "attempt") {
       return {
-        rows: buildAlignmentRows(phrase.Spanish.words, event.missingWords, incorrectPhraseRecord),
+        rows: buildAlignmentRows(phrase.Spanish.words, event.missingWords, incorrectPhraseRecord, wordScoreLookup),
         extraWordsDisplay: event.extraWords,
       };
     }
@@ -670,10 +752,10 @@ const ScoredEventDetail = ({
     const alignment = alignWords(phrase.Spanish.words, spokenStub);
     const missingWords = alignment.missing.map((w) => w.word);
     return {
-      rows: buildAlignmentRows(phrase.Spanish.words, missingWords, incorrectPhraseRecord),
+      rows: buildAlignmentRows(phrase.Spanish.words, missingWords, incorrectPhraseRecord, wordScoreLookup),
       extraWordsDisplay: alignment.extra.map((w) => w.word),
     };
-  }, [event, phrase.Spanish.words, incorrectPhraseRecord]);
+  }, [event, phrase.Spanish.words, incorrectPhraseRecord, wordScoreLookup]);
 
   const fullyRedeemedFailedAtEventSeqs =
     entry.incorrectPhraseRecordsFullyResolvedFailedAtEventSeqs ?? [];
@@ -717,6 +799,12 @@ const ScoredEventDetail = ({
               <th className="py-1 pr-2 font-medium">Weight</th>
               <th className="py-1 pr-2 font-medium">Status</th>
               <th className="py-1 pr-2 font-medium">Resolved by</th>
+              <th
+                className="py-1 pr-2 font-medium text-right"
+                title="Cross-phrase mastery score for this word (0–100%). Hover the cell for trial count, stability, and band."
+              >
+                Mastery
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -753,6 +841,9 @@ const ScoredEventDetail = ({
                     <span className="text-gray-400">—</span>
                   )}
                 </td>
+                <td className="py-1 pr-2 text-right">
+                  <MasteryCell score={r.score} />
+                </td>
               </tr>
             ))}
           </tbody>
@@ -764,6 +855,7 @@ const ScoredEventDetail = ({
         incorrectPhraseRecord={incorrectPhraseRecord}
         suppressResolvedDisplay={suppressGrammarResolvedDisplay}
         gradingStatus={gradingStatus}
+        grammarItemScoreLookup={grammarItemScoreLookup}
       />
 
       {fullyRedeemedFailedAtEventSeqs.length > 0 && (
@@ -813,9 +905,11 @@ const ScoredEventDetail = ({
 const RevealEventDetail = ({
   entry,
   incorrectPhraseRecord,
+  grammarItemScoreLookup,
 }: {
   entry: HistoryEntry;
   incorrectPhraseRecord: IncorrectPhraseRecord | undefined;
+  grammarItemScoreLookup: ReadonlyMap<string, ItemScore>;
 }): JSX.Element => {
   const { phrase, stabilityBreakdown, masteryBefore, masteryAfter } = entry;
   const blendedM = masteryBefore * REVEAL_MASTERY_DECAY;
@@ -828,7 +922,11 @@ const RevealEventDetail = ({
 
       <NewTeachingContentSection phrase={phrase} />
 
-      <GrammarSection phrase={phrase} incorrectPhraseRecord={incorrectPhraseRecord} />
+      <GrammarSection
+        phrase={phrase}
+        incorrectPhraseRecord={incorrectPhraseRecord}
+        grammarItemScoreLookup={grammarItemScoreLookup}
+      />
 
       <div className="rounded border border-red-100 bg-red-50/80 px-2 py-1.5 text-red-900 text-[10px]">
         Show Answer — applies reveal decay in the reducer; phrase state becomes
@@ -869,6 +967,10 @@ interface RowProps {
   isLatestForPhrase: boolean;
   /** Incorrect-phrase redemption record for this entry's phrase, if any. */
   incorrectPhraseRecord: IncorrectPhraseRecord | undefined;
+  /** Cross-phrase grammar item mastery scores (built from all records). */
+  grammarItemScoreLookup: ReadonlyMap<string, ItemScore>;
+  /** Cross-phrase word mastery scores (built from all records). */
+  wordScoreLookup: ReadonlyMap<string, ItemScore>;
   /**
    * When this row is a revisit, the log `#` of the **last** row from the immediately
    * preceding contiguous stint for this phrase (matches `buildRevisitRefDisplayByEntryId`).
@@ -890,6 +992,8 @@ const HistoryRow = ({
   incorrectPhraseRecord,
   revisitRefDisplay,
   sessionPresentationOrdinal,
+  grammarItemScoreLookup,
+  wordScoreLookup,
 }: RowProps): JSX.Element => {
   const [expanded, setExpanded] = useState(false);
   const { event, phrase, scoreSummary } = entry;
@@ -1066,12 +1170,15 @@ const HistoryRow = ({
               <RevealEventDetail
                 entry={entry}
                 incorrectPhraseRecord={incorrectPhraseRecord}
+                grammarItemScoreLookup={grammarItemScoreLookup}
               />
             ) : (
               <ScoredEventDetail
                 entry={entry as ScoredEntry}
                 isPractice={event.eventType === "practice"}
                 incorrectPhraseRecord={incorrectPhraseRecord}
+                grammarItemScoreLookup={grammarItemScoreLookup}
+                wordScoreLookup={wordScoreLookup}
               />
             )}
           </td>
@@ -1523,6 +1630,34 @@ export const SessionHistoryLogView = ({
     return map;
   }, [incorrectPhraseRecords]);
 
+  /**
+   * Cross-phrase mastery score lookups. Built from the entries on
+   * `incorrectPhraseRecords` so the UI does not need a tracker reference.
+   * Fan-out in the tracker keeps the same `ItemScore` reference on every
+   * matching entry, but in case any state is stale (e.g. legacy checkpoints)
+   * we keep the entry with the highest `lastUpdatedAtEventSeq` per key.
+   */
+  const { grammarItemScoreLookup, wordScoreLookup } = useMemo(() => {
+    const grammar = new Map<string, ItemScore>();
+    const word = new Map<string, ItemScore>();
+    const stash = (
+      target: Map<string, ItemScore>,
+      key: string,
+      score: ItemScore | undefined,
+    ): void => {
+      if (!score) return;
+      const existing = target.get(key);
+      if (!existing || score.lastUpdatedAtEventSeq > existing.lastUpdatedAtEventSeq) {
+        target.set(key, score);
+      }
+    };
+    for (const record of incorrectPhraseRecords ?? []) {
+      for (const g of record.incorrectGrammarItems) stash(grammar, g.item, g.score);
+      for (const w of record.incorrectWordEntries ?? []) stash(word, w.word, w.score);
+    }
+    return { grammarItemScoreLookup: grammar, wordScoreLookup: word };
+  }, [incorrectPhraseRecords]);
+
   const revisitRefDisplayByEntryId = useMemo(
     () => buildRevisitRefDisplayByEntryId(history),
     [history],
@@ -1598,6 +1733,8 @@ export const SessionHistoryLogView = ({
                 sessionPresentationOrdinal={
                   presentationOrdinalByEntryId.get(entry.id) ?? 1
                 }
+                grammarItemScoreLookup={grammarItemScoreLookup}
+                wordScoreLookup={wordScoreLookup}
               />
             ))}
           </tbody>

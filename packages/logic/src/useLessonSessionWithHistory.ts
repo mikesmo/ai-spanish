@@ -151,8 +151,8 @@ export const useLessonSessionWithHistory = (
       if (event.eventType === 'attempt' && ctx.eventSeq != null) {
         const phrase = deckById.get(event.phraseId);
         if (phrase) {
-          if (event.missingWords.length === 0) {
-            // All target words spoken correctly — grammar was fully demonstrated.
+          if (event.missingWords.length === 0 && event.extraWords.length === 0) {
+            // Exact word match — grammar was fully demonstrated.
             // Resolve immediately without an AI call.
             const emptyResult = { failedGrammarItems: [], wordMistakes: [] };
             const { newlyResolvedFailedAtSeqs } = applyGradingResultRef.current(

@@ -1,5 +1,18 @@
 import { z } from 'zod';
 
+/**
+ * Per-item mastery score serialized on grammar-item / word-mistake entries.
+ * See `../itemMastery.ts` for the producing logic. All fields optional+default
+ * for backward compatibility with checkpoints written before per-item mastery.
+ */
+export const itemScoreSchema = z.object({
+  trialsEff: z.number(),
+  successSumEff: z.number(),
+  stability: z.number(),
+  mastery: z.number(),
+  lastUpdatedAtEventSeq: z.number().int().nonnegative(),
+});
+
 export const resolvedWordEntrySchema = z.object({
   word: z.string(),
   /** Per-session event sequence number of the resolver event. */
@@ -18,6 +31,27 @@ export const incorrectGrammarItemEntrySchema = z.object({
   resolvedByEventSeq: z.number().int().positive().nullable(),
   /** AI-generated one-sentence explanation for why this grammar rule was violated. */
   rationale: z.string().optional(),
+  /** Per-item mastery snapshot for this grammar item. Cross-phrase value. */
+  score: itemScoreSchema.optional(),
+});
+
+/**
+ * Per-record entry tracking a Spanish word that has failed in this phrase at
+ * least once. Sibling of `incorrectGrammarItemEntrySchema`. The cross-phrase
+ * mastery score is denormalized onto each entry by the tracker.
+ */
+export const wordMistakeEntrySchema = z.object({
+  /** Normalized word string. */
+  word: z.string(),
+  /** Per-session event seq of the failed attempt that first recorded this word. */
+  failedAtEventSeq: z.number().int().positive(),
+  /**
+   * Per-session event seq of the event that resolved this word in this phrase,
+   * or null when not yet resolved.
+   */
+  resolvedByEventSeq: z.number().int().positive().nullable(),
+  /** Per-item mastery snapshot for this word. Cross-phrase value. */
+  score: itemScoreSchema.optional(),
 });
 
 /**
@@ -74,6 +108,13 @@ export const incorrectPhraseRecordSchema = z.object({
   grammarGradingStatus: z.enum(['pending', 'success', 'failed', 'n/a']).optional().default('n/a'),
 
   /**
+   * Per-word entries (parallel to `incorrectGrammarItems`) used to carry the
+   * cross-phrase mastery score for each missed word. Defaults to [] so old
+   * checkpoint records (without this field) parse successfully.
+   */
+  incorrectWordEntries: z.array(wordMistakeEntrySchema).optional().default([]),
+
+  /**
    * Per-session event sequence number of the most recent failed Attempt that
    * produced (or last updated) this record. Used by the resolver event's
    * detail panel to list "Phrase A event IDs resolved by this success".
@@ -83,6 +124,8 @@ export const incorrectPhraseRecordSchema = z.object({
   isFullyResolved: z.boolean(),
 });
 
+export type ItemScoreParsed = z.infer<typeof itemScoreSchema>;
 export type ResolvedWordEntryParsed = z.infer<typeof resolvedWordEntrySchema>;
 export type IncorrectGrammarItemEntryParsed = z.infer<typeof incorrectGrammarItemEntrySchema>;
+export type WordMistakeEntryParsed = z.infer<typeof wordMistakeEntrySchema>;
 export type IncorrectPhraseRecordParsed = z.infer<typeof incorrectPhraseRecordSchema>;

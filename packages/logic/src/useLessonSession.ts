@@ -220,7 +220,19 @@ export const useLessonSession = (
           `useLessonSession: checkpoint currentPresentedPhraseId "${initialCheckpoint.currentPresentedPhraseId}" not found in deck`,
         );
       }
-      firstPhraseRef.current = resumed;
+      // If the checkpoint history already has an entry for this phrase the
+      // user left from the post-attempt feedback screen (advance() was never
+      // called). Show the next phrase instead of replaying the same card.
+      const resumedId = initialCheckpoint.currentPresentedPhraseId;
+      const alreadyAnswered = initialCheckpoint.history?.some(
+        (e) => e.phrase.name === resumedId,
+      );
+      if (alreadyAnswered) {
+        const next = engineRef.current!.pickNext();
+        firstPhraseRef.current = next ?? resumed;
+      } else {
+        firstPhraseRef.current = resumed;
+      }
     } else {
       const first = engineRef.current!.pickNext();
       if (!first) {
@@ -284,6 +296,7 @@ export const useLessonSession = (
           event.phraseId,
           phrase,
           event.missingWords,
+          event.extraWords,
           event.isAccuracySuccess,
           eventSeq,
         );
@@ -407,6 +420,7 @@ export const useLessonSession = (
           info.phraseId,
           phrase,
           result,
+          info.missingWords,
           info.isAccuracySuccess,
           eventSeq,
           info.canResolve,
