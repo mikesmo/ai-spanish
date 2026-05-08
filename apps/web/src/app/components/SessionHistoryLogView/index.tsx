@@ -740,10 +740,24 @@ const ScoredEventDetail = ({
       ? (event.spokenWordCount ?? 0)
       : event.transcript.length;
 
+  const mergedWordScoreLookup = useMemo(() => {
+    if (!entry.wordScoreSnapshot) return wordScoreLookup;
+    const m = new Map(wordScoreLookup);
+    for (const [k, v] of Object.entries(entry.wordScoreSnapshot)) m.set(k, v);
+    return m;
+  }, [wordScoreLookup, entry.wordScoreSnapshot]);
+
+  const mergedGrammarScoreLookup = useMemo(() => {
+    if (!entry.grammarItemScoreSnapshot) return grammarItemScoreLookup;
+    const m = new Map(grammarItemScoreLookup);
+    for (const [k, v] of Object.entries(entry.grammarItemScoreSnapshot)) m.set(k, v);
+    return m;
+  }, [grammarItemScoreLookup, entry.grammarItemScoreSnapshot]);
+
   const { rows, extraWordsDisplay } = useMemo(() => {
     if (event.eventType === "attempt") {
       return {
-        rows: buildAlignmentRows(phrase.Spanish.words, event.missingWords, incorrectPhraseRecord, wordScoreLookup),
+        rows: buildAlignmentRows(phrase.Spanish.words, event.missingWords, incorrectPhraseRecord, mergedWordScoreLookup),
         extraWordsDisplay: event.extraWords,
       };
     }
@@ -758,10 +772,10 @@ const ScoredEventDetail = ({
       // Practice events never write to the incorrectPhraseTracker, so we pass
       // undefined here to prevent tracker data from a prior attempt bleeding
       // into the "Resolved by" column of this retry row.
-      rows: buildAlignmentRows(phrase.Spanish.words, missingWords, undefined, wordScoreLookup),
+      rows: buildAlignmentRows(phrase.Spanish.words, missingWords, undefined, mergedWordScoreLookup),
       extraWordsDisplay: alignment.extra.map((w) => w.word),
     };
-  }, [event, phrase.Spanish.words, incorrectPhraseRecord, wordScoreLookup]);
+  }, [event, phrase.Spanish.words, incorrectPhraseRecord, mergedWordScoreLookup]);
 
   const fullyRedeemedFailedAtEventSeqs =
     entry.incorrectPhraseRecordsFullyResolvedFailedAtEventSeqs ?? [];
@@ -786,14 +800,14 @@ const ScoredEventDetail = ({
         <div className="text-gray-900 italic">{phrase.Spanish.answer}</div>
       </div>
 
-      <NewTeachingContentSection phrase={phrase} />
-
       <div>
         <div className="font-semibold text-gray-700 mb-1">Transcript</div>
         <div className="text-gray-900">
           {event.transcript.length > 0 ? event.transcript.join(" ") : "—"}
         </div>
       </div>
+
+      <NewTeachingContentSection phrase={phrase} />
 
       <div>
         <div className="font-semibold text-gray-700 mb-1">Word alignment</div>
@@ -862,7 +876,7 @@ const ScoredEventDetail = ({
         suppressResolvedDisplay={suppressGrammarResolvedDisplay}
         suppressScores={isPractice}
         gradingStatus={gradingStatus}
-        grammarItemScoreLookup={grammarItemScoreLookup}
+        grammarItemScoreLookup={mergedGrammarScoreLookup}
       />
 
       {fullyRedeemedFailedAtEventSeqs.length > 0 && (
@@ -920,6 +934,14 @@ const RevealEventDetail = ({
 }): JSX.Element => {
   const { phrase, stabilityBreakdown, masteryBefore, masteryAfter } = entry;
   const blendedM = masteryBefore * REVEAL_MASTERY_DECAY;
+
+  const mergedGrammarScoreLookup = useMemo(() => {
+    if (!entry.grammarItemScoreSnapshot) return grammarItemScoreLookup;
+    const m = new Map(grammarItemScoreLookup);
+    for (const [k, v] of Object.entries(entry.grammarItemScoreSnapshot)) m.set(k, v);
+    return m;
+  }, [grammarItemScoreLookup, entry.grammarItemScoreSnapshot]);
+
   return (
     <div className="bg-gray-50 border-t border-gray-200 px-3 py-3 space-y-4 text-[11px]">
       <div>
@@ -932,7 +954,7 @@ const RevealEventDetail = ({
       <GrammarSection
         phrase={phrase}
         incorrectPhraseRecord={incorrectPhraseRecord}
-        grammarItemScoreLookup={grammarItemScoreLookup}
+        grammarItemScoreLookup={mergedGrammarScoreLookup}
       />
 
       <div className="rounded border border-red-100 bg-red-50/80 px-2 py-1.5 text-red-900 text-[10px]">

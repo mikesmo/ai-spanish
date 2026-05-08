@@ -10,6 +10,7 @@ import { reduceProgress } from './mastery';
 import type { GrammarGradingResult, GrammarGradingStatus } from './grammarGrading';
 import type { PhraseEvent } from './events';
 import type { Phrase, PhraseProgress } from './types';
+import type { ItemScore } from './itemMastery';
 import type { PhraseEventContext } from './useLessonSession';
 
 export interface UseSessionHistoryOptions {
@@ -90,6 +91,18 @@ export interface HistoryEntry {
    * The AI grammar classification result. Set when `gradingStatus === 'success'`.
    */
   aiClassification?: GrammarGradingResult;
+  /**
+   * Per-word mastery snapshot captured immediately after the tracker updated
+   * scores for this event (after AI grading resolves for attempts, synchronously
+   * for reveals). Keyed by normalized word string. Optional for backward
+   * compatibility — absent on old persisted entries and on practice events.
+   */
+  wordScoreSnapshot?: Record<string, ItemScore>;
+  /**
+   * Per-grammar-item mastery snapshot, same timing guarantee as
+   * `wordScoreSnapshot`. Keyed by grammar item string (comma-split token).
+   */
+  grammarItemScoreSnapshot?: Record<string, ItemScore>;
 }
 
 export interface UseSessionHistoryResult {
@@ -129,6 +142,21 @@ export interface UseSessionHistoryResult {
     status: GrammarGradingStatus,
     result?: GrammarGradingResult,
     newlyResolvedFailedAtSeqs?: number[],
+  ) => void;
+  /**
+   * Patches the per-item score snapshots onto an existing history entry.
+   * Called by `useLessonSessionWithHistory` after AI grading resolves (or
+   * immediately for exact-match and reveal events) so each entry records the
+   * tracker state at the moment its event was processed.
+   *
+   * @param eventSeq The per-session event sequence number to patch.
+   * @param wordScoreSnapshot Normalized word → ItemScore at event time.
+   * @param grammarItemScoreSnapshot Grammar item → ItemScore at event time.
+   */
+  updateItemScoreSnapshot: (
+    eventSeq: number,
+    wordScoreSnapshot: Record<string, ItemScore>,
+    grammarItemScoreSnapshot: Record<string, ItemScore>,
   ) => void;
   /**
    * Monotonic version counter that increments whenever any grading result
@@ -330,6 +358,12 @@ export const useSessionHistory = (
               ],
             }
           : {}),
+        ...(ctx.itemScoreSnapshots != null
+          ? {
+              wordScoreSnapshot: ctx.itemScoreSnapshots.wordScoreSnapshot,
+              grammarItemScoreSnapshot: ctx.itemScoreSnapshots.grammarItemScoreSnapshot,
+            }
+          : {}),
       };
 
       setHistory((prev) => [...prev, entry]);
@@ -368,6 +402,22 @@ export const useSessionHistory = (
     [],
   );
 
+  const updateItemScoreSnapshot = useCallback(
+    (
+      eventSeq: number,
+      wordScoreSnapshot: Record<string, ItemScore>,
+      grammarItemScoreSnapshot: Record<string, ItemScore>,
+    ): void => {
+      setHistory((prev) =>
+        prev.map((entry) => {
+          if (entry.eventSeq !== eventSeq) return entry;
+          return { ...entry, wordScoreSnapshot, grammarItemScoreSnapshot };
+        }),
+      );
+    },
+    [],
+  );
+
   const bindCurrentPhrase = useCallback(
     (phrase: Phrase | undefined): void => {
       phraseRef.current = phrase;
@@ -400,6 +450,7 @@ export const useSessionHistory = (
     onPresentationStart,
     clearHistory,
     updateClassification,
+    updateItemScoreSnapshot,
     gradingVersion,
     pendingGradingCount,
   };

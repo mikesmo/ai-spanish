@@ -18,7 +18,9 @@ import {
   createIncorrectPhraseTracker,
   type IncorrectPhraseRecord,
 } from './incorrectPhraseTracker';
+import type { ItemScore } from './itemMastery';
 import type { GrammarGradingResult, PendingGradingEventInfo } from './grammarGrading';
+import { normalizeStr } from './comparison';
 
 /**
  * Emitted with `onEvent` after `engine.onEvent` so consumers do not rely on a
@@ -48,6 +50,16 @@ export interface PhraseEventContext {
    * Empty when none; omitted or empty for practice.
    */
   incorrectPhraseRecordsFullyResolvedFailedAtEventSeqs?: readonly number[];
+  /**
+   * Per-item score snapshot captured immediately after tracker scores were
+   * updated for this event. Present for reveal events (synchronous) and
+   * exact-match attempt events. Absent for async-AI attempts (the snapshot
+   * arrives later via `updateItemScoreSnapshot`) and practice events.
+   */
+  itemScoreSnapshots?: {
+    wordScoreSnapshot: Record<string, ItemScore>;
+    grammarItemScoreSnapshot: Record<string, ItemScore>;
+  };
 }
 
 export interface UseLessonSessionOptions {
@@ -80,6 +92,16 @@ export interface ApplyGradingResultReturn {
    * layer to update the history entry's "fully redeemed" panel.
    */
   newlyResolvedFailedAtSeqs: number[];
+  /**
+   * Per-item score snapshot captured immediately after the tracker applied
+   * grading for this event. Passed by the session-with-history layer to
+   * `updateItemScoreSnapshot` so the history entry records the tracker state
+   * at the moment the event was processed.
+   */
+  itemScoreSnapshot: {
+    wordScoreSnapshot: Record<string, ItemScore>;
+    grammarItemScoreSnapshot: Record<string, ItemScore>;
+  };
 }
 
 export interface UseLessonSessionResult {
@@ -152,6 +174,39 @@ export interface UseLessonSessionResult {
     eventSeq: number,
     result: GrammarGradingResult | null,
   ) => ApplyGradingResultReturn;
+}
+
+/**
+ * Builds a point-in-time snapshot of word and grammar item scores for the
+ * words and grammar items in the given phrase, reading from the tracker's
+ * current score maps. Only entries with a score present in the tracker are
+ * included; untouched items are omitted rather than fabricated.
+ */
+function snapshotPhraseItemScores(
+  phrase: Phrase,
+  tracker: ReturnType<typeof createIncorrectPhraseTracker>,
+): { wordScoreSnapshot: Record<string, ItemScore>; grammarItemScoreSnapshot: Record<string, ItemScore> } {
+  const wordScores = tracker.getWordScores();
+  const grammarScores = tracker.getGrammarItemScores();
+
+  const wordScoreSnapshot: Record<string, ItemScore> = {};
+  for (const w of phrase.Spanish.words) {
+    const key = normalizeStr(w.word);
+    const score = wordScores.get(key);
+    if (score !== undefined) wordScoreSnapshot[key] = score;
+  }
+
+  const grammarItemScoreSnapshot: Record<string, ItemScore> = {};
+  const grammarItems = phrase.Spanish.grammar
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  for (const item of grammarItems) {
+    const score = grammarScores.get(item);
+    if (score !== undefined) grammarItemScoreSnapshot[item] = score;
+  }
+
+  return { wordScoreSnapshot, grammarItemScoreSnapshot };
 }
 
 /**
@@ -345,6 +400,16 @@ export const useLessonSession = (
         for (const resolvedId of newlyResolvedPhraseIds) {
           engine.removeAndPreventRequeue(resolvedId);
         }
+        // Snapshot after scores are updated (synchronous for reveals).
+        const itemScoreSnapshots = snapshotPhraseItemScores(phrase, trackerRef.current);
+        onEventRef.current?.(event, {
+          slotsAheadAtEvent,
+          liveSlotsAhead,
+          eventSeq,
+          itemScoreSnapshots,
+        });
+        setRemaining(engine.remaining());
+        return;
       }
     }
 
@@ -415,14 +480,15 @@ export const useLessonSession = (
   const applyGradingResult = useCallback(
     (eventSeq: number, result: GrammarGradingResult | null): ApplyGradingResultReturn => {
       const engine = engineRef.current;
-      if (!engine) return { newlyResolvedFailedAtSeqs: [] };
+      const emptySnapshot = { wordScoreSnapshot: {}, grammarItemScoreSnapshot: {} };
+      if (!engine) return { newlyResolvedFailedAtSeqs: [], itemScoreSnapshot: emptySnapshot };
 
       const info = pendingGradingMapRef.current.get(eventSeq);
-      if (!info) return { newlyResolvedFailedAtSeqs: [] };
+      if (!info) return { newlyResolvedFailedAtSeqs: [], itemScoreSnapshot: emptySnapshot };
       pendingGradingMapRef.current.delete(eventSeq);
 
       const phrase = deckById.get(info.phraseId);
-      if (!phrase) return { newlyResolvedFailedAtSeqs: [] };
+      if (!phrase) return { newlyResolvedFailedAtSeqs: [], itemScoreSnapshot: emptySnapshot };
 
       let newlyResolvedPhraseIds: string[];
       if (result !== null) {
@@ -456,8 +522,11 @@ export const useLessonSession = (
       setIncorrectPhraseRecords(trackerRef.current.getAllRecords());
       setRemaining(engine.remaining());
 
+      const itemScoreSnapshot = snapshotPhraseItemScores(phrase, trackerRef.current);
+
       return {
         newlyResolvedFailedAtSeqs: Array.from(fullySeqSet).sort((a, b) => a - b),
+        itemScoreSnapshot,
       };
     },
     [deckById],

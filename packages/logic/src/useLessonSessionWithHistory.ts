@@ -85,6 +85,7 @@ export const useLessonSessionWithHistory = (
     clearHistory,
     bindCurrentPhrase,
     updateClassification,
+    updateItemScoreSnapshot,
     gradingVersion,
     pendingGradingCount,
   } = useSessionHistory({ initialHistory });
@@ -96,8 +97,9 @@ export const useLessonSessionWithHistory = (
    * is called. Using a ref breaks the circular dependency between `onEvent`
    * (which needs `kickoff`) and `core` (which needs `onEvent`).
    */
+  const emptySnapshot = { wordScoreSnapshot: {}, grammarItemScoreSnapshot: {} };
   const applyGradingResultRef = useRef<CoreUseLessonSessionResult['applyGradingResult']>(
-    (_eventSeq, _result) => ({ newlyResolvedFailedAtSeqs: [] }),
+    (_eventSeq, _result) => ({ newlyResolvedFailedAtSeqs: [], itemScoreSnapshot: emptySnapshot }),
   );
 
   /**
@@ -111,24 +113,37 @@ export const useLessonSessionWithHistory = (
   const updateClassificationRef = useRef(updateClassification);
   updateClassificationRef.current = updateClassification;
 
+  const updateItemScoreSnapshotRef = useRef(updateItemScoreSnapshot);
+  updateItemScoreSnapshotRef.current = updateItemScoreSnapshot;
+
   const onGradingResult = useCallback(
     (eventSeq: number, result: GrammarGradingResult): void => {
-      const { newlyResolvedFailedAtSeqs } = applyGradingResultRef.current(
+      const { newlyResolvedFailedAtSeqs, itemScoreSnapshot } = applyGradingResultRef.current(
         eventSeq,
         result,
       ) as ApplyGradingResultReturn;
       updateClassificationRef.current(eventSeq, 'success', result, newlyResolvedFailedAtSeqs);
+      updateItemScoreSnapshotRef.current(
+        eventSeq,
+        itemScoreSnapshot.wordScoreSnapshot,
+        itemScoreSnapshot.grammarItemScoreSnapshot,
+      );
     },
     [],
   );
 
   const onGradingFailure = useCallback(
     (eventSeq: number, _error: unknown): void => {
-      const { newlyResolvedFailedAtSeqs } = applyGradingResultRef.current(
+      const { newlyResolvedFailedAtSeqs, itemScoreSnapshot } = applyGradingResultRef.current(
         eventSeq,
         null,
       ) as ApplyGradingResultReturn;
       updateClassificationRef.current(eventSeq, 'failed', undefined, newlyResolvedFailedAtSeqs);
+      updateItemScoreSnapshotRef.current(
+        eventSeq,
+        itemScoreSnapshot.wordScoreSnapshot,
+        itemScoreSnapshot.grammarItemScoreSnapshot,
+      );
     },
     [],
   );
@@ -155,7 +170,7 @@ export const useLessonSessionWithHistory = (
             // Exact word match — grammar was fully demonstrated.
             // Resolve immediately without an AI call.
             const emptyResult = { failedGrammarItems: [], wordMistakes: [] };
-            const { newlyResolvedFailedAtSeqs } = applyGradingResultRef.current(
+            const { newlyResolvedFailedAtSeqs, itemScoreSnapshot } = applyGradingResultRef.current(
               ctx.eventSeq,
               emptyResult,
             );
@@ -164,6 +179,11 @@ export const useLessonSessionWithHistory = (
               'success',
               emptyResult,
               newlyResolvedFailedAtSeqs,
+            );
+            updateItemScoreSnapshotRef.current(
+              ctx.eventSeq,
+              itemScoreSnapshot.wordScoreSnapshot,
+              itemScoreSnapshot.grammarItemScoreSnapshot,
             );
           } else if (optsRef.current.postGrammarGrading) {
             const grammarItems = phrase.Spanish.grammar

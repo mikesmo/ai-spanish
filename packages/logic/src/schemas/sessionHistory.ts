@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { phraseSchema } from './phrase';
+import { itemScoreSchema } from './incorrectPhraseRecord';
 
 export const accuracyBreakdownSchema = z.object({
   accuracy: z.number(),
@@ -109,6 +110,16 @@ export const historyEntrySchema = z.object({
    * `gradingStatus === 'success'`. Optional for backward compatibility.
    */
   aiClassification: grammarGradingResultSchema.optional(),
+  /**
+   * Per-word mastery snapshot at the time of this event. Keyed by normalized
+   * word string. Optional for backward compatibility.
+   */
+  wordScoreSnapshot: z.record(z.string(), itemScoreSchema).optional(),
+  /**
+   * Per-grammar-item mastery snapshot at the time of this event. Keyed by
+   * grammar item string. Optional for backward compatibility.
+   */
+  grammarItemScoreSnapshot: z.record(z.string(), itemScoreSchema).optional(),
 });
 
 export type HistoryEntryParsed = z.infer<typeof historyEntrySchema>;
