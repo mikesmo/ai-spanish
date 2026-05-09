@@ -244,11 +244,11 @@ export const UserRecording = ({
         </p>
       )}
 
-      <div className="mt-6 flex min-h-[36px] w-full items-center justify-center gap-2">
+      <div className="relative mx-auto mt-6 flex min-h-[36px] w-full max-w-[560px] items-center justify-center">
         <p
-          className={`text-[18px] text-center ${
-            isCorrect ? "text-[#1D9E75]" : "text-gray-500"
-          } ${showClearSpokenCaptionButton ? "flex-1 pl-8" : ""}`}
+          className={`w-full break-words leading-relaxed text-[18px] text-center ${isCorrect ? "text-[#1D9E75]" : "text-gray-500"} ${
+            showClearSpokenCaptionButton ? "pr-11" : ""
+          }`}
         >
           {transcription}
         </p>
@@ -256,7 +256,7 @@ export const UserRecording = ({
           <button
             type="button"
             onClick={onClearSpokenCaption}
-            className="h-9 w-9 shrink-0 rounded-full border border-gray-200 text-gray-400 transition hover:border-gray-300 hover:text-gray-600"
+            className="absolute right-0 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 shrink-0 items-center justify-center rounded-full border border-gray-200 text-gray-400 transition hover:border-gray-300 hover:text-gray-600"
             aria-label="Clear what you said"
             title="Clear what you said"
           >

@@ -7,6 +7,7 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
@@ -18,6 +19,8 @@ import { SayThatAgainAckButton } from "./SayThatAgainAckButton";
 const QUESTION_PLACEHOLDER_LABEL = "I have a question";
 
 const CIRCLE_SIZE = 120;
+/** Readable max line length for live transcript; capped by screen width minus gutters below. */
+const TRANSCRIPT_BAND_MAX_DP = 560;
 
 export const UserRecording = ({
   englishText,
@@ -41,6 +44,7 @@ export const UserRecording = ({
   learnerQuestionPause,
   onClearSpokenCaption,
 }: UserRecordingProps): JSX.Element => {
+  const { width: windowWidth } = useWindowDimensions();
   const [nextPhraseSliderKey, setNextPhraseSliderKey] = useState(0);
   const [hero, setHero] = useState<ReturnType<typeof getPhraseHeroLayout>>(null);
   const wasQuestionActiveRef = useRef(false);
@@ -78,6 +82,12 @@ export const UserRecording = ({
     !isCorrect &&
     transcription.trim().length > 0 &&
     onClearSpokenCaption != null;
+
+  const transcriptBandMaxWidth = Math.min(
+    TRANSCRIPT_BAND_MAX_DP,
+    Math.max(0, windowWidth - 40),
+  );
+
   const blinkOpacity = useRef(new Animated.Value(1)).current;
   const breatheScale = useRef(new Animated.Value(1)).current;
 
@@ -187,12 +197,12 @@ export const UserRecording = ({
           )}
 
           <View style={styles.transcriptArea}>
-            <View style={styles.transcriptRow}>
+            <View style={[styles.transcriptRow, { maxWidth: transcriptBandMaxWidth }]}>
               <Text
                 style={[
                   styles.transcriptText,
+                  showClearSpokenCaptionButton && styles.transcriptTextWithClearInset,
                   isCorrect && styles.transcriptCorrect,
-                  showClearSpokenCaptionButton && styles.transcriptTextWithClearButton,
                 ]}
               >
                 {transcription}
@@ -203,7 +213,7 @@ export const UserRecording = ({
                   accessibilityRole="button"
                   accessibilityLabel="Clear what you said"
                   style={({ pressed }) => [
-                    styles.clearSpokenCaptionButton,
+                    styles.clearSpokenCaptionButtonAbsolute,
                     pressed && styles.clearSpokenCaptionButtonPressed,
                   ]}
                 >
@@ -403,34 +413,43 @@ const styles = StyleSheet.create({
     opacity: 0.55,
   },
   transcriptArea: {
+    alignSelf: "stretch",
+    width: "100%",
     marginTop: 16,
     minHeight: 36,
-    alignItems: "center",
-    justifyContent: "center",
     paddingHorizontal: 16,
+    alignItems: "center",
   },
   transcriptRow: {
+    alignSelf: "center",
     width: "100%",
+    maxWidth: "100%",
     minHeight: 36,
-    flexDirection: "row",
-    alignItems: "center",
+    position: "relative",
     justifyContent: "center",
-    gap: 8,
+    alignItems: "center",
   },
   transcriptText: {
+    alignSelf: "stretch",
+    width: "100%",
+    flexShrink: 1,
     fontSize: 18,
     color: "#6b7280",
     textAlign: "center",
-    flexShrink: 1,
+    lineHeight: 26,
   },
-  transcriptTextWithClearButton: {
-    flex: 1,
-    paddingLeft: 36,
+  transcriptTextWithClearInset: {
+    /** Reserve space so wrapped lines stay clear of the absolutely positioned clear control. */
+    paddingRight: 44,
   },
   transcriptCorrect: {
     color: "#1D9E75",
   },
-  clearSpokenCaptionButton: {
+  clearSpokenCaptionButtonAbsolute: {
+    position: "absolute",
+    right: 0,
+    top: "50%",
+    marginTop: -18,
     width: 36,
     height: 36,
     borderRadius: 18,
@@ -438,6 +457,7 @@ const styles = StyleSheet.create({
     borderColor: "#E5E7EB",
     alignItems: "center",
     justifyContent: "center",
+    zIndex: 1,
   },
   clearSpokenCaptionButtonPressed: {
     opacity: 0.85,
