@@ -48,7 +48,26 @@ const DEEPGRAM_LIVE_OPTIONS = {
 
 const INACTIVITY_WATCHDOG_MS = 3000;
 const INITIAL_SILENCE_TIMEOUT_MS = 6000;
-const NATIVE_STOP_SETTLE_MS = 50;
+/**
+ * Polling interval and ceiling used by `start()` to wait for the SDK to
+ * finish tearing down a previously active session (state.status leaves
+ * 'listening') before invoking `startListening`. Calling `startListening`
+ * while the SDK is mid-teardown yields a session that never receives audio.
+ */
+const NATIVE_STOP_SETTLE_POLL_MS = 25;
+const NATIVE_STOP_SETTLE_TIMEOUT_MS = 1500;
+/**
+ * Additional fixed dwell after `state.status` reports `'idle'` and before
+ * we invoke `startListening`. Empirically, when we tear down an actively
+ * listening session and immediately restart, the SDK reports idle ~25-50ms
+ * after `stopListening`, but the underlying native audio resources
+ * (AVAudioSession / AudioRecord) take longer to fully release. Without
+ * this dwell, the next session's mic flag flips to `'listening'` but no
+ * audio frames are ever delivered (verified in run logs: 6s
+ * INITIAL_SILENCE_TIMEOUT with `statusRef:'listening'` and zero
+ * transcripts).
+ */
+const NATIVE_POST_IDLE_DWELL_MS = 300;
 
 /**
  * The native SDK does not expose `speech_final`; a chunk with `isFinal` may be
@@ -85,6 +104,17 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
   const stopListeningRef = useRef<() => void>(() => {});
   /** Bumped in `start` / `stop` so a deferred IIFE from a previous `start` cannot call `startListening` after a quick `stop`. */
   const startEpochRef = useRef(0);
+  /**
+   * Generational accept-gate for `onTranscript`. The SDK's underlying
+   * connection occasionally delivers trailing events from a previous
+   * session immediately after `clearTranscription` + `start`; those events
+   * would otherwise overwrite the cleared caption with stale text and
+   * finalize against the prior utterance. The gate is opened only after
+   * `await startListening()` resolves successfully, and is closed whenever
+   * we leave a confirmed-listening state (`clearTranscription`, `stop`, or
+   * the start IIFE entering its teardown/auth phase).
+   */
+  const acceptingTranscriptsRef = useRef(false);
   const stopInFlightRef = useRef<Promise<void> | null>(null);
   const debugRef = useRef(getDefaultLearningPipelineDebug());
   debugRef.current = getDefaultLearningPipelineDebug();
@@ -122,6 +152,7 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
     paragraphRef.current = lastCaptionRef.current;
     setIsFinalState(true);
     finalizedCountRef.current += 1;
+    acceptingTranscriptsRef.current = false;
     try {
       stopListeningRef.current();
     } catch {
@@ -144,12 +175,21 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
     );
   }, [clearInactivityTimer, fireWatchdog]);
 
+  /**
+   * Mirrors `state.status` into a ref so async IIFEs (e.g. inside `start`) can
+   * read the latest SDK status across re-renders. The `state` value captured
+   * by closure at render time goes stale while we await teardown of a
+   * previously-listening session.
+   */
+  const stateStatusRef = useRef<string>('idle');
+
   const { startListening, stopListening, state } = useDeepgramSpeechToText({
     trackState: true,
     onStart: () => {
       prefetchListenKey();
     },
     onTranscript: (text: string, event?: NativeOnTranscriptEvent) => {
+      if (!acceptingTranscriptsRef.current) return;
       if (text !== '') clearInitialSilenceTimer();
       const raw = event?.raw;
 
@@ -165,6 +205,7 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
           finalizedCountRef.current += 1;
           setIsFinalState(true);
           clearInactivityTimer();
+          acceptingTranscriptsRef.current = false;
           try {
             stopListeningRef.current();
           } catch {
@@ -257,8 +298,10 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
   });
 
   stopListeningRef.current = stopListening;
+  stateStatusRef.current = state?.status ?? 'idle';
 
   const clearTranscription = useCallback(() => {
+    acceptingTranscriptsRef.current = false;
     const prevCaptionLen = lastCaptionRef.current.length;
     const prevFinalized = finalizedCountRef.current;
     setCaption('');
@@ -291,6 +334,7 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
 
   const runStopSync = () => {
     startEpochRef.current += 1;
+    acceptingTranscriptsRef.current = false;
     clearInactivityTimer();
     clearInitialSilenceTimer();
     clearFinalCommitTimer();
@@ -313,6 +357,7 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
       }
       startEpochRef.current += 1;
       const myEpoch = startEpochRef.current;
+      acceptingTranscriptsRef.current = false;
       clearInitialSilenceTimer();
       clearFinalCommitTimer();
       const kws = options?.keywords;
@@ -322,15 +367,43 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
           : undefined;
 
       void (async () => {
-        try {
-          stopListeningRef.current();
-        } catch {
-          // ignore
+        // Only call stopListening here if we are NOT immediately following
+        // a clearTranscription (which already issued stopListening). Two
+        // stopListening calls within the same microtask leave the native
+        // audio teardown in a state where the next startListening produces
+        // a "listening but no audio" session.
+        if (stateStatusRef.current === 'listening') {
+          try {
+            stopListeningRef.current();
+          } catch {
+            // ignore
+          }
         }
         if (startEpochRef.current !== myEpoch) {
           return;
         }
-        await new Promise<void>((r) => setTimeout(r, NATIVE_STOP_SETTLE_MS));
+        // Wait for the SDK to actually finish tearing down a previously
+        // active session. `stopListening` returns synchronously but the
+        // underlying mic + WebSocket close asynchronously; calling
+        // `startListening` while `state.status === 'listening'` produces a
+        // session that never receives audio. We poll the ref-mirrored
+        // status (closure-stable across renders) and bail on epoch change.
+        const settleStartedAt = Date.now();
+        while (
+          stateStatusRef.current === 'listening' &&
+          Date.now() - settleStartedAt < NATIVE_STOP_SETTLE_TIMEOUT_MS
+        ) {
+          await new Promise<void>((r) => setTimeout(r, NATIVE_STOP_SETTLE_POLL_MS));
+          if (startEpochRef.current !== myEpoch) return;
+        }
+        // Additional fixed dwell to let the OS-level audio resources
+        // (AVAudioSession / AudioRecord) fully release before we re-acquire
+        // them. The status flag transitions faster than the actual native
+        // resource release. Without this dwell, the next startListening
+        // succeeds at the SDK layer but the mic produces no audio frames.
+        if (NATIVE_POST_IDLE_DWELL_MS > 0) {
+          await new Promise<void>((r) => setTimeout(r, NATIVE_POST_IDLE_DWELL_MS));
+        }
         if (startEpochRef.current !== myEpoch) {
           try { stopListeningRef.current(); } catch { /* empty */ }
           return;
@@ -376,6 +449,7 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
           try { stopListeningRef.current(); } catch { /* empty */ }
           return;
         }
+        acceptingTranscriptsRef.current = true;
         clearInitialSilenceTimer();
         initialSilenceTimerRef.current = setTimeout(() => {
           initialSilenceTimerRef.current = null;
@@ -387,6 +461,7 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
             setWords([...finalizedWordsRef.current]);
           }
           setIsFinalState(true);
+          acceptingTranscriptsRef.current = false;
           try {
             stopListeningRef.current();
           } catch { /* empty */ }

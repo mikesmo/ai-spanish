@@ -154,6 +154,24 @@ export function useDeepgramConnection() {
     }
   }, [prefetchApiKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /**
+   * Sends Deepgram's `Finalize` control message to immediately flush any
+   * transcription sitting in the server's buffer and close the current
+   * utterance. After this, the next audio frames start a fresh utterance,
+   * so client-side `clearTranscription` no longer races against in-flight
+   * interims that carry the cumulative pre-clear utterance text.
+   * No-op when the WebSocket is not OPEN.
+   */
+  const finalizeUtterance = useCallback(() => {
+    const conn = connectionRef.current;
+    if (!conn || connectionStateRef.current !== LiveConnectionState.OPEN) return;
+    try {
+      conn.finalize();
+    } catch {
+      // ignore
+    }
+  }, []);
+
   const disconnectFromDeepgram = useCallback(async () => {
     connectionIdRef.current++;
     if (connectionRef.current) {
@@ -278,6 +296,7 @@ export function useDeepgramConnection() {
     onUtteranceEndRef,
     connectToDeepgram,
     disconnectFromDeepgram,
+    finalizeUtterance,
     sendVoiceData,
   };
 }

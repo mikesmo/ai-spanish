@@ -35,6 +35,7 @@ export const UserRecording = ({
   showNextPhraseInsteadOfAnswer = false,
   onNextPhrase,
   learnerQuestionPause,
+  onClearSpokenCaption,
 }: UserRecordingProps): JSX.Element => {
   const [nextPhraseSliderKey, setNextPhraseSliderKey] = useState(0);
   const wasQuestionActiveRef = useRef(false);
@@ -60,6 +61,13 @@ export const UserRecording = ({
     replaySpanishMedium?.show === true && replaySpanishMedium.isPlaying;
   const showRecordingIndicator =
     showMicChrome && !isReplaySpanishAudioPlaying && isRecording && !isCorrect;
+  const isCenterMicLoading = showMicChrome && !isReplaySpanishAudioPlaying && !isRecording && !isCorrect;
+  const showClearSpokenCaptionButton =
+    showMicChrome &&
+    !isReplaySpanishAudioPlaying &&
+    !isCorrect &&
+    transcription.trim().length > 0 &&
+    onClearSpokenCaption != null;
 
   return (
   <div className="relative flex-1 flex flex-col min-h-0 w-full animate-screen-fade-in">
@@ -109,26 +117,52 @@ export const UserRecording = ({
     <div className="absolute left-1/2 top-[40%] z-[1] -translate-x-1/2 -translate-y-1/2">
       {showMicChrome && !isReplaySpanishAudioPlaying ? (
         <div
-          className={`flex h-[120px] w-[120px] shrink-0 items-center justify-center rounded-full animate-breathe-fast ${
+          className={`flex h-[120px] w-[120px] shrink-0 items-center justify-center rounded-full ${
             isCorrect ? "bg-[#1D9E75]/70" : "bg-[#1D9E75]"
-          }`}
+          } ${isRecording && !isCorrect ? "animate-breathe-fast" : ""}`}
+          role={isCenterMicLoading ? "status" : undefined}
+          aria-label={isCenterMicLoading ? "Loading" : undefined}
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="28"
-            height="28"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="white"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
-            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-            <line x1="12" y1="19" x2="12" y2="22" />
-            <line x1="8" y1="22" x2="16" y2="22" />
-          </svg>
+          {isCenterMicLoading ? (
+            <svg
+              className="h-6 w-6 animate-spin text-white/80"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              aria-hidden
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+              />
+            </svg>
+          ) : (
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="28"
+              height="28"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="white"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+              <line x1="12" y1="19" x2="12" y2="22" />
+              <line x1="8" y1="22" x2="16" y2="22" />
+            </svg>
+          )}
         </div>
       ) : showMicChrome && isReplaySpanishAudioPlaying ? (
         <div
@@ -210,10 +244,40 @@ export const UserRecording = ({
         </p>
       )}
 
-      <div className="mt-6 flex min-h-[28px] items-center justify-center">
-        <p className={`text-[18px] text-center ${isCorrect ? "text-[#1D9E75]" : "text-gray-500"}`}>
+      <div className="mt-6 flex min-h-[36px] w-full items-center justify-center gap-2">
+        <p
+          className={`text-[18px] text-center ${
+            isCorrect ? "text-[#1D9E75]" : "text-gray-500"
+          } ${showClearSpokenCaptionButton ? "flex-1 pl-8" : ""}`}
+        >
           {transcription}
         </p>
+        {showClearSpokenCaptionButton ? (
+          <button
+            type="button"
+            onClick={onClearSpokenCaption}
+            className="h-9 w-9 shrink-0 rounded-full border border-gray-200 text-gray-400 transition hover:border-gray-300 hover:text-gray-600"
+            aria-label="Clear what you said"
+            title="Clear what you said"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+              className="mx-auto"
+            >
+              <path d="M18 6 6 18" />
+              <path d="m6 6 12 12" />
+            </svg>
+          </button>
+        ) : null}
       </div>
 
       {explainAck?.isOpen === true || showNewPhraseQuestionButton ? (

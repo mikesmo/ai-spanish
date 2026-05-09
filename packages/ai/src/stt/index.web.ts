@@ -99,6 +99,7 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
     onUtteranceEndRef,
     connectToDeepgram,
     disconnectFromDeepgram,
+    finalizeUtterance,
     sendVoiceData,
   } = useDeepgramConnection();
 
@@ -117,6 +118,19 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
   const prevConnectionState = useRef<LiveConnectionState>(LiveConnectionState.CLOSED);
   const isIntentionalStop = useRef(false);
   const isUserStarted = useRef(false);
+  /**
+   * Generational accept-gate for `handleTranscript` / `handleUtteranceEnd`.
+   * Deepgram repeats the cumulative current-utterance transcript in every
+   * interim until `speech_final=true` fires, so an interim arriving after
+   * `clearTranscription` would otherwise rebuild the cleared caption from
+   * the pre-clear utterance text. The gate is closed in `clearTranscription`
+   * (which also issues a `Finalize` to force Deepgram to flush + close),
+   * and re-opened when we observe the close of the pre-clear utterance
+   * (`is_final && speech_final`, or `UtteranceEnd`). It's also opened
+   * unconditionally on `start()` so initial sessions are accepted, and
+   * closed on `runStop`. No timestamps, no content matching.
+   */
+  const acceptingTranscriptsRef = useRef(true);
   /** Throttles initial-silence arming from startMic-direct + WS-OPEN (no ~2× effective timeout). */
   const lastInitialSilenceArmAtRef = useRef(0);
   const stopInFlightRef = useRef<Promise<void> | null>(null);
@@ -228,6 +242,20 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
     // a chunk of words has been frozen — the utterance can still continue.
     const isSpeechFinal = d?.speech_final ?? false;
     const rawWords = alt?.words ?? [];
+    if (!acceptingTranscriptsRef.current) {
+      // Drop pre-clear leftover events. Re-open the gate when we observe
+      // the post-`Finalize` flush — empirically this is the first
+      // `is_final=true` arriving after `clearTranscription`, regardless
+      // of `speech_final` (Deepgram emits speech_final inconsistently
+      // for the Finalize-induced flush). The flush event itself still
+      // carries the cumulative pre-clear text, so we drop it via the
+      // early return below. The very next interim belongs to the fresh
+      // utterance Deepgram starts after flushing.
+      if (isFinalChunk) {
+        acceptingTranscriptsRef.current = true;
+      }
+      return;
+    }
 
     const segmentWords: SpokenWord[] = rawWords
       .map((w) => ({
@@ -365,6 +393,12 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
         'watchdogArmed=' + watchdogWasArmed,
       );
     }
+    if (!acceptingTranscriptsRef.current) {
+      // Post-clear closer: re-open the gate, drop this event (it belongs to
+      // the pre-clear utterance that we forced shut via `Finalize`).
+      acceptingTranscriptsRef.current = true;
+      return;
+    }
     if (!watchdogWasArmed) {
       return;
     }
@@ -408,6 +442,14 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
     }
     isIntentionalStop.current = false;
     isUserStarted.current = true;
+    // Only re-open the accept-gate when a fresh WebSocket will be created
+    // (paths `connect-direct` and `setupMic-async`). On `startMic-direct`
+    // the WS is already OPEN and `start()` may follow a `clearTranscription`
+    // that intentionally closed the gate — we must NOT clobber it; the
+    // gate will reopen when Deepgram emits the post-`Finalize` closer.
+    if (connectionStateRef.current !== LiveConnectionState.OPEN) {
+      acceptingTranscriptsRef.current = true;
+    }
     nextKeywordsRef.current = options?.keywords ?? [];
 
     // Three-way branch over the current (mic, conn) state (use `microphoneStateRef` — not stale state).
@@ -454,6 +496,7 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
   const runStop = async () => {
     isIntentionalStop.current = true;
     isUserStarted.current = false;
+    acceptingTranscriptsRef.current = false;
     lastInitialSilenceArmAtRef.current = 0;
     if (debugRef.current) {
       logSttAdapterStop({
@@ -483,6 +526,8 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
   stopRef.current = stop;
 
   const clearTranscription = () => {
+    const wsOpen =
+      connectionStateRef.current === LiveConnectionState.OPEN;
     if (debugRef.current) {
       logSttClear({
         prevFinalized: finalizedWordsRef.current.length,
@@ -497,6 +542,15 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
     finalizedWordsRef.current = [];
     pendingInterimWordsRef.current = [];
     clearWatchdog();
+    if (wsOpen) {
+      // Close the accept-gate before forcing Deepgram to flush. Deepgram
+      // will emit a final transcript carrying the cumulative pre-clear
+      // text (which the gate will drop) followed by a close signal
+      // (`is_final && speech_final` or `UtteranceEnd`) that re-opens the
+      // gate. The next interim then comes from a fresh utterance.
+      acceptingTranscriptsRef.current = false;
+      finalizeUtterance();
+    }
   };
 
   // Pre-warm intentionally DISABLED: the mount effect no longer calls
@@ -543,6 +597,12 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
   // closes instead of hanging the adapter.
   useEffect(() => {
     if (connectionState === LiveConnectionState.OPEN && isUserStarted.current) {
+      // A fresh WebSocket is a fresh utterance context. Re-open the
+      // accept-gate unconditionally so transcripts on this connection
+      // are processed. (No-op when already true; matters only when a
+      // prior `clearTranscription` closed the gate but the WS then
+      // closed unexpectedly and reconnected before the closer arrived.)
+      acceptingTranscriptsRef.current = true;
       startMicrophone();
       armInitialSilenceOnce();
     }

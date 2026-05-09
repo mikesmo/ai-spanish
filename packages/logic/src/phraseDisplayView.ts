@@ -173,6 +173,8 @@ export type UserRecordingViewProps = {
   showNextPhraseInsteadOfAnswer?: boolean;
   /** Called when learner taps the plain "Next phrase" on the recording screen. */
   onNextPhrase?: () => void;
+  /** Clears in-progress spoken caption and restarts recording for composite cards. */
+  onClearSpokenCaption?: () => void;
   /** Shared pause state; drives both the pill appearance and the question sidebar. */
   learnerQuestionPause?: LearnerQuestionPauseProps;
 };

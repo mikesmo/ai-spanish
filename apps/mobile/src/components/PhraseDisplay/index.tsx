@@ -219,6 +219,13 @@ export const PhraseDisplay = ({
               display.stopAnswerAudio();
               runPhraseFeedbackNext(display, session);
             }}
+            onClearSpokenCaption={
+              (display.status === "tryAgain" ||
+                display.currentPhrase.type === "new" ||
+                !display.hasUsedClearSpokenCaptionOnCurrentCard)
+                ? display.handleClearSpokenCaption
+                : undefined
+            }
             explainAck={
               display.isExplainAckOpen &&
               (display.status === "recording" || display.status === "recordingPriming")

@@ -39,6 +39,7 @@ export const UserRecording = ({
   showNextPhraseInsteadOfAnswer = false,
   onNextPhrase,
   learnerQuestionPause,
+  onClearSpokenCaption,
 }: UserRecordingProps): JSX.Element => {
   const [nextPhraseSliderKey, setNextPhraseSliderKey] = useState(0);
   const [hero, setHero] = useState<ReturnType<typeof getPhraseHeroLayout>>(null);
@@ -69,6 +70,14 @@ export const UserRecording = ({
     replaySpanishMedium?.show === true && replaySpanishMedium.isPlaying;
   const showRecordingIndicator =
     showMicChrome && !isReplaySpanishAudioPlaying && isRecording && !isCorrect;
+  const isCenterMicActive = showMicChrome && !isReplaySpanishAudioPlaying && isRecording;
+  const shouldAnimateCenterMic = isCenterMicActive && !isCorrect;
+  const showClearSpokenCaptionButton =
+    showMicChrome &&
+    !isReplaySpanishAudioPlaying &&
+    !isCorrect &&
+    transcription.trim().length > 0 &&
+    onClearSpokenCaption != null;
   const blinkOpacity = useRef(new Animated.Value(1)).current;
   const breatheScale = useRef(new Animated.Value(1)).current;
 
@@ -79,19 +88,29 @@ export const UserRecording = ({
         Animated.timing(blinkOpacity, { toValue: 1, duration: 500, useNativeDriver: true }),
       ]),
     );
+    blink.start();
+    return () => {
+      blink.stop();
+    };
+  }, [blinkOpacity]);
+
+  useEffect(() => {
+    if (!shouldAnimateCenterMic) {
+      breatheScale.setValue(1);
+      return;
+    }
     const breathe = Animated.loop(
       Animated.sequence([
         Animated.timing(breatheScale, { toValue: 1.07, duration: 400, useNativeDriver: true }),
         Animated.timing(breatheScale, { toValue: 1, duration: 400, useNativeDriver: true }),
       ]),
     );
-    blink.start();
     breathe.start();
     return () => {
-      blink.stop();
       breathe.stop();
+      breatheScale.setValue(1);
     };
-  }, [blinkOpacity, breatheScale]);
+  }, [breatheScale, shouldAnimateCenterMic]);
 
   return (
     <View style={styles.container} onLayout={onStageLayout}>
@@ -123,10 +142,16 @@ export const UserRecording = ({
             styles.micCircle,
             { left: hero.circleLeft, top: hero.circleTop },
             isCorrect && styles.micCircleCorrect,
-            { transform: [{ scale: breatheScale }] },
+            { transform: [{ scale: shouldAnimateCenterMic ? breatheScale : 1 }] },
           ]}
+          accessibilityRole={!isCenterMicActive && !isCorrect ? "progressbar" : undefined}
+          accessibilityLabel={!isCenterMicActive && !isCorrect ? "Loading" : undefined}
         >
-          <Feather name="mic" size={28} color="white" />
+          {!isCenterMicActive && !isCorrect ? (
+            <ActivityIndicator size="large" color="#ffffff" />
+          ) : (
+            <Feather name="mic" size={28} color="white" />
+          )}
         </Animated.View>
       ) : hero != null && showMicChrome && isReplaySpanishAudioPlaying ? (
         <View
@@ -162,9 +187,30 @@ export const UserRecording = ({
           )}
 
           <View style={styles.transcriptArea}>
-            <Text style={[styles.transcriptText, isCorrect && styles.transcriptCorrect]}>
-              {transcription}
-            </Text>
+            <View style={styles.transcriptRow}>
+              <Text
+                style={[
+                  styles.transcriptText,
+                  isCorrect && styles.transcriptCorrect,
+                  showClearSpokenCaptionButton && styles.transcriptTextWithClearButton,
+                ]}
+              >
+                {transcription}
+              </Text>
+              {showClearSpokenCaptionButton ? (
+                <Pressable
+                  onPress={onClearSpokenCaption}
+                  accessibilityRole="button"
+                  accessibilityLabel="Clear what you said"
+                  style={({ pressed }) => [
+                    styles.clearSpokenCaptionButton,
+                    pressed && styles.clearSpokenCaptionButtonPressed,
+                  ]}
+                >
+                  <Feather name="x" size={16} color="#6B7280" />
+                </Pressable>
+              ) : null}
+            </View>
           </View>
 
           {explainAck?.isOpen === true || showNewPhraseQuestionButton ? (
@@ -358,18 +404,44 @@ const styles = StyleSheet.create({
   },
   transcriptArea: {
     marginTop: 16,
-    minHeight: 28,
+    minHeight: 36,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 16,
+  },
+  transcriptRow: {
+    width: "100%",
+    minHeight: 36,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
   },
   transcriptText: {
     fontSize: 18,
     color: "#6b7280",
     textAlign: "center",
+    flexShrink: 1,
+  },
+  transcriptTextWithClearButton: {
+    flex: 1,
+    paddingLeft: 36,
   },
   transcriptCorrect: {
     color: "#1D9E75",
+  },
+  clearSpokenCaptionButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  clearSpokenCaptionButtonPressed: {
+    opacity: 0.85,
+    borderColor: "#D1D5DB",
   },
   explainAckUnderTranscript: {
     marginTop: 16,

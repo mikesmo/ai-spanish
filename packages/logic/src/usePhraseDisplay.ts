@@ -151,6 +151,8 @@ export function usePhraseDisplay(
     useState<LearnerLastAttempt | null>(null);
   const [hasUsedTryAgainOnCurrentCard, setHasUsedTryAgainOnCurrentCard] =
     useState(false);
+  const [hasUsedClearSpokenCaptionOnCurrentCard, setHasUsedClearSpokenCaptionOnCurrentCard] =
+    useState(false);
   const [isFirstSessionPresentationOfCurrentPhrase, setIsFirstOfCurrentPhrase] =
     useState(true);
   const [isExplainAckOpen, setIsExplainAckOpen] = useState(false);
@@ -685,6 +687,7 @@ export function usePhraseDisplay(
     setLastScoreBreakdown(null);
     setLastAttemptDetail(null);
     setHasUsedTryAgainOnCurrentCard(false);
+    setHasUsedClearSpokenCaptionOnCurrentCard(false);
     setIsExplainAckOpen(false);
     setIsExplainAckReplayPlaying(false);
     setChainedFeedbackExplainAudioActive(false);
@@ -1215,6 +1218,24 @@ export function usePhraseDisplay(
     });
   };
 
+  const handleClearSpokenCaption = () => {
+    const currentStatus = statusRef.current;
+    if (currentStatus !== 'recording' && currentStatus !== 'tryAgain') return;
+    if (isExplainAckOpen) return;
+    const isUnlimitedClear =
+      currentStatus === 'tryAgain' || currentPhrase.type === 'new';
+    if (!isUnlimitedClear && hasUsedClearSpokenCaptionOnCurrentCard) return;
+    if (!isUnlimitedClear) {
+      setHasUsedClearSpokenCaptionOnCurrentCard(true);
+    }
+    attemptEmittedRef.current = false;
+    firstIsFinalAtRef.current = null;
+    sttRef.current.clearTranscription();
+    sttRef.current.start({
+      keywords: deepgramLiveKeywordTokensForPhrase(currentPhrase),
+    });
+  };
+
   const handleNext = (options?: { exitToLoading?: boolean }) => {
     successExplainAbortRef.current?.abort();
     answerAudioAbortRef.current?.abort();
@@ -1471,6 +1492,8 @@ export function usePhraseDisplay(
     handleShowAnswer,
     stopAnswerAudio,
     handleTryAgain,
+    handleClearSpokenCaption,
+    hasUsedClearSpokenCaptionOnCurrentCard,
     handleNext,
     handleReplay,
     showReplaySpanishMedium,
