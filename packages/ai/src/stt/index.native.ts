@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { NativeEventEmitter, NativeModules, Platform } from 'react-native';
+import { useCallback, useRef, useState } from 'react';
 import { configure, useDeepgramSpeechToText } from 'react-native-deepgram';
 import { prefetchListenKey, resolveKeyForListen } from './deepgramAuthKey.native';
 import {
@@ -106,18 +105,6 @@ const NATIVE_POST_IDLE_DWELL_MS = 300;
 const NATIVE_CONFIRM_LISTENING_POLL_MS = 25;
 const NATIVE_CONFIRM_LISTENING_TIMEOUT_MS = 1500;
 /**
- * Time after gate-open without any transcript event (interim, final, or
- * empty) before we treat the session as audio-stalled and trigger a
- * single recovery (stop + dwell + startListening + confirm). Healthy
- * cycles deliver the first interim within ~1-3 s of gate-open when the
- * user starts speaking immediately, so 3500 ms gives normal "thinking"
- * time without unnecessarily firing on real silence. The
- * `INITIAL_SILENCE_TIMEOUT_MS` (8 s) remains the absolute fallback if
- * recovery itself also produces zero events.
- */
-const NATIVE_AUDIO_STALL_PROBE_MS = 3500;
-
-/**
  * The native SDK does not expose `speech_final`; a chunk with `isFinal` may be
  * mid-utterance. We debounce the commit so a following interim can cancel it,
  * approximating web `speech_final` + endpointing.
@@ -186,33 +173,6 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
   const stopInFlightRef = useRef<Promise<void> | null>(null);
   const debugRef = useRef(getDefaultLearningPipelineDebug());
   debugRef.current = getDefaultLearningPipelineDebug();
-  // #region agent log
-  const lastClearAtRef = useRef<number>(0);
-  const gateOpenedAtRef = useRef<number>(0);
-  const firstEventProbeRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const sawAnyTranscriptRef = useRef<boolean>(false);
-  const wsOpenAtRef = useRef<number>(0);
-  const audioChunkCountRef = useRef<number>(0);
-  const audioChunkBytesRef = useRef<number>(0);
-  const mountLoggedRef = useRef<boolean>(false);
-  if (!mountLoggedRef.current) {
-    mountLoggedRef.current = true;
-    fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'653b2b'},body:JSON.stringify({sessionId:'653b2b',runId:'native-audio-stall',hypothesisId:'H8',location:'index.native.ts:useSTT:mount',message:'useSTT hook mounted (new bundle loaded)',data:{at:Date.now()},timestamp:Date.now()})}).catch(()=>{});
-  }
-  useEffect(() => {
-    const eventName = Platform.select({ ios: 'DeepgramAudioPCM', android: 'AudioChunk' });
-    if (!eventName) return;
-    const emitter = new NativeEventEmitter(NativeModules.Deepgram);
-    const sub = emitter.addListener(eventName, (ev: { data?: number[]; b64?: string }) => {
-      audioChunkCountRef.current += 1;
-      const bytes = ev?.b64?.length ?? ev?.data?.length ?? 0;
-      audioChunkBytesRef.current += bytes;
-    });
-    return () => {
-      sub.remove();
-    };
-  }, []);
-  // #endregion
 
   const clearInactivityTimer = useCallback(() => {
     if (inactivityTimerRef.current) {
@@ -236,9 +196,6 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
   }, []);
 
   const fireWatchdog = useCallback(() => {
-    // #region agent log
-    fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'653b2b'},body:JSON.stringify({sessionId:'653b2b',runId:'native-watchdog-fix',hypothesisId:'H2',location:'index.native.ts:fireWatchdog:entry',message:'inactivity watchdog fired',data:{captionLen:lastCaptionRef.current.length,msSinceClear:lastClearAtRef.current?Date.now()-lastClearAtRef.current:-1,watchdogMs:INACTIVITY_WATCHDOG_MS},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     inactivityTimerRef.current = null;
     clearFinalCommitTimer();
     const pending = pendingInterimWordsRef.current;
@@ -285,29 +242,9 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
   const { startListening, stopListening, state } = useDeepgramSpeechToText({
     trackState: true,
     onStart: () => {
-      // #region agent log
-      wsOpenAtRef.current = Date.now();
-      fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'653b2b'},body:JSON.stringify({sessionId:'653b2b',runId:'native-audio-stall',hypothesisId:'H5',location:'index.native.ts:onStart:wsOpened',message:'sdk onStart fired (WS opened)',data:{msSinceClear:lastClearAtRef.current?Date.now()-lastClearAtRef.current:-1,statusRef:stateStatusRef.current,accepting:acceptingTranscriptsRef.current},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       prefetchListenKey();
     },
-    // #region agent log
-    onEnd: () => {
-      fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'653b2b'},body:JSON.stringify({sessionId:'653b2b',runId:'native-audio-stall',hypothesisId:'H6',location:'index.native.ts:onEnd:fired',message:'sdk onEnd fired (WS closed)',data:{msSinceClear:lastClearAtRef.current?Date.now()-lastClearAtRef.current:-1,statusRef:stateStatusRef.current,accepting:acceptingTranscriptsRef.current,gateAgeMs:gateOpenedAtRef.current?Date.now()-gateOpenedAtRef.current:-1,wsOpenMs:wsOpenAtRef.current?Date.now()-wsOpenAtRef.current:-1,sawAnyTranscript:sawAnyTranscriptRef.current},timestamp:Date.now()})}).catch(()=>{});
-    },
-    // #endregion
     onTranscript: (text: string, event?: NativeOnTranscriptEvent) => {
-      // #region agent log
-      const gateAgeMs = gateOpenedAtRef.current ? Date.now() - gateOpenedAtRef.current : -1;
-      fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'653b2b'},body:JSON.stringify({sessionId:'653b2b',runId:'native-clear-new',hypothesisId:'H3',location:'index.native.ts:onTranscript:entry',message:'native onTranscript fired',data:{textLen:text.length,isFinal:!!event?.isFinal,accepting:acceptingTranscriptsRef.current,statusRef:stateStatusRef.current,msSinceClear:lastClearAtRef.current?Date.now()-lastClearAtRef.current:-1,gateAgeMs,firstEvent:!sawAnyTranscriptRef.current},timestamp:Date.now()})}).catch(()=>{});
-      if (acceptingTranscriptsRef.current) {
-        sawAnyTranscriptRef.current = true;
-        if (firstEventProbeRef.current) {
-          clearTimeout(firstEventProbeRef.current);
-          firstEventProbeRef.current = null;
-        }
-      }
-      // #endregion
       if (!acceptingTranscriptsRef.current) return;
       if (text !== '') clearInitialSilenceTimer();
       const raw = event?.raw;
@@ -412,9 +349,6 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
       }
     },
     onError: (err: unknown) => {
-      // #region agent log
-      fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'653b2b'},body:JSON.stringify({sessionId:'653b2b',runId:'native-audio-stall',hypothesisId:'H6',location:'index.native.ts:onError:fired',message:'sdk onError fired',data:{err:err instanceof Error?err.message:String(err),msSinceClear:lastClearAtRef.current?Date.now()-lastClearAtRef.current:-1,statusRef:stateStatusRef.current,accepting:acceptingTranscriptsRef.current,gateAgeMs:gateOpenedAtRef.current?Date.now()-gateOpenedAtRef.current:-1},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       console.error('[Deepgram STT]', err);
     },
     live: hookOptions?.language
@@ -426,10 +360,6 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
   stateStatusRef.current = state?.status ?? 'idle';
 
   const clearTranscription = useCallback(() => {
-    // #region agent log
-    lastClearAtRef.current = Date.now();
-    fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'653b2b'},body:JSON.stringify({sessionId:'653b2b',runId:'native-clear-new',hypothesisId:'H1',location:'index.native.ts:clearTranscription:entry',message:'native clearTranscription called',data:{stateStatus:state?.status??'idle',stateStatusRef:stateStatusRef.current,prevEpoch:startEpochRef.current,prevAccepting:acceptingTranscriptsRef.current},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     acceptingTranscriptsRef.current = false;
     const prevCaptionLen = lastCaptionRef.current.length;
     const prevFinalized = finalizedCountRef.current;
@@ -444,12 +374,6 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
     clearInactivityTimer();
     clearInitialSilenceTimer();
     clearFinalCommitTimer();
-    // #region agent log
-    if (firstEventProbeRef.current) {
-      clearTimeout(firstEventProbeRef.current);
-      firstEventProbeRef.current = null;
-    }
-    // #endregion
     // Bump epoch so any in-flight start() IIFE (mid-settle or mid-startListening)
     // sees a new epoch and bails rather than proceeding to listen.
     startEpochRef.current += 1;
@@ -474,12 +398,6 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
     clearInactivityTimer();
     clearInitialSilenceTimer();
     clearFinalCommitTimer();
-    // #region agent log
-    if (firstEventProbeRef.current) {
-      clearTimeout(firstEventProbeRef.current);
-      firstEventProbeRef.current = null;
-    }
-    // #endregion
     stopListeningJustIssuedRef.current = true;
     stopListening();
   };
@@ -521,10 +439,6 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
         // React hasn't re-rendered yet to reflect the prior stop.
         const wasJustStopped = stopListeningJustIssuedRef.current;
         stopListeningJustIssuedRef.current = false;
-        // #region agent log
-        const iifeStart = Date.now();
-        fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'653b2b'},body:JSON.stringify({sessionId:'653b2b',runId:'native-clear-new',hypothesisId:'H1',location:'index.native.ts:start:iife-entry',message:'start IIFE entered',data:{stateStatusRef:stateStatusRef.current,wasJustStopped,willStopHere:!wasJustStopped&&stateStatusRef.current==='listening',myEpoch,curEpoch:startEpochRef.current,msSinceClear:lastClearAtRef.current?Date.now()-lastClearAtRef.current:-1},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
         if (!wasJustStopped && stateStatusRef.current === 'listening') {
           // Defensive fallback: a leftover listening session that no
           // teardown has stopped (rare; e.g. state recovery after a
@@ -556,9 +470,6 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
           await new Promise<void>((r) => setTimeout(r, NATIVE_STOP_SETTLE_POLL_MS));
           if (startEpochRef.current !== myEpoch) return;
         }
-        // #region agent log
-        fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'653b2b'},body:JSON.stringify({sessionId:'653b2b',runId:'native-clear-new',hypothesisId:'H2',location:'index.native.ts:start:after-settle',message:'settle poll done',data:{settleMs:Date.now()-settleStartedAt,stateStatusRef:stateStatusRef.current,iifeMs:Date.now()-iifeStart,willDwellMs:NATIVE_POST_IDLE_DWELL_MS},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
         // Additional fixed dwell to let the OS-level audio resources
         // (AVAudioSession / AudioRecord) fully release before we re-acquire
         // them. The status flag transitions faster than the actual native
@@ -601,12 +512,7 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
         //                    never attached, no transcripts will flow)
         //   'aborted'      — epoch changed or signal aborted
         //   'threw'        — startListening threw
-        const tryStartAndConfirm = async (
-          attemptLabel: string,
-        ): Promise<'listening' | 'stuck-startup' | 'aborted' | 'threw'> => {
-          // #region agent log
-          const startListeningAt = Date.now();
-          // #endregion
+        const tryStartAndConfirm = async (): Promise<'listening' | 'stuck-startup' | 'aborted' | 'threw'> => {
           try {
             if (listenOpts) {
               logSttDeepgramKeywordsSent(listenOpts.keywords);
@@ -615,9 +521,6 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
               await startListening();
             }
           } catch (err) {
-            // #region agent log
-            fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'653b2b'},body:JSON.stringify({sessionId:'653b2b',runId:'native-confirm-poll',hypothesisId:'H1',location:'index.native.ts:start:startListening-throw',message:'startListening threw',data:{attempt:attemptLabel,err:String(err),msSinceClear:lastClearAtRef.current?Date.now()-lastClearAtRef.current:-1},timestamp:Date.now()})}).catch(()=>{});
-            // #endregion
             return 'threw';
           }
           if (startEpochRef.current !== myEpoch || options?.signal?.aborted) {
@@ -641,15 +544,11 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
               return 'aborted';
             }
           }
-          const confirmMs = Date.now() - confirmStartedAt;
           const finalStatus = stateStatusRef.current;
-          // #region agent log
-          fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'653b2b'},body:JSON.stringify({sessionId:'653b2b',runId:'native-confirm-poll',hypothesisId:'H4',location:'index.native.ts:start:confirm-poll-done',message:'confirmation poll completed',data:{attempt:attemptLabel,startListeningMs:confirmStartedAt-startListeningAt,confirmMs,finalStatus,reached:finalStatus==='listening',msSinceClear:lastClearAtRef.current?Date.now()-lastClearAtRef.current:-1},timestamp:Date.now()})}).catch(()=>{});
-          // #endregion
           return finalStatus === 'listening' ? 'listening' : 'stuck-startup';
         };
 
-        let outcome = await tryStartAndConfirm('first');
+        let outcome = await tryStartAndConfirm();
         if (outcome === 'aborted') {
           try { stopListeningRef.current(); } catch { /* empty */ }
           return;
@@ -658,9 +557,6 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
         // start_failed when AudioRecord didn't enter RECORDING state). Treat
         // identically to stuck-startup — dwell and retry once, silently.
         if (outcome === 'threw') {
-          // #region agent log
-          fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'653b2b'},body:JSON.stringify({sessionId:'653b2b',runId:'native-audio-stall',hypothesisId:'H8',location:'index.native.ts:start:threw-as-stuck-startup',message:'startListening threw (likely start_failed) — treating as stuck-startup, will retry',data:{msSinceClear:lastClearAtRef.current?Date.now()-lastClearAtRef.current:-1,stateStatusRef:stateStatusRef.current},timestamp:Date.now()})}).catch(()=>{});
-          // #endregion
           outcome = 'stuck-startup';
         }
         if (outcome === 'stuck-startup') {
@@ -679,42 +575,15 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
             try { stopListeningRef.current(); } catch { /* empty */ }
             return;
           }
-          // #region agent log
-          fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'653b2b'},body:JSON.stringify({sessionId:'653b2b',runId:'native-confirm-poll',hypothesisId:'H4',location:'index.native.ts:start:retrying',message:'retrying startListening after stuck-startup',data:{stuckAt:'first-attempt',msSinceClear:lastClearAtRef.current?Date.now()-lastClearAtRef.current:-1,stateStatusRef:stateStatusRef.current},timestamp:Date.now()})}).catch(()=>{});
-          // #endregion
-          outcome = await tryStartAndConfirm('retry');
+          outcome = await tryStartAndConfirm();
           if (outcome !== 'listening') {
-            // Retry also failed; surface as session bail. The host's
-            // initial-silence timer will eventually close out the UI.
-            // #region agent log
-            fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'653b2b'},body:JSON.stringify({sessionId:'653b2b',runId:'native-confirm-poll',hypothesisId:'H4',location:'index.native.ts:start:retry-failed',message:'retry also failed',data:{retryOutcome:outcome,msSinceClear:lastClearAtRef.current?Date.now()-lastClearAtRef.current:-1},timestamp:Date.now()})}).catch(()=>{});
-            // #endregion
             try { stopListeningRef.current(); } catch { /* empty */ }
             return;
           }
         }
         acceptingTranscriptsRef.current = true;
-        // #region agent log
-        gateOpenedAtRef.current = Date.now();
-        sawAnyTranscriptRef.current = false;
-        audioChunkCountRef.current = 0;
-        audioChunkBytesRef.current = 0;
-        if (firstEventProbeRef.current) {
-          clearTimeout(firstEventProbeRef.current);
-        }
-        firstEventProbeRef.current = setTimeout(() => {
-          firstEventProbeRef.current = null;
-          if (startEpochRef.current !== myEpoch) return;
-          if (sawAnyTranscriptRef.current) return;
-          fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'653b2b'},body:JSON.stringify({sessionId:'653b2b',runId:'native-audio-stall',hypothesisId:'H7',location:'index.native.ts:firstEventProbe:fired',message:'no transcripts within probe window after gate open (diagnostic only)',data:{probeMs:NATIVE_AUDIO_STALL_PROBE_MS,sawAnyTranscript:sawAnyTranscriptRef.current,statusRef:stateStatusRef.current,accepting:acceptingTranscriptsRef.current,msSinceClear:lastClearAtRef.current?Date.now()-lastClearAtRef.current:-1,wsOpenAgoMs:wsOpenAtRef.current?Date.now()-wsOpenAtRef.current:-1,audioChunkCount:audioChunkCountRef.current,audioChunkBytes:audioChunkBytesRef.current},timestamp:Date.now()})}).catch(()=>{});
-        }, NATIVE_AUDIO_STALL_PROBE_MS);
-        fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'653b2b'},body:JSON.stringify({sessionId:'653b2b',runId:'native-confirm-poll',hypothesisId:'H4',location:'index.native.ts:start:gateOpened',message:'gate opened after confirmed listening',data:{iifeTotalMs:Date.now()-iifeStart,msSinceClear:lastClearAtRef.current?Date.now()-lastClearAtRef.current:-1,stateStatusRef:stateStatusRef.current,wasJustStopped,wsOpenAgoMs:wsOpenAtRef.current?Date.now()-wsOpenAtRef.current:-1},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
         clearInitialSilenceTimer();
         initialSilenceTimerRef.current = setTimeout(() => {
-          // #region agent log
-          fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'653b2b'},body:JSON.stringify({sessionId:'653b2b',runId:'native-watchdog-fix',hypothesisId:'H3',location:'index.native.ts:initialSilenceTimer:fired',message:'initial silence timer fired',data:{captionLen:lastCaptionRef.current.length,msSinceClear:lastClearAtRef.current?Date.now()-lastClearAtRef.current:-1,silenceMs:INITIAL_SILENCE_TIMEOUT_MS,epochMatches:startEpochRef.current===myEpoch,audioChunkCount:audioChunkCountRef.current,audioChunkBytes:audioChunkBytesRef.current},timestamp:Date.now()})}).catch(()=>{});
-          // #endregion
           initialSilenceTimerRef.current = null;
           if (startEpochRef.current !== myEpoch) return;
           const pending = pendingInterimWordsRef.current;
