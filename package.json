@@ -15,6 +15,7 @@
     "build:mobile:ios": "cd apps/mobile && eas build --profile development --platform ios",
     "build": "turbo build",
     "typecheck": "turbo typecheck",
+    "postinstall": "npm run postinstall --workspace=@ai-spanish/mobile",
     "tts:batch": "tsx scripts/tts-batch/src/index.ts",
     "tts:migrate-spanish-answer-speeds": "tsx scripts/tts-batch/src/migrate-spanish-answer-speeds.ts",
     "migrate:lesson1": "tsx scripts/migrate-lesson-weights/src/index.ts",

@@ -650,9 +650,18 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
         };
 
         let outcome = await tryStartAndConfirm('first');
-        if (outcome === 'aborted' || outcome === 'threw') {
+        if (outcome === 'aborted') {
           try { stopListeningRef.current(); } catch { /* empty */ }
           return;
+        }
+        // 'threw' means startListening/startRecording rejected (e.g. native
+        // start_failed when AudioRecord didn't enter RECORDING state). Treat
+        // identically to stuck-startup — dwell and retry once, silently.
+        if (outcome === 'threw') {
+          // #region agent log
+          fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'653b2b'},body:JSON.stringify({sessionId:'653b2b',runId:'native-audio-stall',hypothesisId:'H8',location:'index.native.ts:start:threw-as-stuck-startup',message:'startListening threw (likely start_failed) — treating as stuck-startup, will retry',data:{msSinceClear:lastClearAtRef.current?Date.now()-lastClearAtRef.current:-1,stateStatusRef:stateStatusRef.current},timestamp:Date.now()})}).catch(()=>{});
+          // #endregion
+          outcome = 'stuck-startup';
         }
         if (outcome === 'stuck-startup') {
           // The SDK acknowledged startListening but never reached

@@ -1,0 +1,41 @@
+diff --git a/node_modules/react-native-deepgram/android/src/main/java/com/deepgram/DeepgramModule.kt b/node_modules/react-native-deepgram/android/src/main/java/com/deepgram/DeepgramModule.kt
+index 82b1213..c3ee5e2 100644
+--- a/node_modules/react-native-deepgram/android/src/main/java/com/deepgram/DeepgramModule.kt
++++ b/node_modules/react-native-deepgram/android/src/main/java/com/deepgram/DeepgramModule.kt
+@@ -40,9 +40,9 @@ class DeepgramModule(private val reactContext: ReactApplicationContext) :
+   private val bufferSize: Int
+     get() = minBufferSize * 4
+ 
+-  private var audioRecord: AudioRecord? = null
+-  private var recordingThread: Thread? = null
+-  private var isRecording = false
++  @Volatile private var audioRecord: AudioRecord? = null
++  @Volatile private var recordingThread: Thread? = null
++  @Volatile private var isRecording = false
+   private var acousticEchoCanceler: AcousticEchoCanceler? = null
+   private var noiseSuppressor: NoiseSuppressor? = null
+   private var automaticGainControl: AutomaticGainControl? = null
+@@ -91,6 +91,15 @@ class DeepgramModule(private val reactContext: ReactApplicationContext) :
+ 
+       enableAudioEffects(recorder)
+       recorder.startRecording()
++
++      if (recorder.recordingState != AudioRecord.RECORDSTATE_RECORDING) {
++        recorder.release()
++        audioRecord = null
++        releaseAudioEffects()
++        promise.reject("start_failed", "AudioRecord did not enter RECORDING state after startRecording()")
++        return
++      }
++
+       isRecording = true
+ 
+       startRecordingThread()
+@@ -107,6 +116,7 @@ class DeepgramModule(private val reactContext: ReactApplicationContext) :
+   private fun stopRecordingInternal(throwOnError: Boolean = true) {
+     isRecording = false
+     recordingThread?.interrupt()
++    try { recordingThread?.join(500) } catch (_: InterruptedException) { }
+     recordingThread = null
+ 
+     try {
