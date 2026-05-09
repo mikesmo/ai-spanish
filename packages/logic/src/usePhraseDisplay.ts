@@ -1230,6 +1230,9 @@ export function usePhraseDisplay(
     }
     attemptEmittedRef.current = false;
     firstIsFinalAtRef.current = null;
+    // #region agent log
+    fetch('http://127.0.0.1:7558/ingest/b881d677-7b47-4b11-9235-321a294880c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'653b2b'},body:JSON.stringify({sessionId:'653b2b',runId:'native-clear-new',hypothesisId:'H4',location:'usePhraseDisplay.ts:handleClearSpokenCaption:entry',message:'host clear handler invoked',data:{status:currentStatus,phraseType:currentPhrase.type??'unset',isUnlimitedClear,hasUsedAlready:hasUsedClearSpokenCaptionOnCurrentCard,captionLen:sttRef.current.caption?.length??0},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     sttRef.current.clearTranscription();
     sttRef.current.start({
       keywords: deepgramLiveKeywordTokensForPhrase(currentPhrase),
