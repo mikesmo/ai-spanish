@@ -39,3 +39,27 @@ index 82b1213..c3ee5e2 100644
      recordingThread = null
  
      try {
+diff --git a/node_modules/react-native-deepgram/ios/Deepgram.mm b/node_modules/react-native-deepgram/ios/Deepgram.mm
+index 516c89a..34270cd 100644
+--- a/node_modules/react-native-deepgram/ios/Deepgram.mm
++++ b/node_modules/react-native-deepgram/ios/Deepgram.mm
+@@ -206,11 +206,14 @@ - (BOOL)activateAudioSession:(NSError **)outError
+ - (void)deactivateAudioSession
+ {
+   DGLogDebug(@"[Deepgram] deactivateAudioSession: begin");
+-  NSError *error = nil;
+-  if (![[AVAudioSession sharedInstance] setActive:NO error:&error] && error) {
+-    DGLogError(@"[Deepgram] Failed to deactivate audio session: %@",
+-          error.localizedDescription ?: error);
+-  }
++  // Tearing down the mic must NOT call `[AVAudioSession setActive:NO]` on the
++  // *shared* session: doing so interrupts any in-flight playback owned by
++  // another audio module (e.g. expo-av playing a TTS clip), cutting it off
++  // mid-word. Deepgram's guard (`maybeDeactivateAudioSession`) only inspects
++  // its own record/player state, so it cannot know another module is still
++  // playing. We simply mark the session unconfigured; the next
++  // `startRecording` re-runs `configureAudioSession` + `setActive:YES`. The
++  // shared session staying active between clips is harmless.
+   self.audioSessionConfigured = NO;
+ }
+ 
