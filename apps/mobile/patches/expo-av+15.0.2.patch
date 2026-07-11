@@ -1,37 +1,8 @@
 diff --git a/node_modules/expo-av/ios/EXAV/EXAudioSessionManager.m b/node_modules/expo-av/ios/EXAV/EXAudioSessionManager.m
-index 3e768d1..575baca 100644
+index 3e768d1..5a94407 100644
 --- a/node_modules/expo-av/ios/EXAV/EXAudioSessionManager.m
 +++ b/node_modules/expo-av/ios/EXAV/EXAudioSessionManager.m
-@@ -23,6 +23,28 @@ @interface EXAudioSessionManager ()
- 
- @end
- 
-+// #region agent log
-+static void DebugLogPost(NSString *location, NSString *message, NSDictionary *data) {
-+  NSMutableDictionary *payload = [NSMutableDictionary dictionaryWithDictionary:@{
-+    @"sessionId": @"670347",
-+    @"location": location ?: @"",
-+    @"message": message ?: @"",
-+    @"data": data ?: @{},
-+    @"timestamp": @((long long)([[NSDate date] timeIntervalSince1970] * 1000))
-+  }];
-+  NSError *jsonError = nil;
-+  NSData *body = [NSJSONSerialization dataWithJSONObject:payload options:0 error:&jsonError];
-+  if (jsonError || !body) return;
-+  NSURL *url = [NSURL URLWithString:@"http://192.168.10.179:17558/ingest/b881d677-7b47-4b11-9235-321a294880c7"];
-+  NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:url];
-+  req.HTTPMethod = @"POST";
-+  [req setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
-+  [req setValue:@"670347" forHTTPHeaderField:@"X-Debug-Session-Id"];
-+  req.HTTPBody = body;
-+  [[[NSURLSession sharedSession] dataTaskWithRequest:req] resume];
-+}
-+// #endregion agent log
-+
- @implementation EXAudioSessionManager
- 
- EX_REGISTER_SINGLETON_MODULE(AudioSessionManager);
-@@ -112,8 +134,18 @@ - (NSError *)setCategory:(NSString *)category withOptions:(AVAudioSessionCategor
+@@ -112,8 +112,18 @@ - (NSError *)setCategory:(NSString *)category withOptions:(AVAudioSessionCategor
  
    BOOL oldSettingsWerePresent = overridenCategory && overridenOptions;
    BOOL newSettingsAreDifferent = !oldSettingsWerePresent || ![overridenCategory isEqualToString:category] || ([overridenOptions unsignedIntegerValue] != options);
@@ -52,7 +23,7 @@ index 3e768d1..575baca 100644
      return [self _updateSessionConfiguration];
    }
    return nil;
-@@ -235,7 +267,23 @@ - (NSError *)_updateSessionConfiguration
+@@ -235,7 +245,15 @@ - (NSError *)_updateSessionConfiguration
    }
    */
  
@@ -66,14 +37,6 @@ index 3e768d1..575baca 100644
 +  BOOL willCallSetCategory = !_activeCategory || ![category isEqualToString:_activeCategory] || options != _activeOptions
 +    || ![session.category isEqualToString:category] || session.categoryOptions != options;
 +  if (willCallSetCategory) {
-+    // #region agent log
-+    DebugLogPost(@"EXAudioSessionManager.m:_updateSessionConfiguration", @"about to mutate live AVAudioSession category/options - if this fires while another Sound is mid-playback it may interrupt it", @{
-+      @"hypothesisId": @"H2-setcategory-mid-playback",
-+      @"requestedCategory": category ?: @"nil",
-+      @"requestedOptions": @(options),
-+      @"shouldBeActive": @(shouldBeActive),
-+    });
-+    // #endregion agent log
      [session setCategory:category withOptions:options error:&error];
      if (!error) {
        _activeOptions = options;
