@@ -1,0 +1,79 @@
+diff --git a/node_modules/expo-av/ios/EXAV/EXAudioSessionManager.m b/node_modules/expo-av/ios/EXAV/EXAudioSessionManager.m
+index 3e768d1..575baca 100644
+--- a/node_modules/expo-av/ios/EXAV/EXAudioSessionManager.m
++++ b/node_modules/expo-av/ios/EXAV/EXAudioSessionManager.m
+@@ -23,6 +23,28 @@ @interface EXAudioSessionManager ()
+ 
+ @end
+ 
++// #region agent log
++static void DebugLogPost(NSString *location, NSString *message, NSDictionary *data) {
++  NSMutableDictionary *payload = [NSMutableDictionary dictionaryWithDictionary:@{
++    @"sessionId": @"670347",
++    @"location": location ?: @"",
++    @"message": message ?: @"",
++    @"data": data ?: @{},
++    @"timestamp": @((long long)([[NSDate date] timeIntervalSince1970] * 1000))
++  }];
++  NSError *jsonError = nil;
++  NSData *body = [NSJSONSerialization dataWithJSONObject:payload options:0 error:&jsonError];
++  if (jsonError || !body) return;
++  NSURL *url = [NSURL URLWithString:@"http://192.168.10.179:17558/ingest/b881d677-7b47-4b11-9235-321a294880c7"];
++  NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:url];
++  req.HTTPMethod = @"POST";
++  [req setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
++  [req setValue:@"670347" forHTTPHeaderField:@"X-Debug-Session-Id"];
++  req.HTTPBody = body;
++  [[[NSURLSession sharedSession] dataTaskWithRequest:req] resume];
++}
++// #endregion agent log
++
+ @implementation EXAudioSessionManager
+ 
+ EX_REGISTER_SINGLETON_MODULE(AudioSessionManager);
+@@ -112,8 +134,18 @@ - (NSError *)setCategory:(NSString *)category withOptions:(AVAudioSessionCategor
+ 
+   BOOL oldSettingsWerePresent = overridenCategory && overridenOptions;
+   BOOL newSettingsAreDifferent = !oldSettingsWerePresent || ![overridenCategory isEqualToString:category] || ([overridenOptions unsignedIntegerValue] != options);
+-
+-  if ([[_foregroundedModules allObjects] containsObject:module] && newSettingsAreDifferent) {
++  BOOL isForegrounded = [[_foregroundedModules allObjects] containsObject:module];
++
++  // Ground-truth check: other native modules (e.g. a VoIP/STT SDK like
++  // react-native-deepgram) can mutate the shared AVAudioSession category
++  // directly, bypassing this manager's per-module cache entirely. Once this
++  // module's own requested settings stop changing, `newSettingsAreDifferent`
++  // is false forever and the live session never gets re-synced, even though
++  // it has drifted (e.g. stuck on PlayAndRecord + VoiceChat after STT ends).
++  AVAudioSession *liveSession = [AVAudioSession sharedInstance];
++  BOOL liveSessionDrifted = ![liveSession.category isEqualToString:category] || liveSession.categoryOptions != options;
++
++  if (isForegrounded && (newSettingsAreDifferent || liveSessionDrifted)) {
+     return [self _updateSessionConfiguration];
+   }
+   return nil;
+@@ -235,7 +267,23 @@ - (NSError *)_updateSessionConfiguration
+   }
+   */
+ 
+-  if (!_activeCategory || ![category isEqualToString:_activeCategory] || options != _activeOptions) {
++  // Same ground-truth rationale as setCategory:withOptions:forModule: — this
++  // manager's own `_activeCategory`/`_activeOptions` record what IT last
++  // successfully set, not what the session actually is now. If another
++  // native module (e.g. react-native-deepgram) changed the live category
++  // after we last set it, `_activeCategory` looks unchanged from our point
++  // of view and we'd otherwise skip re-applying the correct category.
++  BOOL willCallSetCategory = !_activeCategory || ![category isEqualToString:_activeCategory] || options != _activeOptions
++    || ![session.category isEqualToString:category] || session.categoryOptions != options;
++  if (willCallSetCategory) {
++    // #region agent log
++    DebugLogPost(@"EXAudioSessionManager.m:_updateSessionConfiguration", @"about to mutate live AVAudioSession category/options - if this fires while another Sound is mid-playback it may interrupt it", @{
++      @"hypothesisId": @"H2-setcategory-mid-playback",
++      @"requestedCategory": category ?: @"nil",
++      @"requestedOptions": @(options),
++      @"shouldBeActive": @(shouldBeActive),
++    });
++    // #endregion agent log
+     [session setCategory:category withOptions:options error:&error];
+     if (!error) {
+       _activeOptions = options;
