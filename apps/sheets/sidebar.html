@@ -136,8 +136,19 @@
         margin-bottom: 12px;
         line-height: 1.4;
       }
+      .auth-actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: 8px;
+      }
       .auth-actions button {
-        margin-right: 8px;
+        margin-top: 0;
+        margin-right: 0;
+      }
+      .lesson-field label {
+        margin-top: 0;
+        font-size: 12px;
       }
       label {
         display: block;
@@ -145,7 +156,8 @@
         font-weight: 500;
       }
       input[type="email"],
-      input[type="password"] {
+      input[type="password"],
+      input[type="number"] {
         box-sizing: border-box;
         width: 100%;
         margin-top: 4px;
@@ -153,6 +165,9 @@
         font-size: 13px;
         border: 1px solid #dadce0;
         border-radius: 4px;
+      }
+      input[type="number"] {
+        width: 4rem;
       }
       button {
         margin-top: 12px;
@@ -519,10 +534,21 @@
 
     <div id="authLoggedInPanel" style="display: none">
       <div class="help">
-        Click <strong>Load</strong> to sync transcript rows when needed.
+        Click <strong>Load</strong> to sync transcript rows for the lesson number shown.
         Use <strong>Verify audio</strong> to check clips against web audio (needs local Next + tunnel; see README).
       </div>
       <div class="auth-actions">
+        <div class="lesson-field">
+          <label for="lessonId">Lesson</label>
+          <input
+            type="number"
+            id="lessonId"
+            min="1"
+            step="1"
+            value="1"
+            inputmode="numeric"
+          />
+        </div>
         <button type="button" id="reloadBtnSignedIn">Load</button>
         <button type="button" id="verifyBtnSignedIn">Verify audio</button>
         <button type="button" id="logoutBtn">Log out</button>
@@ -547,6 +573,30 @@
       var accessExpiresAtMs = 0;
       var phraseDirectory = [];
       var transcriptLessonId = "1";
+      var TRANSCRIPT_LESSON_ID_SYNTAX = /^[1-9][0-9]*$/;
+
+      function syncLessonInputFromState() {
+        var input = document.getElementById("lessonId");
+        if (input && transcriptLessonId) {
+          input.value = transcriptLessonId;
+        }
+      }
+
+      /**
+       * @returns {{ ok: true, id: string } | { ok: false, message: string }}
+       */
+      function getSelectedTranscriptLessonId() {
+        var input = document.getElementById("lessonId");
+        var raw =
+          input && typeof input.value === "string" ? input.value.trim() : "";
+        if (!raw || !TRANSCRIPT_LESSON_ID_SYNTAX.test(raw)) {
+          return {
+            ok: false,
+            message: "Enter a valid lesson number (e.g. 1, 2).",
+          };
+        }
+        return { ok: true, id: raw };
+      }
       var lastPreviewData = null;
       var sharedAudio = null;
       var playSessionBusy = false;
@@ -832,6 +882,7 @@
           result.transcriptLessonId
         ) {
           transcriptLessonId = result.transcriptLessonId;
+          syncLessonInputFromState();
         }
         applyAuthUiState();
         syncPlayButtonsState();
@@ -1901,6 +1952,13 @@
       }
 
       function runReloadRound(retryRound) {
+        var lessonPick = getSelectedTranscriptLessonId();
+        if (!lessonPick.ok) {
+          setStatus(lessonPick.message, "err");
+          return;
+        }
+        transcriptLessonId = lessonPick.id;
+
         setReloadLoading(true);
         ensureAccessTokenFresh(function (freshOk) {
           if (!freshOk) {
@@ -1920,10 +1978,10 @@
                   result.transcriptLessonId
                 ) {
                   transcriptLessonId = result.transcriptLessonId;
+                  syncLessonInputFromState();
                 }
                 setStatus(result.message || "Done.", "ok");
                 clearVerificationHeardHints();
-                setStatus(result.message || "Done.", "ok");
                 syncPlayButtonsState();
                 return;
               }
@@ -1954,7 +2012,7 @@
               setReloadLoading(false);
               setStatus(err.message || String(err), "err");
             })
-            .reloadLessonWithAccessToken(sessionAccessToken);
+            .reloadLessonWithAccessToken(sessionAccessToken, transcriptLessonId);
         });
       }
 

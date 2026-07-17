@@ -15,8 +15,20 @@ var SCRIPT_PROP_SUPABASE_URL = "SUPABASE_URL";
 var SCRIPT_PROP_SUPABASE_ANON_KEY = "SUPABASE_ANON_KEY";
 
 var DEFAULT_TRANSCRIPT_LESSON_ID = "1";
-var TRANSCRIPT_PATH =
-  "/api/transcript?lesson=" + DEFAULT_TRANSCRIPT_LESSON_ID;
+var TRANSCRIPT_LESSON_ID_SYNTAX = /^[1-9][0-9]*$/;
+
+/**
+ * Normalizes transcript lesson id (matches packages/logic resolveTranscriptLessonQueryParam).
+ * @param {string} [raw]
+ * @returns {string}
+ */
+function normalizeTranscriptLessonId(raw) {
+  var s = typeof raw === "string" ? raw.trim() : String(raw || "").trim();
+  if (s === "" || !TRANSCRIPT_LESSON_ID_SYNTAX.test(s)) {
+    return DEFAULT_TRANSCRIPT_LESSON_ID;
+  }
+  return s;
+}
 
 var LESSON_COLUMNS = [
   "Index",
@@ -2001,21 +2013,27 @@ function onEdit(e) {
 /**
  * Fetches transcript with Bearer token, writes sheet, returns phrase directory (no auth fields).
  * @param {string} accessToken
+ * @param {string} [transcriptLessonId]
  * @returns {{ ok: true, message: string, phraseDirectory: { name: string, index: number }[], transcriptLessonId: string } | { ok: false, message: string, unauthorized?: boolean }}
  */
-function importLessonTranscriptWithToken(accessToken) {
+function importLessonTranscriptWithToken(accessToken, transcriptLessonId) {
   try {
     var token = typeof accessToken === "string" ? accessToken.trim() : "";
     if (!token) {
       return { ok: false, message: "Not signed in." };
     }
 
+    var lessonId = normalizeTranscriptLessonId(transcriptLessonId);
+
     var cfg = readTranscriptConfig();
     if (cfg.ok === false) {
       return { ok: false, message: cfg.message };
     }
 
-    var transcriptUrl = cfg.webOrigin + TRANSCRIPT_PATH;
+    var transcriptUrl =
+      cfg.webOrigin +
+      "/api/transcript?lesson=" +
+      encodeURIComponent(lessonId);
     var response = UrlFetchApp.fetch(transcriptUrl, {
       muteHttpExceptions: true,
       followRedirects: true,
@@ -2075,9 +2093,9 @@ function importLessonTranscriptWithToken(accessToken) {
     var count = rows.length > 1 ? rows.length - 1 : 0;
     return {
       ok: true,
-      message: "Loaded " + count + " phrase(s).",
+      message: "Loaded " + count + " phrase(s) from lesson " + lessonId + ".",
       phraseDirectory: phraseDirectory,
-      transcriptLessonId: DEFAULT_TRANSCRIPT_LESSON_ID,
+      transcriptLessonId: lessonId,
     };
   } catch (e) {
     return {
@@ -2091,10 +2109,11 @@ function importLessonTranscriptWithToken(accessToken) {
 /**
  * Re-import lesson using an existing access token (no password).
  * @param {string} accessToken
+ * @param {string} [transcriptLessonId]
  * @returns {Object}
  */
-function reloadLessonWithAccessToken(accessToken) {
-  return importLessonTranscriptWithToken(accessToken);
+function reloadLessonWithAccessToken(accessToken, transcriptLessonId) {
+  return importLessonTranscriptWithToken(accessToken, transcriptLessonId);
 }
 
 /**
@@ -2134,20 +2153,24 @@ function signInOnlyForSidebar(email, password) {
 }
 
 /**
- * Signs in with Supabase (email + password), imports lesson 1 transcript into the sheet.
+ * Signs in with Supabase (email + password), imports a lesson transcript into the sheet.
  * Returns tokens + phraseDirectory for the sidebar.
  * @param {string} email
  * @param {string} password
+ * @param {string} [transcriptLessonId]
  * @returns {Object}
  */
-function populateLessonFromJson(email, password) {
+function populateLessonFromJson(email, password, transcriptLessonId) {
   try {
     var signResult = signInOnlyForSidebar(email, password);
     if (!signResult.ok) {
       return signResult;
     }
 
-    var importResult = importLessonTranscriptWithToken(signResult.access_token);
+    var importResult = importLessonTranscriptWithToken(
+      signResult.access_token,
+      transcriptLessonId
+    );
     if (!importResult.ok) {
       return {
         ok: false,
