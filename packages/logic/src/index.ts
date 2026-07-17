@@ -267,3 +267,21 @@ export {
   type UseLessonProgressPersistenceOptions,
   type UseLessonProgressPersistenceResult,
 } from './useLessonProgressPersistence';
+export {
+  buildWordMasteryRows,
+  buildGrammarMasteryRows,
+  buildClaimedWordSeedRows,
+  buildClaimedGrammarSeedRows,
+  parseLearnerMasterySnapshot,
+  type UserWordMasteryRow,
+  type UserGrammarMasteryRow,
+  type UserWordMasterySelectRow,
+  type UserGrammarMasterySelectRow,
+} from './learnerMastery';
+export { fetchLearnerMasterySnapshot } from './learnerMasteryClient';
+export { useLearnerMasteryQuery } from './useLearnerMasteryQuery';
+export { fetchDeclaredLevel, putDeclaredLevel } from './cefrLevelClient';
+export {
+  useDeclaredLevelQuery,
+  DECLARED_LEVEL_QUERY_KEY,
+} from './useDeclaredLevelQuery';

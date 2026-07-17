@@ -1,5 +1,7 @@
 import {
   buildGrammarItemsByMastery,
+  buildGrammarMasteryRows,
+  buildWordMasteryRows,
   completedLessonsListResponseSchema,
   lessonSessionCompletionPayloadSchema,
   selectGrammarItemsForSummary,
@@ -73,6 +75,44 @@ export async function POST(request: NextRequest): Promise<Response> {
       500,
       error.message ?? 'Failed to persist lesson completion',
     );
+  }
+
+  // Sync lifetime word/grammar mastery from this run's final checkpoint.
+  // Never fatal: a mastery-sync hiccup should not block the learner's
+  // completion flow, which already succeeded above. Row payloads never
+  // include `claimed_at_level`, so `ON CONFLICT DO UPDATE` leaves any
+  // existing CEFR-level claim tag untouched while still updating scores.
+  const updatedAtIso = new Date().toISOString();
+  const wordRows = buildWordMasteryRows(
+    auth.data.userId,
+    payloadToStore.checkpoint.wordScores ?? {},
+    updatedAtIso,
+  );
+  const grammarRows = buildGrammarMasteryRows(
+    auth.data.userId,
+    payloadToStore.checkpoint.grammarItemScores ?? {},
+    updatedAtIso,
+  );
+
+  const masterySyncResults = await Promise.all([
+    wordRows.length > 0
+      ? auth.data.supabase
+          .from('user_word_mastery')
+          .upsert(wordRows, { onConflict: 'user_id,word' })
+      : Promise.resolve({ error: null }),
+    grammarRows.length > 0
+      ? auth.data.supabase
+          .from('user_grammar_mastery')
+          .upsert(grammarRows, { onConflict: 'user_id,grammar_item' })
+      : Promise.resolve({ error: null }),
+  ]);
+  for (const result of masterySyncResults) {
+    if (result.error) {
+      console.error(
+        '[lesson-completions] Failed to sync lifetime mastery',
+        result.error,
+      );
+    }
   }
 
   return NextResponse.json(

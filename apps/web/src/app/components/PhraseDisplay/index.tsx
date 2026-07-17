@@ -34,6 +34,7 @@ export const PhraseDisplay = ({
   phrases,
   lessonId,
   initialSessionCheckpoint,
+  initialItemScores,
 }: PhraseDisplayProps): JSX.Element => {
   const pathname = usePathname();
   const pathnamePrevRef = useRef<string | null>(null);
@@ -42,6 +43,7 @@ export const PhraseDisplay = ({
   const stt = useSTT();
   const session = useLessonSessionWithHistory(phrases, {
     initialCheckpoint: initialSessionCheckpoint ?? undefined,
+    initialItemScores,
     postGrammarGrading,
   });
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);

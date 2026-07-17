@@ -83,6 +83,17 @@ export interface UseLessonSessionOptions {
    * checkpoint (treated as missing).
    */
   initialCheckpoint?: SessionCheckpointParsed | null;
+  /**
+   * Lifetime (cross-lesson) word/grammar mastery to seed the tracker with,
+   * e.g. from `useLearnerMasteryQuery`. Ignored for a phrase/item once
+   * `initialCheckpoint` already provides a score for it — same-lesson resume
+   * always wins since it already incorporated this seed from that lesson's
+   * own start.
+   */
+  initialItemScores?: {
+    wordScores?: Record<string, ItemScore>;
+    grammarItemScores?: Record<string, ItemScore>;
+  };
 }
 
 export interface ApplyGradingResultReturn {
@@ -223,7 +234,7 @@ export const useLessonSession = (
     throw new Error('useLessonSession: deck must contain at least one phrase');
   }
 
-  const { onEvent, onPresentationStart, initialCheckpoint } = options;
+  const { onEvent, onPresentationStart, initialCheckpoint, initialItemScores } = options;
 
   // Engine + store are imperative and identity-stable across renders. Built
   // once per mount; we do not rebuild when `deck` identity changes (the
@@ -235,8 +246,9 @@ export const useLessonSession = (
     createIncorrectPhraseTracker(
       initialCheckpoint?.incorrectPhraseRecords,
       {
-        wordScores: initialCheckpoint?.wordScores,
-        grammarItemScores: initialCheckpoint?.grammarItemScores,
+        wordScores: initialCheckpoint?.wordScores ?? initialItemScores?.wordScores,
+        grammarItemScores:
+          initialCheckpoint?.grammarItemScores ?? initialItemScores?.grammarItemScores,
       },
     ),
   );

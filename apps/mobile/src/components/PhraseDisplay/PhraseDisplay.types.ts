@@ -1,5 +1,6 @@
 import type {
   AisSpeakingViewModel,
+  ItemScore,
   Phrase,
   PhraseDisplayHostProps,
   SessionCheckpointParsed,
@@ -16,6 +17,14 @@ export type PhraseDisplayProps = PhraseDisplayHostProps & {
    * of starting fresh. Validated by the caller (fingerprint check).
    */
   initialSessionCheckpoint?: SessionCheckpointParsed;
+  /**
+   * Lifetime (cross-lesson) word/grammar mastery to seed this session's
+   * tracker with. See `useLessonSession`'s `initialItemScores`.
+   */
+  initialItemScores?: {
+    wordScores?: Record<string, ItemScore>;
+    grammarItemScores?: Record<string, ItemScore>;
+  };
 };
 export type AISpeakingProps = AisSpeakingViewModel;
 export type UserRecordingProps = UserRecordingViewProps;

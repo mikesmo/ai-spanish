@@ -1,5 +1,6 @@
 import type {
   AisSpeakingViewModel,
+  ItemScore,
   Phrase,
   PhraseDisplayHostProps,
   SessionCheckpointParsed,
@@ -15,6 +16,14 @@ export type PhraseDisplayProps = PhraseDisplayHostProps & {
    * fresh queue (e.g. dev `?phraseIndex=` on web). Omit in production paths.
    */
   initialSessionCheckpoint?: SessionCheckpointParsed | null;
+  /**
+   * Lifetime (cross-lesson) word/grammar mastery to seed this session's
+   * tracker with. See `useLessonSession`'s `initialItemScores`.
+   */
+  initialItemScores?: {
+    wordScores?: Record<string, ItemScore>;
+    grammarItemScores?: Record<string, ItemScore>;
+  };
 };
 export type AISpeakingProps = AisSpeakingViewModel;
 export type UserRecordingProps = UserRecordingViewProps;

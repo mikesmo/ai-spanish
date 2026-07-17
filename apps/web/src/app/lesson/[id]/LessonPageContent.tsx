@@ -7,7 +7,10 @@ import {
 } from "@ai-spanish/logic";
 import { notFound, useParams, useSearchParams } from "next/navigation";
 import { useMemo } from "react";
-import { useLessonResumeCheckpointQuery } from "@ai-spanish/logic";
+import {
+  useLearnerMasteryQuery,
+  useLessonResumeCheckpointQuery,
+} from "@ai-spanish/logic";
 import { PhraseDisplay } from "../../components/PhraseDisplay";
 import { useLessonQuery } from "../../hooks/useLessonQuery";
 import { webLessonProgressFetcher } from "@/lib/lessonProgressApi";
@@ -42,6 +45,14 @@ export default function LessonPageContent(): JSX.Element {
    * never sees a separate "restoring" stage after the lesson finishes loading.
    */
   const resumeQuery = useLessonResumeCheckpointQuery(webLessonProgressFetcher, lessonId);
+
+  /**
+   * Lifetime word/grammar mastery, used to seed the tracker for any lesson
+   * (not just this one). Also runs in parallel — `useLessonSession` only
+   * reads its seed once via `useRef` at mount, so this must settle before
+   * `PhraseDisplay` renders.
+   */
+  const masteryQuery = useLearnerMasteryQuery(webLessonProgressFetcher);
 
   const devPhraseIndexKey =
     process.env.NODE_ENV === "development"
@@ -102,7 +113,9 @@ export default function LessonPageContent(): JSX.Element {
     Boolean(devSessionCheckpointOnly) ||
     resumeQuery.isError ||
     (resumeQuery.isSuccess && !resumeQuery.isFetching);
-  const isPageLoading = isLessonLoading || !isResumeSettled;
+  const isMasterySettled =
+    masteryQuery.isError || (masteryQuery.isSuccess && !masteryQuery.isFetching);
+  const isPageLoading = isLessonLoading || !isResumeSettled || !isMasterySettled;
 
   if (isPageLoading) {
     return (
@@ -144,6 +157,7 @@ export default function LessonPageContent(): JSX.Element {
           phrases={phrases}
           lessonId={lessonId}
           initialSessionCheckpoint={initialSessionCheckpoint}
+          initialItemScores={masteryQuery.data ?? undefined}
         />
       </main>
     </div>

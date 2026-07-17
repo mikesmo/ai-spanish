@@ -20,7 +20,8 @@
     "tts:migrate-spanish-answer-speeds": "tsx scripts/tts-batch/src/migrate-spanish-answer-speeds.ts",
     "migrate:lesson1": "tsx scripts/migrate-lesson-weights/src/index.ts",
     "push:transcripts": "tsx scripts/sync-transcripts/src/index.ts",
-    "pull:transcripts": "tsx scripts/sync-transcripts/src/pull.ts"
+    "pull:transcripts": "tsx scripts/sync-transcripts/src/pull.ts",
+    "push:cefr-levels": "tsx scripts/sync-cefr-levels/src/index.ts"
   },
   "devDependencies": {
     "@types/react": "^18.3.12",

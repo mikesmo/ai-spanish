@@ -30,11 +30,13 @@ export const PhraseDisplay = ({
   lessonId,
   onExit,
   initialSessionCheckpoint,
+  initialItemScores,
 }: PhraseDisplayProps): JSX.Element => {
   const tts = useS3TTS();
   const stt = useSTT();
   const session = useLessonSessionWithHistory(phrases, {
     initialCheckpoint: initialSessionCheckpoint ?? undefined,
+    initialItemScores,
   });
   const lessonTitle = getLessonTitle(lessonId);
   const queryClient = useQueryClient();

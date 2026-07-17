@@ -1,6 +1,7 @@
 import {
   buildDeckFingerprint,
   isTranscriptLessonIdSyntaxValid,
+  useLearnerMasteryQuery,
   useLessonResumeCheckpointQuery,
   type SessionCheckpointParsed,
 } from "@ai-spanish/logic";
@@ -62,6 +63,13 @@ function LessonSessionContent({
   );
 
   /**
+   * Lifetime word/grammar mastery, used to seed the tracker for any lesson.
+   * Also runs in parallel — see web's `LessonPageContent` for the same
+   * pattern.
+   */
+  const masteryQuery = useLearnerMasteryQuery(mobileLessonProgressFetcher);
+
+  /**
    * Wait for a real round-trip fetch before rendering PhraseDisplay —
    * `initialCheckpoint` is consumed only at mount so we must not hand it
    * stale (cached) data. Mirror web's `isResumeSettled` logic.
@@ -69,6 +77,8 @@ function LessonSessionContent({
   const isResumeSettled =
     resumeQuery.isError ||
     (resumeQuery.isSuccess && !resumeQuery.isFetching);
+  const isMasterySettled =
+    masteryQuery.isError || (masteryQuery.isSuccess && !masteryQuery.isFetching);
 
   const initialSessionCheckpoint = useMemo((): SessionCheckpointParsed | undefined => {
     const cp = resumeQuery.data;
@@ -80,7 +90,7 @@ function LessonSessionContent({
     return cp;
   }, [resumeQuery.data, phrases]);
 
-  const isPageLoading = isLessonLoading || !isResumeSettled;
+  const isPageLoading = isLessonLoading || !isResumeSettled || !isMasterySettled;
 
   if (isPageLoading) {
     return (
@@ -126,6 +136,7 @@ function LessonSessionContent({
         lessonId={lessonId}
         onExit={onBack}
         initialSessionCheckpoint={initialSessionCheckpoint}
+        initialItemScores={masteryQuery.data ?? undefined}
       />
     </SafeAreaView>
   );

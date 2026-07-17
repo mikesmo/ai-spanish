@@ -13,10 +13,12 @@ import { useLessonsQuery } from "../src/hooks/useLessonsQuery";
 
 type LessonListScreenProps = {
   onChooseLesson: (lessonId: string) => void;
+  onOpenSettings: () => void;
 };
 
 export default function LessonListScreen({
   onChooseLesson,
+  onOpenSettings,
 }: LessonListScreenProps): JSX.Element {
   const { data, isLoading, isError, error } = useLessonsQuery(
     DEFAULT_COURSE_LEVEL_SLUG,
@@ -29,7 +31,17 @@ export default function LessonListScreen({
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.heading}>AI Spanish</Text>
+        <View style={styles.headerRow}>
+          <Text style={styles.heading}>AI Spanish</Text>
+          <Pressable
+            onPress={onOpenSettings}
+            style={({ pressed }) => [styles.settingsButton, pressed && styles.pressed]}
+            accessibilityRole="button"
+            accessibilityLabel="Settings"
+          >
+            <Text style={styles.settingsButtonText}>Settings</Text>
+          </Pressable>
+        </View>
         <Text style={styles.subtitle}>Choose a lesson to practice</Text>
 
         {isLoading ? (
@@ -88,12 +100,34 @@ const styles = StyleSheet.create({
     paddingVertical: 24,
     paddingBottom: 40,
   },
+  headerRow: {
+    position: "relative",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+  },
   heading: {
+    flex: 1,
     fontSize: 24,
     fontWeight: "600",
     color: "#111827",
     textAlign: "center",
-    marginBottom: 8,
+  },
+  settingsButton: {
+    position: "absolute",
+    right: 0,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    borderRadius: 8,
+  },
+  settingsButtonText: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: "#6b7280",
+  },
+  pressed: {
+    backgroundColor: "#f3f4f6",
   },
   subtitle: {
     fontSize: 14,

@@ -7,6 +7,7 @@ import {
   useLessonSession as useCoreLessonSession,
   type ApplyGradingResultReturn,
   type PhraseEventContext,
+  type UseLessonSessionOptions as CoreUseLessonSessionOptions,
   type UseLessonSessionResult as CoreUseLessonSessionResult,
 } from './useLessonSession';
 import {
@@ -50,6 +51,11 @@ export interface UseLessonSessionWithHistoryOptions {
    * trail after a mid-flight resume.
    */
   initialCheckpoint?: SessionCheckpointParsed | null;
+  /**
+   * Lifetime (cross-lesson) word/grammar mastery to seed the tracker with.
+   * See `UseLessonSessionOptions.initialItemScores` — forwarded as-is.
+   */
+  initialItemScores?: CoreUseLessonSessionOptions['initialItemScores'];
   /**
    * Platform-specific POST function for the grammar grading endpoint.
    * Required to enable AI grading; when omitted, all attempt events fall
@@ -217,6 +223,7 @@ export const useLessonSessionWithHistory = (
     onEvent,
     onPresentationStart,
     initialCheckpoint: opts.initialCheckpoint,
+    initialItemScores: opts.initialItemScores,
   });
 
   applyGradingResultRef.current = core.applyGradingResult;

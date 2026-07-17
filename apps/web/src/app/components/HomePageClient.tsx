@@ -164,11 +164,17 @@ export function HomePageClient(): JSX.Element {
     <div className="min-h-screen flex flex-col items-center justify-center bg-white">
       <main className="w-full max-w-[390px] mx-auto px-8 py-16">
         <div className="mb-2 flex w-full items-center justify-between gap-3">
-          <span className="w-14 shrink-0" aria-hidden />
-          <h1 className="flex-1 text-center text-2xl font-semibold text-gray-900">
+          <span className="flex-1" aria-hidden />
+          <h1 className="text-center text-2xl font-semibold text-gray-900 whitespace-nowrap">
             AI Spanish
           </h1>
-          <div className="flex w-14 shrink-0 justify-end">
+          <div className="flex flex-1 items-center justify-end gap-3">
+            <Link
+              href="/settings"
+              className="text-sm font-medium text-gray-500 underline-offset-2 transition hover:text-gray-800 hover:underline"
+            >
+              Settings
+            </Link>
             <SignOutButton />
           </div>
         </div>
