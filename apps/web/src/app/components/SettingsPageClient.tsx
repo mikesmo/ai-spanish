@@ -11,6 +11,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { webLessonProgressFetcher } from "@/lib/lessonProgressApi";
 import { resetAllLearnerProgress } from "@/lib/learnerProgressResetApi";
+import { AppMenu } from "./AppMenu";
 
 const isDev = process.env.NODE_ENV === "development";
 
@@ -58,6 +59,7 @@ export function SettingsPageClient(): JSX.Element {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-white">
+      <AppMenu />
       <main className="w-full max-w-[390px] mx-auto px-8 py-16">
         <div className="mb-2 flex w-full items-center justify-between gap-3">
           <Link

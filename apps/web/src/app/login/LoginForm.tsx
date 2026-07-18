@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import { useDevAutoLogin } from './useDevAutoLogin';
 
 type Mode = 'signin' | 'signup';
 
@@ -19,6 +20,15 @@ export function LoginForm({ defaultNext }: { defaultNext: string }): JSX.Element
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const { status: devAutoLoginStatus, errorMessage: devAutoLoginError } = useDevAutoLogin({
+    onSuccess: () => {
+      router.push(defaultNext);
+      router.refresh();
+    },
+  });
+  const isAutoLoggingIn =
+    devAutoLoginStatus === 'checking' || devAutoLoginStatus === 'signing-in';
 
   async function onSubmit(e: React.FormEvent): Promise<void> {
     e.preventDefault();
@@ -71,6 +81,15 @@ export function LoginForm({ defaultNext }: { defaultNext: string }): JSX.Element
       <p className="text-sm text-gray-500 text-center mb-8">
         {mode === 'signin' ? 'Sign in to continue' : 'Create an account'}
       </p>
+
+      {isAutoLoggingIn ? (
+        <p className="mb-4 text-center text-sm text-gray-500">
+          Signing in automatically (dev mode)…
+        </p>
+      ) : null}
+      {devAutoLoginError ? (
+        <p className="mb-4 text-center text-sm text-[#D85A30]">{devAutoLoginError}</p>
+      ) : null}
 
       <form onSubmit={(e) => void onSubmit(e)} className="flex flex-col gap-4">
         <label className="block">
