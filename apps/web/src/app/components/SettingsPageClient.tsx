@@ -10,6 +10,9 @@ import {
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { webLessonProgressFetcher } from "@/lib/lessonProgressApi";
+import { resetAllLearnerProgress } from "@/lib/learnerProgressResetApi";
+
+const isDev = process.env.NODE_ENV === "development";
 
 export function SettingsPageClient(): JSX.Element {
   const queryClient = useQueryClient();
@@ -28,6 +31,30 @@ export function SettingsPageClient(): JSX.Element {
   const pendingLevel = declareLevelMutation.isPending
     ? declareLevelMutation.variables
     : undefined;
+
+  const resetAllProgressMutation = useMutation({
+    mutationFn: resetAllLearnerProgress,
+    onSuccess: async (ok) => {
+      if (!ok) return;
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["lesson-completions"] }),
+        queryClient.invalidateQueries({ queryKey: ["learner-mastery"] }),
+        queryClient.invalidateQueries({ queryKey: ["lesson-resume-checkpoint"] }),
+        queryClient.invalidateQueries({ queryKey: DECLARED_LEVEL_QUERY_KEY }),
+      ]);
+    },
+  });
+
+  const handleResetAllProgress = (): void => {
+    if (
+      !window.confirm(
+        "Delete ALL lesson history, lifetime mastery, and your declared level? This cannot be undone.",
+      )
+    ) {
+      return;
+    }
+    resetAllProgressMutation.mutate();
+  };
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-white">
@@ -101,6 +128,37 @@ export function SettingsPageClient(): JSX.Element {
             </p>
           ) : null}
         </div>
+
+        {isDev ? (
+          <div className="mt-12 border-t border-dashed border-gray-200 pt-8">
+            <p className="mb-3 text-xs font-medium uppercase tracking-wide text-gray-400">
+              Developer
+            </p>
+            <button
+              type="button"
+              disabled={resetAllProgressMutation.isPending}
+              onClick={handleResetAllProgress}
+              className="inline-flex items-center gap-1 rounded-full border border-red-100 bg-white px-4 py-2 text-sm font-medium text-red-600 transition hover:border-red-200 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {resetAllProgressMutation.isPending
+                ? "Deleting…"
+                : "Delete all my progress"}
+            </button>
+            {resetAllProgressMutation.isError ||
+            (resetAllProgressMutation.isSuccess &&
+              resetAllProgressMutation.data === false) ? (
+              <p className="mt-3 text-sm text-[#D85A30]">
+                Could not delete your progress. Try again.
+              </p>
+            ) : null}
+            {resetAllProgressMutation.isSuccess &&
+            resetAllProgressMutation.data === true ? (
+              <p className="mt-3 text-sm text-gray-500">
+                All progress deleted.
+              </p>
+            ) : null}
+          </div>
+        ) : null}
       </main>
     </div>
   );
