@@ -1,13 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   buildDeckFingerprint,
+  buildDevPhraseIndexCheckpoint,
   buildLessonCompletionPayload,
   createLessonCompletionRunId,
-  getLessonTitle,
+  isTranscriptLessonIdSyntaxValid,
   MASTERY_STABILIZING_CEIL,
   pickRandomPhraseEventsForCard,
   useLessonSessionWithHistory,
@@ -15,11 +17,14 @@ import {
 } from "@ai-spanish/logic";
 import { useLessonQuery } from "../../hooks/useLessonQuery";
 import { postLessonCompletion } from "@/lib/postLessonCompletion";
+import { putLessonProgressCheckpoint } from "@/lib/lessonProgressApi";
 import { postGrammarGrading } from "@/lib/grammarGrading";
 
 interface Props {
   lessonId: string;
   lessonTitle: string;
+  /** 1-based inclusive phrase count to simulate up to; `undefined` runs the full lesson. */
+  untilPhrase?: number;
 }
 
 type SimStatus = "idle" | "running" | "done";
@@ -28,13 +33,19 @@ interface SimResult {
   historyLength: number;
   incorrectCount: number;
   elapsedMs: number;
-  posted: boolean;
+  /** "completed" posts a lesson completion (full run); "checkpoint" saves a resume point (truncated run). */
+  mode: "completed" | "checkpoint";
+  saved: boolean;
+  /** 1-based phrase number the real lesson will resume at; only set for `mode: "checkpoint"`. */
+  resumePhraseNumber?: number;
 }
-
-const LESSON_IDS = ["1", "2"];
 
 interface RunnerProps {
   phrases: Phrase[];
+  /** Full, untruncated lesson deck — used to build a resume checkpoint positioned past `phrases` when truncated. */
+  fullPhrases: Phrase[];
+  /** True when `phrases` is a prefix of `fullPhrases` (an `untilPhrase`-limited run) rather than the whole lesson. */
+  isTruncated: boolean;
   lessonId: string;
   lessonTitle: string;
 }
@@ -45,6 +56,8 @@ interface RunnerProps {
  */
 function LessonSimRunner({
   phrases,
+  fullPhrases,
+  isTruncated,
   lessonId,
   lessonTitle,
 }: RunnerProps): JSX.Element {
@@ -101,13 +114,44 @@ function LessonSimRunner({
     sessionRef.current.advance();
   }, [waitingToAdvance, pendingGradingCount]);
 
-  // Completion effect: when session drains, post results.
+  // Completion effect: when session drains, either post a full lesson
+  // completion (untruncated run) or save a resume checkpoint positioned right
+  // after the simulated phrases (truncated run) — never both.
   useEffect(() => {
     if (!isComplete || simStatus !== "running") return;
 
     runningRef.current = false;
     const elapsedMs = Date.now() - startTimeRef.current;
     const s = sessionRef.current;
+    const incorrectCount = s.incorrectPhraseRecords.length;
+    const historyLength = s.history.length;
+
+    if (isTruncated) {
+      const resumeCheckpoint = buildDevPhraseIndexCheckpoint({
+        lessonId,
+        deck: fullPhrases,
+        phraseIndex: phrases.length,
+        completedLessonCount: 0,
+      });
+
+      void putLessonProgressCheckpoint(resumeCheckpoint).then((saved) => {
+        if (saved) {
+          void queryClient.invalidateQueries({
+            queryKey: ["lesson-resume-checkpoint", lessonId],
+          });
+        }
+        setResult({
+          historyLength,
+          incorrectCount,
+          elapsedMs,
+          mode: "checkpoint",
+          saved,
+          resumePhraseNumber: phrases.length + 1,
+        });
+        setSimStatus("done");
+      });
+      return;
+    }
 
     const checkpoint = s.getSessionCheckpoint({
       lessonId,
@@ -122,19 +166,16 @@ function LessonSimRunner({
       checkpoint,
     });
 
-    const incorrectCount = s.incorrectPhraseRecords.length;
-    const historyLength = s.history.length;
-
     void postLessonCompletion(payload).then((posted) => {
       if (posted) {
         void queryClient.invalidateQueries({
           queryKey: ["lesson-resume-checkpoint", lessonId],
         });
       }
-      setResult({ historyLength, incorrectCount, elapsedMs, posted });
+      setResult({ historyLength, incorrectCount, elapsedMs, mode: "completed", saved: posted });
       setSimStatus("done");
     });
-  }, [isComplete, simStatus, lessonId, lessonTitle, queryClient]);
+  }, [isComplete, simStatus, lessonId, lessonTitle, queryClient, isTruncated, fullPhrases, phrases]);
 
   const handleStart = () => {
     lessonRunIdRef.current = createLessonCompletionRunId();
@@ -268,14 +309,24 @@ function LessonSimRunner({
             <dd className="font-medium text-gray-900">
               {(result.elapsedMs / 1000).toFixed(2)} s
             </dd>
-            <dt className="text-gray-500">Completion posted</dt>
+            <dt className="text-gray-500">
+              {result.mode === "checkpoint" ? "Resume checkpoint saved" : "Completion posted"}
+            </dt>
             <dd
               className={`font-medium ${
-                result.posted ? "text-green-600" : "text-red-500"
+                result.saved ? "text-green-600" : "text-red-500"
               }`}
             >
-              {result.posted ? "Yes" : "No"}
+              {result.saved ? "Yes" : "No"}
             </dd>
+            {result.mode === "checkpoint" && (
+              <>
+                <dt className="text-gray-500">Resumes at phrase</dt>
+                <dd className="font-medium text-gray-900">
+                  {result.resumePhraseNumber}
+                </dd>
+              </>
+            )}
           </dl>
         </div>
       )}
@@ -283,9 +334,56 @@ function LessonSimRunner({
   );
 }
 
-export function LessonSimClient({ lessonId, lessonTitle }: Props): JSX.Element {
+export function LessonSimClient({
+  lessonId,
+  lessonTitle,
+  untilPhrase,
+}: Props): JSX.Element {
+  const router = useRouter();
   const { data: phrases, isLoading, isError } = useLessonQuery(lessonId);
   const hasDeck = phrases != null && phrases.length > 0;
+
+  const [lessonInput, setLessonInput] = useState(lessonId);
+  const [untilPhraseInput, setUntilPhraseInput] = useState(
+    untilPhrase != null ? String(untilPhrase) : "",
+  );
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    const trimmedLesson = lessonInput.trim();
+    if (!isTranscriptLessonIdSyntaxValid(trimmedLesson)) {
+      setFormError("Lesson must be a positive integer (e.g. 1, 2, 3).");
+      return;
+    }
+
+    const trimmedPhrase = untilPhraseInput.trim();
+    let parsedPhrase: number | undefined;
+    if (trimmedPhrase !== "") {
+      parsedPhrase = Number.parseInt(trimmedPhrase, 10);
+      if (!Number.isFinite(parsedPhrase) || parsedPhrase < 1) {
+        setFormError("Phrase number must be a positive integer (e.g. 1, 2, 3).");
+        return;
+      }
+    }
+
+    setFormError(null);
+    const params = new URLSearchParams({ lesson: trimmedLesson });
+    if (parsedPhrase != null) {
+      params.set("untilPhrase", String(parsedPhrase));
+    }
+    router.push(`/dev/lesson-sim?${params.toString()}`);
+  };
+
+  const totalPhrases = phrases?.length ?? 0;
+  const untilPhraseOutOfRange = untilPhrase != null && untilPhrase > totalPhrases;
+  const isTruncated = untilPhrase != null && !untilPhraseOutOfRange && untilPhrase < totalPhrases;
+  const simPhrases =
+    phrases != null && untilPhrase != null && !untilPhraseOutOfRange
+      ? phrases.slice(0, untilPhrase)
+      : phrases ?? [];
+  const canRun = hasDeck && !untilPhraseOutOfRange;
 
   return (
     <div className="min-h-screen bg-white">
@@ -322,27 +420,51 @@ export function LessonSimClient({ lessonId, lessonTitle }: Props): JSX.Element {
           </div>
         </div>
 
-        <div className="mb-8">
-          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-400">
-            Lesson
-          </p>
-          <ul className="flex flex-wrap gap-2">
-            {LESSON_IDS.map((id) => (
-              <li key={id}>
-                <Link
-                  href={`/dev/lesson-sim?lesson=${id}`}
-                  className={`rounded-md border px-3 py-1.5 text-sm transition ${
-                    id === lessonId
-                      ? "border-gray-800 bg-gray-900 text-white"
-                      : "border-gray-200 text-gray-600 hover:border-gray-400"
-                  }`}
-                >
-                  {getLessonTitle(id)}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
+        <form
+          onSubmit={handleSubmit}
+          className="mb-8 rounded-xl border border-gray-100 bg-gray-50 p-5"
+        >
+          <div className="flex flex-wrap items-end gap-4">
+            <label className="flex flex-col gap-1">
+              <span className="text-xs font-medium uppercase tracking-wide text-gray-400">
+                Lesson
+              </span>
+              <input
+                type="number"
+                min={1}
+                step={1}
+                inputMode="numeric"
+                value={lessonInput}
+                onChange={(e) => setLessonInput(e.target.value)}
+                className="w-24 rounded-md border border-gray-200 px-3 py-1.5 text-sm text-gray-900 focus:border-gray-400 focus:outline-none"
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-xs font-medium uppercase tracking-wide text-gray-400">
+                Up to phrase # (optional)
+              </span>
+              <input
+                type="number"
+                min={1}
+                step={1}
+                inputMode="numeric"
+                placeholder="All"
+                value={untilPhraseInput}
+                onChange={(e) => setUntilPhraseInput(e.target.value)}
+                className="w-32 rounded-md border border-gray-200 px-3 py-1.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-gray-400 focus:outline-none"
+              />
+            </label>
+            <button
+              type="submit"
+              className="rounded-md bg-gray-900 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-gray-700"
+            >
+              Submit
+            </button>
+          </div>
+          {formError && (
+            <p className="mt-3 text-sm text-red-500">{formError}</p>
+          )}
+        </form>
 
         <div className="mb-8">
           {isLoading && (
@@ -353,17 +475,23 @@ export function LessonSimClient({ lessonId, lessonTitle }: Props): JSX.Element {
           )}
           {phrases != null && !isLoading && !isError && (
             <p className="text-sm text-gray-500">
-              {hasDeck
-                ? `${phrases.length} phrases loaded.`
-                : "No phrases in this lesson — nothing to simulate."}
+              {!hasDeck
+                ? "No phrases in this lesson — nothing to simulate."
+                : untilPhraseOutOfRange
+                  ? `${totalPhrases} phrases loaded. Phrase number ${untilPhrase} is out of range (max ${totalPhrases}).`
+                  : untilPhrase != null
+                    ? `${totalPhrases} phrases loaded (simulating first ${untilPhrase}).`
+                    : `${totalPhrases} phrases loaded.`}
             </p>
           )}
         </div>
 
-        {hasDeck ? (
+        {canRun ? (
           <LessonSimRunner
-            key={lessonId}
-            phrases={phrases}
+            key={`${lessonId}-${untilPhrase ?? "all"}`}
+            phrases={simPhrases}
+            fullPhrases={phrases ?? []}
+            isTruncated={isTruncated}
             lessonId={lessonId}
             lessonTitle={lessonTitle}
           />
