@@ -280,6 +280,12 @@ export {
 } from './learnerMastery';
 export { fetchLearnerMasterySnapshot } from './learnerMasteryClient';
 export { useLearnerMasteryQuery } from './useLearnerMasteryQuery';
+export {
+  buildLifetimeGrammarMasteryRows,
+  buildLifetimeMasteryRows,
+  buildLifetimeWordMasteryRows,
+  type LifetimeMasteryRow,
+} from './learnerMasteryReport';
 export { fetchDeclaredLevel, putDeclaredLevel } from './cefrLevelClient';
 export {
   useDeclaredLevelQuery,

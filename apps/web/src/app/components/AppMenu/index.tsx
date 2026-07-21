@@ -60,6 +60,8 @@ export function AppMenu(): JSX.Element {
 
   const isHomeActive = pathname === "/";
   const isSettingsActive = pathname === "/settings";
+  const isWordsMasteredActive = pathname === "/mastery/words";
+  const isGrammarMasteredActive = pathname === "/mastery/grammar";
 
   const buttonStyle: CSSProperties = {
     left: `calc(${columnLeftInset} + 1rem)`,
@@ -175,6 +177,28 @@ export function AppMenu(): JSX.Element {
               }`}
             >
               Settings
+            </Link>
+            <Link
+              href="/mastery/words"
+              onClick={handleClose}
+              className={`rounded-lg px-3 py-2.5 text-sm font-medium transition ${
+                isWordsMasteredActive
+                  ? "bg-gray-100 text-gray-900"
+                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+              }`}
+            >
+              Words Mastered
+            </Link>
+            <Link
+              href="/mastery/grammar"
+              onClick={handleClose}
+              className={`rounded-lg px-3 py-2.5 text-sm font-medium transition ${
+                isGrammarMasteredActive
+                  ? "bg-gray-100 text-gray-900"
+                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+              }`}
+            >
+              Grammar Mastered
             </Link>
           </nav>
 
