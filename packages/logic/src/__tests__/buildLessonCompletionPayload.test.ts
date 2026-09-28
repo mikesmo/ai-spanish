@@ -34,6 +34,8 @@ const minimalCheckpoint = (lessonId: string): SessionCheckpointParsed => ({
   currentPresentedPhraseId: null,
   reinsertCount: {},
   progress: [],
+  wordScores: {},
+  grammarItemScores: {},
 });
 
 describe('lesson completion payload', () => {
