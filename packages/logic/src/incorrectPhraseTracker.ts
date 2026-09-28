@@ -46,7 +46,11 @@ export interface IncorrectGrammarItemEntry {
  * `score` is denormalized from the tracker's internal `wordScores` map.
  */
 export interface WordMistakeEntry {
-  /** Normalized word string. */
+  /**
+   * Normalized *lemma* string (dictionary/base form) — matches the key used
+   * in `wordScores`, not the literal surface form the learner said. E.g. an
+   * entry recorded for the spoken word "hablo" carries `word: "hablar"`.
+   */
   word: string;
   /** Per-session event seq of the failed attempt that first recorded this word in this phrase. */
   failedAtEventSeq: number;
@@ -224,7 +228,13 @@ export function createIncorrectPhraseTracker(
   const records = new Map<string, IncorrectPhraseRecord>();
   /** Cross-phrase grammar item mastery — source of truth during a session. */
   const grammarItemScores = new Map<string, ItemScore>();
-  /** Cross-phrase word mastery — source of truth during a session. */
+  /**
+   * Cross-phrase word mastery — source of truth during a session. Keyed by
+   * normalized *lemma* (not the literal surface word), so inflected forms of
+   * the same word (e.g. hablo/hablas/habló → hablar) accumulate mastery
+   * together — grammar mastery already covers conjugation/declension
+   * correctness, so word mastery tracks vocabulary recall independent of it.
+   */
   const wordScores = new Map<string, ItemScore>();
 
   if (seedRecords) {
@@ -304,25 +314,26 @@ export function createIncorrectPhraseTracker(
   };
 
   /**
-   * Updates the cross-phrase mastery score for a word with one new trial,
-   * then fans the resulting `ItemScore` out onto every existing
-   * `WordMistakeEntry` with the same `word` across all records. Also lazily
-   * creates a `WordMistakeEntry` on the supplied `originRecord` if one does
-   * not already exist (so failures originating in this phrase get a row).
+   * Updates the cross-phrase mastery score for a word (keyed by lemma — see
+   * call sites) with one new trial, then fans the resulting `ItemScore` out
+   * onto every existing `WordMistakeEntry` with the same `word` across all
+   * records. Also lazily creates a `WordMistakeEntry` on the supplied
+   * `originRecord` if one does not already exist (so failures originating in
+   * this phrase get a row).
    */
   const bumpWord = (
-    word: string,
+    lemmaKey: string,
     x: number,
     eventSeq: number,
     originRecord: IncorrectPhraseRecord | undefined,
   ): void => {
-    const prev = wordScores.get(word) ?? createInitialItemScore();
+    const prev = wordScores.get(lemmaKey) ?? createInitialItemScore();
     const next = updateItemScore(prev, x, eventSeq);
-    wordScores.set(word, next);
+    wordScores.set(lemmaKey, next);
     let originHasEntry = false;
     for (const record of records.values()) {
       for (const entry of record.incorrectWordEntries) {
-        if (entry.word === word) {
+        if (entry.word === lemmaKey) {
           entry.score = next;
           if (record === originRecord) originHasEntry = true;
         }
@@ -333,7 +344,7 @@ export function createIncorrectPhraseTracker(
       // so the UI can render a per-word row. We only create on failures
       // (x < 1); successes for words that have never failed remain implicit.
       originRecord.incorrectWordEntries.push({
-        word,
+        word: lemmaKey,
         failedAtEventSeq: eventSeq,
         resolvedByEventSeq: null,
         score: next,
@@ -359,14 +370,14 @@ export function createIncorrectPhraseTracker(
     }
   };
 
-  const decayWord = (word: string, eventSeq: number): void => {
-    const prev = wordScores.get(word);
+  const decayWord = (lemmaKey: string, eventSeq: number): void => {
+    const prev = wordScores.get(lemmaKey);
     if (!prev) return;
     const next = decayItemOnReveal(prev, eventSeq);
-    wordScores.set(word, next);
+    wordScores.set(lemmaKey, next);
     for (const record of records.values()) {
       for (const entry of record.incorrectWordEntries) {
-        if (entry.word === word) entry.score = next;
+        if (entry.word === lemmaKey) entry.score = next;
       }
     }
   };
@@ -520,12 +531,14 @@ export function createIncorrectPhraseTracker(
         }
         // else: ambiguous — skip per algorithm spec.
       }
-      // Words: derived from the original missingWords list.
+      // Words: derived from the original missingWords list. `x` is decided by
+      // whether the literal surface form was missing, but the trial is
+      // recorded against the word's lemma so mastery accumulates across
+      // inflections (hablo/hablas/habló → hablar).
       const normalizedMissingForWords = new Set(missingWords.map((w) => normalizeStr(w)));
       for (const w of phrase.Spanish.words) {
-        const normalized = normalizeStr(w.word);
-        const x = normalizedMissingForWords.has(normalized) ? 0 : 1;
-        bumpWord(normalized, x, eventSeq, grammarOriginRecord);
+        const x = normalizedMissingForWords.has(normalizeStr(w.word)) ? 0 : 1;
+        bumpWord(normalizeStr(w.lemma), x, eventSeq, grammarOriginRecord);
       }
 
       return newlyResolved;
@@ -617,12 +630,11 @@ export function createIncorrectPhraseTracker(
       const fallbackOriginRecord = records.get(phraseId);
       if (gradingStatus === 'n/a') {
         for (const item of allGrammarItems) decayGrammarItem(item, eventSeq);
-        for (const w of phrase.Spanish.words) decayWord(normalizeStr(w.word), eventSeq);
+        for (const w of phrase.Spanish.words) decayWord(normalizeStr(w.lemma), eventSeq);
       } else {
         for (const w of phrase.Spanish.words) {
-          const normalized = normalizeStr(w.word);
-          const x = normalizedMissingSet.has(normalized) ? 0 : 1;
-          bumpWord(normalized, x, eventSeq, fallbackOriginRecord);
+          const x = normalizedMissingSet.has(normalizeStr(w.word)) ? 0 : 1;
+          bumpWord(normalizeStr(w.lemma), x, eventSeq, fallbackOriginRecord);
         }
       }
 

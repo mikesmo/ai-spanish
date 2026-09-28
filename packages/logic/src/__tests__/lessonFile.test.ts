@@ -9,7 +9,7 @@ const minimalPhrase = {
   Spanish: {
     grammar: '',
     answer: 'hola',
-    words: [{ word: 'hola', type: 'noun' as const, weight: POS_WEIGHTS.noun }],
+    words: [{ word: 'hola', lemma: 'hola', type: 'noun' as const, weight: POS_WEIGHTS.noun }],
   },
 };
 

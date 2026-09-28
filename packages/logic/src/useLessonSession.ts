@@ -202,7 +202,7 @@ function snapshotPhraseItemScores(
 
   const wordScoreSnapshot: Record<string, ItemScore> = {};
   for (const w of phrase.Spanish.words) {
-    const key = normalizeStr(w.word);
+    const key = normalizeStr(w.lemma);
     const score = wordScores.get(key);
     if (score !== undefined) wordScoreSnapshot[key] = score;
   }

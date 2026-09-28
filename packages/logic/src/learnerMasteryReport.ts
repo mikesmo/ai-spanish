@@ -10,9 +10,12 @@
  * directly off the `wordScores` / `grammarItemScores` + `claimedWordLevels` /
  * `claimedGrammarLevels` maps.
  *
- * Note: word keys are `normalizeStr`-normalized (lowercase, diacritics
- * stripped) — see `incorrectPhraseTracker.ts` — so rows display that
- * normalized form; no original casing/display form is persisted.
+ * Note: word keys are the `normalizeStr`-normalized *lemma* (dictionary
+ * form), not the literal surface word a learner said/wrote — see
+ * `incorrectPhraseTracker.ts` — so rows display that normalized lemma; no
+ * original casing/display form or encountered surface forms are persisted at
+ * this lifetime layer (unlike the lesson-scoped `WordMasteryRow`, which has
+ * `displayWord`/`surfaceForms` derived from that lesson's history).
  */
 
 import type { ItemScore } from './itemMastery';
@@ -21,7 +24,7 @@ import type { CefrLevel } from './schemas/cefrLevel';
 import type { LearnerMasterySnapshot } from './schemas/learnerMastery';
 
 export interface LifetimeMasteryRow {
-  /** Normalized word string, or the raw grammar item token. */
+  /** Normalized word *lemma* (dictionary form), or the raw grammar item token. */
   key: string;
   mastery: number;
   trialsEff: number;
@@ -78,7 +81,10 @@ export function buildLifetimeMasteryRows(
   return rows;
 }
 
-/** Builds lifetime word-mastery report rows from a learner mastery snapshot. */
+/**
+ * Builds lifetime word-mastery report rows from a learner mastery snapshot.
+ * Rows are keyed by normalized lemma, not literal surface form.
+ */
 export function buildLifetimeWordMasteryRows(
   snapshot: LearnerMasterySnapshot,
 ): LifetimeMasteryRow[] {

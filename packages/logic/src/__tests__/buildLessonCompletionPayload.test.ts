@@ -23,7 +23,7 @@ const phrase = (name: string) => ({
   Spanish: {
     grammar: '',
     answer: name,
-    words: [{ word: name, type: 'verb' as const, weight: POS_WEIGHTS.verb }],
+    words: [{ word: name, lemma: name, type: 'verb' as const, weight: POS_WEIGHTS.verb }],
   },
 });
 

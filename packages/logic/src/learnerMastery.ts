@@ -3,7 +3,12 @@ import { createInitialItemScore } from './itemMastery';
 import type { CefrLevel } from './schemas/cefrLevel';
 import type { LearnerMasterySnapshot } from './schemas/learnerMastery';
 
-/** `user_word_mastery` row shape (snake_case to match the Supabase column names). */
+/**
+ * `user_word_mastery` row shape (snake_case to match the Supabase column
+ * names). `word` holds a normalized *lemma* (dictionary form), not the
+ * literal surface word a learner said/wrote — see `incorrectPhraseTracker.ts`
+ * and the "Per-item mastery" section of `arch-mastery-scoring.mdc`.
+ */
 export interface UserWordMasteryRow {
   user_id: string;
   word: string;
@@ -25,7 +30,11 @@ export interface UserGrammarMasteryRow {
   updated_at: string;
 }
 
-/** Minimal row shape read back from `user_word_mastery` for GET / seed-backfill lookups. */
+/**
+ * Minimal row shape read back from `user_word_mastery` for GET /
+ * seed-backfill lookups. `word` is the normalized lemma key (see
+ * `UserWordMasteryRow`).
+ */
 export interface UserWordMasterySelectRow {
   word: string;
   trials_eff: number;
@@ -47,9 +56,11 @@ export interface UserGrammarMasterySelectRow {
 
 /**
  * Builds `user_word_mastery` upsert rows from a session's final `wordScores`
- * map (from the completion checkpoint). Deliberately omits `claimed_at_level`
- * so upserting from practice never clobbers an existing CEFR-level claim tag
- * (Postgres `ON CONFLICT DO UPDATE` only touches columns present in the row).
+ * map (from the completion checkpoint). The map keys are normalized lemmas
+ * (see `UserWordMasteryRow`), so this is generic over whatever string key the
+ * caller's score map uses. Deliberately omits `claimed_at_level` so upserting
+ * from practice never clobbers an existing CEFR-level claim tag (Postgres
+ * `ON CONFLICT DO UPDATE` only touches columns present in the row).
  */
 export function buildWordMasteryRows(
   userId: string,
@@ -132,8 +143,10 @@ export function parseLearnerMasterySnapshot(
 
 /**
  * Builds zero-score `user_word_mastery` seed rows for a declared CEFR level.
- * Callers must upsert with `ignoreDuplicates: true` (`ON CONFLICT DO NOTHING`)
- * so a word the learner has already practiced is never reset to zero.
+ * `words` should already be normalized lemma keys (dictionary forms), to
+ * match the key space `buildWordMasteryRows` writes under. Callers must
+ * upsert with `ignoreDuplicates: true` (`ON CONFLICT DO NOTHING`) so a word
+ * the learner has already practiced is never reset to zero.
  */
 export function buildClaimedWordSeedRows(
   userId: string,

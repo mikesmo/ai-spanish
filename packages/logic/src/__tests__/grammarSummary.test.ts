@@ -50,7 +50,7 @@ const phraseWithGrammar = (name: string, grammar: string): Phrase => ({
   Spanish: {
     grammar,
     answer: `${name} answer`,
-    words: [{ word: name, type: 'verb', weight: POS_WEIGHTS.verb }],
+    words: [{ word: name, lemma: name, type: 'verb', weight: POS_WEIGHTS.verb }],
   },
 });
 

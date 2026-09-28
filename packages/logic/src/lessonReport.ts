@@ -261,10 +261,22 @@ export const isReportEligibleItem = (row: {
 // ─── Per-word and per-grammar-item mastery helpers ────────────────────────────
 
 export interface WordMasteryRow {
-  /** Normalized word string (lowercase, diacritic-normalized per `normalizeStr`). */
+  /**
+   * Normalized *lemma* string (lowercase, diacritic-normalized per
+   * `normalizeStr`) — matches the key used by `wordScores`/`user_word_mastery`.
+   * Mastery is tracked per dictionary form, not per literal spoken/written
+   * word, so inflections of the same word (e.g. hablo/hablas/habló) share
+   * one row.
+   */
   word: string;
-  /** Display form: the first raw word string seen across all phrases. */
+  /** Display form: the lemma's own raw casing (dictionary form), not a specific inflection. */
   displayWord: string;
+  /**
+   * Every distinct raw surface form (`WordMeta.word`) seen across all
+   * phrases for this lemma, in first-seen order. Purely for display (e.g. a
+   * "hablo, hablas, habló" subtitle under the lemma) — not used for scoring.
+   */
+  surfaceForms: string[];
   type: PartOfSpeech;
   mastery: number;
   trialsEff: number;
@@ -318,23 +330,37 @@ export const buildWordsByMastery = (
   entries: readonly HistoryEntry[],
   wordScores: Record<string, ItemScore>,
 ): WordMasteryRow[] => {
-  // Collect all words that appeared in the deck: normalized → { type, displayWord, phraseIds }
+  // Collect all words that appeared in the deck, grouped by normalized lemma
+  // (not literal surface form) — mirrors the tracker's word-mastery key so
+  // inflections of the same word (hablo/hablas/habló) merge into one row.
   const wordMeta = new Map<
     string,
-    { type: PartOfSpeech; displayWord: string; phraseIds: Set<string> }
+    {
+      type: PartOfSpeech;
+      displayWord: string;
+      surfaceForms: string[];
+      seenSurfaceForms: Set<string>;
+      phraseIds: Set<string>;
+    }
   >();
 
   for (const entry of entries) {
     const phraseId = entry.phrase.name;
     for (const w of entry.phrase.Spanish.words) {
-      const key = normalizeStr(w.word);
+      const key = normalizeStr(w.lemma);
       const existing = wordMeta.get(key);
       if (existing) {
         existing.phraseIds.add(phraseId);
+        if (!existing.seenSurfaceForms.has(w.word)) {
+          existing.seenSurfaceForms.add(w.word);
+          existing.surfaceForms.push(w.word);
+        }
       } else {
         wordMeta.set(key, {
           type: w.type,
-          displayWord: w.word,
+          displayWord: w.lemma,
+          surfaceForms: [w.word],
+          seenSurfaceForms: new Set([w.word]),
           phraseIds: new Set([phraseId]),
         });
       }
@@ -348,6 +374,7 @@ export const buildWordsByMastery = (
       rows.push({
         word,
         displayWord: meta.displayWord,
+        surfaceForms: meta.surfaceForms,
         type: meta.type,
         mastery: score.mastery,
         trialsEff: score.trialsEff,
@@ -360,6 +387,7 @@ export const buildWordsByMastery = (
       rows.push({
         word,
         displayWord: meta.displayWord,
+        surfaceForms: meta.surfaceForms,
         type: meta.type,
         mastery: 0,
         trialsEff: 0,
@@ -554,14 +582,15 @@ export const averageMasteryByPos = (
 // ─── Item mastery trail helpers ───────────────────────────────────────────────
 
 /**
- * True when `phrase.Spanish.words` contains a word that normalizes to
- * `normalizedWord` (uses the same `normalizeStr` used by the tracker).
+ * True when `phrase.Spanish.words` contains a word whose *lemma* normalizes
+ * to `normalizedLemma` (uses the same `normalizeStr` used by the tracker's
+ * word-mastery key — see `incorrectPhraseTracker.ts`).
  */
 export const phraseContainsNormalizedWord = (
   phrase: Phrase,
-  normalizedWord: string,
+  normalizedLemma: string,
 ): boolean =>
-  phrase.Spanish.words.some((w) => normalizeStr(w.word) === normalizedWord);
+  phrase.Spanish.words.some((w) => normalizeStr(w.lemma) === normalizedLemma);
 
 /**
  * True when `phrase.Spanish.grammar` contains `item` as one of its
@@ -578,19 +607,19 @@ export const phraseContainsGrammarItem = (
 
 /**
  * Returns the chronological subset of `entries` where:
- *  - the phrase contains `normalizedWord`, and
+ *  - the phrase contains a word whose lemma normalizes to `normalizedLemma`, and
  *  - the event type is `attempt` or `reveal` (practice does not update item mastery).
  *
  * Order is preserved (lesson chronological order = input array order).
  */
 export const filterHistoryEntriesForWordItemTrail = (
-  normalizedWord: string,
+  normalizedLemma: string,
   entries: readonly HistoryEntry[],
 ): HistoryEntry[] =>
   entries.filter(
     (e) =>
       (e.event.eventType === 'attempt' || e.event.eventType === 'reveal') &&
-      phraseContainsNormalizedWord(e.phrase, normalizedWord),
+      phraseContainsNormalizedWord(e.phrase, normalizedLemma),
   );
 
 /**

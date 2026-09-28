@@ -19,7 +19,7 @@ const phrase = (name: string, index = 0): Phrase => ({
   Spanish: {
     grammar: '',
     answer: name,
-    words: [{ word: name, type: 'verb', weight: POS_WEIGHTS.verb }],
+    words: [{ word: name, lemma: name, type: 'verb', weight: POS_WEIGHTS.verb }],
   },
 });
 

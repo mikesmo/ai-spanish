@@ -18,6 +18,8 @@ export const partOfSpeechSchema = z.enum([
 export const wordMetaSchema = z
   .object({
     word: z.string().min(1),
+    /** Dictionary/base form of `word` — see `WordMeta.lemma` in `../types.ts`. */
+    lemma: z.string().min(1),
     type: partOfSpeechSchema,
     weight: z.number().positive(),
   })

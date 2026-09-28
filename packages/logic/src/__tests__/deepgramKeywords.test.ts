@@ -25,9 +25,9 @@ describe('deepgramLiveKeywordTokensForPhrase', () => {
       answer: 'Una frase larga con muchas palabras.',
       recognitionHints: 'Perdón, señor',
       words: [
-        { word: 'Una', type: 'article', weight: POS_WEIGHTS.article },
-        { word: 'frase', type: 'noun', weight: POS_WEIGHTS.noun },
-        { word: 'larga', type: 'adjective', weight: POS_WEIGHTS.adjective },
+        { word: 'Una', lemma: 'uno', type: 'article', weight: POS_WEIGHTS.article },
+        { word: 'frase', lemma: 'frase', type: 'noun', weight: POS_WEIGHTS.noun },
+        { word: 'larga', lemma: 'largo', type: 'adjective', weight: POS_WEIGHTS.adjective },
       ],
     });
     expect(deepgramLiveKeywordTokensForPhrase(p)).toEqual(['perdón', 'señor']);
@@ -37,8 +37,8 @@ describe('deepgramLiveKeywordTokensForPhrase', () => {
     const p = phraseBase({
       answer: 'Hola adiós',
       words: [
-        { word: 'Hola', type: 'noun', weight: POS_WEIGHTS.noun },
-        { word: 'adiós', type: 'noun', weight: POS_WEIGHTS.noun },
+        { word: 'Hola', lemma: 'hola', type: 'noun', weight: POS_WEIGHTS.noun },
+        { word: 'adiós', lemma: 'adiós', type: 'noun', weight: POS_WEIGHTS.noun },
       ],
     });
     expect(deepgramLiveKeywordTokensForPhrase(p)).toEqual([]);
@@ -48,9 +48,9 @@ describe('deepgramLiveKeywordTokensForPhrase', () => {
     const p = phraseBase({
       answer: 'Una dos tres',
       words: [
-        { word: 'Una', type: 'article', weight: POS_WEIGHTS.article },
-        { word: 'dos', type: 'noun', weight: POS_WEIGHTS.noun },
-        { word: 'tres', type: 'noun', weight: POS_WEIGHTS.noun },
+        { word: 'Una', lemma: 'uno', type: 'article', weight: POS_WEIGHTS.article },
+        { word: 'dos', lemma: 'dos', type: 'noun', weight: POS_WEIGHTS.noun },
+        { word: 'tres', lemma: 'tres', type: 'noun', weight: POS_WEIGHTS.noun },
       ],
     });
     expect(deepgramLiveKeywordTokensForPhrase(p)).toEqual([]);
@@ -61,8 +61,8 @@ describe('deepgramLiveKeywordTokensForPhrase', () => {
       answer: 'hola adiós',
       recognitionHints: '   ',
       words: [
-        { word: 'hola', type: 'noun', weight: POS_WEIGHTS.noun },
-        { word: 'adiós', type: 'noun', weight: POS_WEIGHTS.noun },
+        { word: 'hola', lemma: 'hola', type: 'noun', weight: POS_WEIGHTS.noun },
+        { word: 'adiós', lemma: 'adiós', type: 'noun', weight: POS_WEIGHTS.noun },
       ],
     });
     expect(deepgramLiveKeywordTokensForPhrase(p)).toEqual([]);

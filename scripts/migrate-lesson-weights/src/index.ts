@@ -34,7 +34,7 @@ import {
 
 loadScriptsEnv();
 
-type LegacyWord = { word: string; type: string; weight?: number };
+type LegacyWord = { word: string; lemma: string; type: string; weight?: number };
 
 type LegacyPhrase = {
   id?: string;
@@ -109,6 +109,7 @@ function migratePhraseRows(parsed: LegacyPhrase[]): Record<string, unknown>[] {
       );
       return {
         word: w.word,
+        lemma: w.lemma,
         type: posTag,
         weight: POS_WEIGHTS[posTag],
       };

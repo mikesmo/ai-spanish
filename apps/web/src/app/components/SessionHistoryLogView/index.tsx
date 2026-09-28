@@ -437,13 +437,16 @@ const buildAlignmentRows = (
   return words.map((w) => {
     const normalized = normalizeStr(w.word);
     const isMissing = missingSet.has(normalized);
+    // Mastery score is keyed by lemma (dictionary form), not the literal
+    // surface word — see incorrectPhraseTracker.ts.
+    const lemmaKey = normalizeStr(w.lemma);
     return {
       word: w.word,
       type: w.type,
       weight: w.weight,
       status: isMissing ? "missing" : "matched",
       resolvedByEventSeq: isMissing ? resolvedMap.get(normalized) : undefined,
-      score: wordEntryMap.get(normalized)?.score ?? wordScoreLookup.get(normalized),
+      score: wordEntryMap.get(lemmaKey)?.score ?? wordScoreLookup.get(lemmaKey),
     };
   });
 };
@@ -821,7 +824,7 @@ const ScoredEventDetail = ({
               <th className="py-1 pr-2 font-medium">Resolved by</th>
               <th
                 className="py-1 pr-2 font-medium text-right"
-                title="Cross-phrase mastery score for this word (0–100%). Hover the cell for trial count, stability, and band."
+                title="Cross-phrase mastery score for this word's lemma (dictionary form), 0–100%. Hover the cell for trial count, stability, and band."
               >
                 Mastery
               </th>

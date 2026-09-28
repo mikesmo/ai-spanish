@@ -36,7 +36,7 @@ const phrase = (name: string): Phrase => ({
   Spanish: {
     grammar: '',
     answer: name,
-    words: [{ word: name, type: 'verb', weight: POS_WEIGHTS.verb }],
+    words: [{ word: name, lemma: name, type: 'verb', weight: POS_WEIGHTS.verb }],
   },
 });
 
@@ -406,7 +406,7 @@ const makeScore = (mastery: number, trialsEff = 5): ItemScore => ({
 
 const phraseWithWords = (
   name: string,
-  wordDefs: Array<{ word: string; type: 'verb' | 'noun' | 'preposition' }>,
+  wordDefs: Array<{ word: string; type: 'verb' | 'noun' | 'preposition'; lemma?: string }>,
 ): Phrase => ({
   name,
   index: 0,
@@ -414,7 +414,12 @@ const phraseWithWords = (
   Spanish: {
     grammar: 'polite address',
     answer: wordDefs.map((w) => w.word).join(' '),
-    words: wordDefs.map((w) => ({ word: w.word, type: w.type, weight: POS_WEIGHTS[w.type] })),
+    words: wordDefs.map((w) => ({
+      word: w.word,
+      lemma: w.lemma ?? w.word,
+      type: w.type,
+      weight: POS_WEIGHTS[w.type],
+    })),
   },
 });
 
@@ -468,6 +473,37 @@ describe('buildWordsByMastery', () => {
     expect(rows[0]?.appearedInPhraseIds.sort()).toEqual(['p1', 'p2']);
   });
 
+  it('groups by normalized lemma, not literal surface form, keeping a single row', () => {
+    // "hablo"/"hablas"/"habló" are different surface forms of the lemma "hablar".
+    const p1 = phraseWithWords('p1', [{ word: 'hablo', lemma: 'hablar', type: 'verb' }]);
+    const p2 = phraseWithWords('p2', [{ word: 'hablas', lemma: 'hablar', type: 'verb' }]);
+    const p3 = phraseWithWords('p3', [{ word: 'habló', lemma: 'hablar', type: 'verb' }]);
+    const rows = buildWordsByMastery(
+      [entryForPhrase('e1', p1), entryForPhrase('e2', p2), entryForPhrase('e3', p3)],
+      { hablar: makeScore(0.6) },
+    );
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.word).toBe('hablar');
+    expect(rows[0]?.displayWord).toBe('hablar');
+    expect(rows[0]?.appearedInPhraseIds.sort()).toEqual(['p1', 'p2', 'p3']);
+    expect(rows[0]?.mastery).toBeCloseTo(0.6);
+  });
+
+  it('collects every distinct encountered surface form in first-seen order', () => {
+    const p1 = phraseWithWords('p1', [{ word: 'hablo', lemma: 'hablar', type: 'verb' }]);
+    const p2 = phraseWithWords('p2', [{ word: 'hablas', lemma: 'hablar', type: 'verb' }]);
+    // Repeats "hablo" — must not create a duplicate entry in surfaceForms.
+    const p3 = phraseWithWords('p3', [{ word: 'hablo', lemma: 'hablar', type: 'verb' }]);
+    const rows = buildWordsByMastery(
+      [entryForPhrase('e1', p1), entryForPhrase('e2', p2), entryForPhrase('e3', p3)],
+      {},
+    );
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.surfaceForms).toEqual(['hablo', 'hablas']);
+  });
+
   it('sorts trained rows by mastery ascending with untrained rows last', () => {
     const p = phraseWithWords('p1', [
       { word: 'hablo', type: 'verb' },
@@ -518,7 +554,7 @@ const phraseWithGrammar = (name: string, grammar: string): Phrase => ({
   Spanish: {
     grammar,
     answer: 'test',
-    words: [{ word: 'test', type: 'verb', weight: POS_WEIGHTS.verb }],
+    words: [{ word: 'test', lemma: 'test', type: 'verb', weight: POS_WEIGHTS.verb }],
   },
 });
 
@@ -680,7 +716,7 @@ describe('phraseContainsGrammarItem', () => {
     Spanish: {
       grammar,
       answer: 'x',
-      words: [{ word: 'x', type: 'verb', weight: POS_WEIGHTS.verb }],
+      words: [{ word: 'x', lemma: 'x', type: 'verb', weight: POS_WEIGHTS.verb }],
     },
   });
 

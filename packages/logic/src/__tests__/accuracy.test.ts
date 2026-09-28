@@ -12,6 +12,7 @@ import type { SpokenWord, WordMeta } from '../types';
 
 const wm = (word: string, type: keyof typeof POS_WEIGHTS): WordMeta => ({
   word,
+  lemma: word,
   type,
   weight: POS_WEIGHTS[type],
 });

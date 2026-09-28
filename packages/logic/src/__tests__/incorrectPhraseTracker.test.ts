@@ -12,15 +12,25 @@ const englishBlock = {
   explain: '',
 };
 
-const phraseBase = (name: string, grammar: string, wordSpecs: [string, number][]): Phrase => ({
+/**
+ * `wordSpecs` entries are `[word, weight, lemma?]` — `lemma` defaults to
+ * `word` when omitted (the common case for tests not exercising lemma
+ * grouping specifically).
+ */
+const phraseBase = (
+  name: string,
+  grammar: string,
+  wordSpecs: [string, number, string?][],
+): Phrase => ({
   name,
   index: 0,
   English: englishBlock,
   Spanish: {
     grammar,
     answer: wordSpecs.map(([w]) => w).join(' '),
-    words: wordSpecs.map(([word, weight]) => ({
+    words: wordSpecs.map(([word, weight, lemma]) => ({
       word,
+      lemma: lemma ?? word,
       type: 'noun' as const,
       weight,
     })),
@@ -440,6 +450,69 @@ describe('createIncorrectPhraseTracker', () => {
 
       expect(tracker.getGrammarItemScores().size).toBe(0);
       expect(tracker.getWordScores().size).toBe(0);
+    });
+  });
+
+  describe('lemma-based word mastery', () => {
+    it('two different surface forms of the same lemma accumulate mastery under one key', () => {
+      const tracker = createIncorrectPhraseTracker();
+      // "hablo" and "hablas" are different surface forms of the lemma "hablar".
+      const phraseA = phraseBase('p-a', 'g-x', [['hablo', 1, 'hablar'], ['mundo', 1]]);
+      const phraseB = phraseBase('p-b', 'g-y', [['hablas', 1, 'hablar'], ['amigo', 1]]);
+
+      // Phrase A fails on "hablo" -> x=0 trial recorded against lemma "hablar".
+      tracker.recordMissingWords(phraseA.name, phraseA, ['hablo'], [], false, 1);
+      tracker.applyAiGrading(phraseA.name, phraseA, aiResult([]), ['hablo'], false, 1, true);
+
+      const afterFirstTrial = tracker.getWordScores().get('hablar')!;
+      expect(afterFirstTrial).toBeDefined();
+      expect(afterFirstTrial.trialsEff).toBeCloseTo(1, 5);
+      expect(afterFirstTrial.successSumEff).toBeCloseTo(0, 5);
+      // No score was ever recorded under the literal surface forms.
+      expect(tracker.getWordScores().has('hablo')).toBe(false);
+      expect(tracker.getWordScores().has('hablas')).toBe(false);
+
+      // Phrase B says "hablas" correctly -> x=1 trial, merged onto the same
+      // lemma key rather than starting a fresh "hablas" entry.
+      tracker.recordMissingWords(phraseB.name, phraseB, [], [], true, 5);
+      tracker.applyAiGrading(phraseB.name, phraseB, aiResult([]), [], true, 5, true);
+
+      const merged = tracker.getWordScores().get('hablar')!;
+      expect(merged.lastUpdatedAtEventSeq).toBe(5);
+      expect(merged.trialsEff).toBeGreaterThan(afterFirstTrial.trialsEff);
+      expect(merged.successSumEff).toBeGreaterThan(afterFirstTrial.successSumEff);
+      expect(tracker.getWordScores().has('hablo')).toBe(false);
+      expect(tracker.getWordScores().has('hablas')).toBe(false);
+    });
+
+    it('WordMistakeEntry.word is keyed by lemma, not the literal failed surface form', () => {
+      const tracker = createIncorrectPhraseTracker();
+      const phrase = phraseBase('p1', 'polite address', [['hablo', 1, 'hablar']]);
+
+      tracker.recordMissingWords(phrase.name, phrase, ['hablo'], [], false, 1);
+      tracker.applyAiGrading(phrase.name, phrase, aiResult([]), ['hablo'], false, 1, true);
+
+      const record = tracker.getRecord(phrase.name)!;
+      expect(record.incorrectWordEntries).toHaveLength(1);
+      expect(record.incorrectWordEntries[0].word).toBe('hablar');
+    });
+
+    it('reveal decay on one surface form decays the shared lemma score', () => {
+      const tracker = createIncorrectPhraseTracker();
+      const phraseA = phraseBase('p-a', 'g-x', [['hablo', 1, 'hablar']]);
+      const phraseB = phraseBase('p-b', 'g-y', [['hablas', 1, 'hablar']]);
+
+      tracker.recordMissingWords(phraseA.name, phraseA, [], [], true, 1);
+      tracker.applyAiGrading(phraseA.name, phraseA, aiResult([]), [], true, 1, true);
+      const before = tracker.getWordScores().get('hablar')!;
+      expect(before.stability).toBeGreaterThan(0);
+
+      const allWordsB = phraseB.Spanish.words.map((w) => w.word);
+      tracker.applyFallbackClassification(phraseB.name, phraseB, allWordsB, false, 9, true, 'n/a');
+
+      const after = tracker.getWordScores().get('hablar')!;
+      expect(after.trialsEff).toBe(before.trialsEff);
+      expect(after.stability).toBeLessThan(before.stability);
     });
   });
 });

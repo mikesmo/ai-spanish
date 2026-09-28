@@ -566,6 +566,11 @@ const WordRow = ({
     <div className="flex items-center gap-2 w-full">
       <div className="min-w-0 flex-1">
         <span className="text-sm text-gray-900">{row.displayWord}</span>
+        {row.surfaceForms.length > 1 && (
+          <div className="truncate text-[10px] text-gray-400">
+            {row.surfaceForms.join(", ")}
+          </div>
+        )}
       </div>
       <div className="flex shrink-0 items-center gap-1.5">
         <span className="text-[10px] tabular-nums text-gray-400">

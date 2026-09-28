@@ -41,7 +41,7 @@ describe('historyEntrySchema', () => {
           grammar: '',
           answer: 'Hola',
           words: [
-            { word: 'Hola', type: 'noun' as const, weight: POS_WEIGHTS.noun },
+            { word: 'Hola', lemma: 'hola', type: 'noun' as const, weight: POS_WEIGHTS.noun },
           ],
         },
       },

@@ -5,6 +5,13 @@ export type Language = 'en' | 'es';
 
 export interface WordMeta {
   word: string;
+  /**
+   * Dictionary/base form of `word` (e.g. `hablo` → `hablar`, `gatos` → `gato`).
+   * Cross-phrase word mastery is keyed by the normalized lemma (see
+   * `incorrectPhraseTracker.ts`) so inflected forms of the same word accrue
+   * mastery together instead of fragmenting into separate tracked items.
+   */
+  lemma: string;
   type: PartOfSpeech;
   weight: number;
 }

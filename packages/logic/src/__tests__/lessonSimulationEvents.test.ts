@@ -12,6 +12,7 @@ import { normalizeStr } from '../comparison';
 
 const wm = (word: string, type: keyof typeof POS_WEIGHTS): WordMeta => ({
   word,
+  lemma: word,
   type,
   weight: POS_WEIGHTS[type],
 });

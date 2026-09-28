@@ -21,7 +21,7 @@ const phrase = (overrides: Partial<Phrase>): Phrase => ({
   Spanish: {
     grammar: 'g',
     answer: 'Hola.',
-    words: [{ word: 'Hola', type: 'noun', weight: POS_WEIGHTS.noun }],
+    words: [{ word: 'Hola', lemma: 'hola', type: 'noun', weight: POS_WEIGHTS.noun }],
   },
   ...overrides,
 });
