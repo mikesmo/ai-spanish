@@ -15,6 +15,11 @@ function isPublicPath(pathname: string): boolean {
 
 function isProtectedPath(pathname: string): boolean {
   if (isPublicPath(pathname)) return false;
+  // Dev-only device debug-log collector (see api/agent-debug-log/route.ts).
+  // Physical devices post here without a session; the route 404s in production.
+  if (pathname === '/api/agent-debug-log' && process.env.NODE_ENV !== 'production') {
+    return false;
+  }
   if (pathname === '/api/authenticate' && process.env.DEEPGRAM_ENV === 'development') {
     return false;
   }

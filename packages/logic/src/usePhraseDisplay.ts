@@ -799,6 +799,7 @@ export function usePhraseDisplay(
         ]);
         if (bootstrapSignal.aborted) return;
         if (!isMountedRef.current) return;
+        sttRef.current.prefetchAuth?.();
         setStatus('idle');
         setIsAudioPlaying(true);
         await ttsRef.current.play(
@@ -880,6 +881,13 @@ export function usePhraseDisplay(
         if (bootstrapSignal.aborted) return;
         if (!isMountedRef.current) return;
         setFollowUpPlaybackCompleted(true);
+
+        // Switch to the recording layout immediately while Deepgram connects.
+        // Without this, status stays `idle` on AISpeaking for several seconds
+        // after English TTS finishes (only `stt.isRecording` flips to recording).
+        if (statusRef.current !== 'recordingPriming') {
+          setStatus('recordingPriming');
+        }
 
         await sttRef.current.stop();
         if (bootstrapSignal.aborted) return;

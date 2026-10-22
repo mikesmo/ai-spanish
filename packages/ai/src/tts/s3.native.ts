@@ -2,7 +2,11 @@ import { useCallback, useRef } from 'react';
 import { Audio } from 'expo-av';
 import type { AVPlaybackStatus } from 'expo-av';
 import * as FileSystem from 'expo-file-system';
-import type { Language, TTSAdapter, TtsAdapterOptions } from '@ai-spanish/logic';
+import {
+  type Language,
+  type TTSAdapter,
+  type TtsAdapterOptions,
+} from '@ai-spanish/logic';
 import {
   PRESIGNED_URL_CACHE_TTL_MS,
   fetchPresignedUrl as _fetchPresignedUrl,
@@ -74,6 +78,32 @@ function localCachePath(
   return `${FileSystem.cacheDirectory}s3audio-${p}${phraseName}-${segment}.mp3`;
 }
 
+function fileCacheKey(
+  phraseName: string,
+  segment: string,
+  s3LessonSegment: string | undefined
+): string {
+  return `${s3LessonSegment ?? ''}|${phraseName}-${segment}`;
+}
+
+/**
+ * Drop a cached clip from both the in-memory map and disk. Used when a file
+ * turns out to be unplayable so the next presentation re-downloads instead of
+ * replaying a poisoned cache entry.
+ */
+async function evictLocalFile(
+  phraseName: string,
+  segment: string,
+  fileCache: Map<string, string>,
+  s3LessonSegment: string | undefined
+): Promise<void> {
+  fileCache.delete(fileCacheKey(phraseName, segment, s3LessonSegment));
+  await FileSystem.deleteAsync(
+    localCachePath(phraseName, segment, s3LessonSegment),
+    { idempotent: true },
+  ).catch(() => {});
+}
+
 async function ensureLocalFile(
   phraseName: string,
   segment: string,
@@ -83,12 +113,13 @@ async function ensureLocalFile(
   s3LessonSegment: string | undefined
 ): Promise<string | null> {
   if (signal?.aborted) return null;
-  const lessonKey = s3LessonSegment ?? '';
-  const cacheKey = `${lessonKey}|${phraseName}-${segment}`;
+  const cacheKey = fileCacheKey(phraseName, segment, s3LessonSegment);
   const cachedUri = fileCache.get(cacheKey);
   if (cachedUri) {
     const info = await FileSystem.getInfoAsync(cachedUri);
-    if (info.exists) return cachedUri;
+    if (info.exists) {
+      return cachedUri;
+    }
     fileCache.delete(cacheKey);
   }
 
@@ -106,6 +137,15 @@ async function ensureLocalFile(
   const dest = localCachePath(phraseName, segment, s3LessonSegment);
   const result = await FileSystem.downloadAsync(presigned, dest);
   if (signal?.aborted) return null;
+  if (result.status !== 200) {
+    // `/api/audio` presigns without checking the object exists, so a missing
+    // clip yields a URL that S3 answers with an XML error body. downloadAsync
+    // saves that body regardless; caching it as .mp3 poisons the cache and
+    // makes expo-av fail with "media may be damaged" on every later play.
+    // Treat it as a missing clip (skipped silently, per adapter contract).
+    await FileSystem.deleteAsync(result.uri, { idempotent: true }).catch(() => {});
+    return null;
+  }
   fileCache.set(cacheKey, result.uri);
   return result.uri;
 }
@@ -328,7 +368,15 @@ export function useS3TTS(): TTSAdapter {
           await playSegment(uri, rate, signal);
           /* eslint-enable no-await-in-loop */
         } catch {
-          // Skip failed segments (network/playback); matches silent skip for missing clips.
+          // Skip failed segments (network/playback); matches silent skip for
+          // missing clips. Evict the cached file so a corrupt/poisoned download
+          // (e.g. an S3 error body saved as .mp3) is not replayed next time.
+          await evictLocalFile(
+            phraseName,
+            seg,
+            fileCacheRef.current,
+            options?.s3LessonSegment,
+          );
         }
       }
     },

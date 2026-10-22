@@ -186,6 +186,10 @@ export type SttStartOptions = {
 export type SpeechToTextHandle = {
   start: (options?: SttStartOptions) => void;
   stop: () => void | Promise<void>;
+  /**
+   * Optional: warm Deepgram listen auth while TTS plays (native). No-op on web.
+   */
+  prefetchAuth?: () => void;
   isRecording: boolean;
   caption: string;
   /** Word-level timestamps for the active attempt, if the adapter supports them. */

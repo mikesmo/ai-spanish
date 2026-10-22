@@ -1,4 +1,4 @@
-import type { Language, TtsAdapterOptions } from '@ai-spanish/logic';
+import { type Language, type TtsAdapterOptions } from '@ai-spanish/logic';
 
 export interface AudioUrlResponse {
   url: string;
@@ -62,7 +62,9 @@ export async function fetchPresignedUrl(
           : {}),
       },
     );
-    if (!response.ok) return null;
+    if (!response.ok) {
+      return null;
+    }
     const data = (await response.json()) as AudioUrlResponse;
     return data.url ?? null;
   } catch {

@@ -89,21 +89,27 @@ const NATIVE_POST_IDLE_DWELL_MS = 300;
 /**
  * After `await startListening()` resolves, the SDK should transition
  * `state.status` from `'idle'` → `'loading'` → `'listening'`. We poll
- * for the FULL transition to `'listening'` (not merely non-idle). The
- * audio-session attachment race can break at either step:
- *   - Stuck at `'idle'`: SDK never even started transitioning (~24% rate
- *     observed pre-fix).
- *   - Stuck at `'loading'`: SDK started transitioning but audio session
- *     never attached, so `'listening'` is never reached and no transcripts
- *     ever flow (observed ~10% rate after the stuck-idle fix).
- * Both manifest as "blank transcript after silence timeout" from the
- * user's perspective. Polling specifically for `'listening'` with a
- * generous 1500ms ceiling catches both, and triggers a single retry
- * (stop + dwell + startListening) when the SDK fails to reach the
- * audio-active state.
+ * for the FULL transition to `'listening'` (not merely non-idle).
+ *
+ * In `react-native-deepgram`, `'loading'` → `'listening'` happens ONLY on the
+ * Deepgram WebSocket `onopen`; the native mic/`startRecording` part has
+ * already resolved by the time `startListening()` returns (~300ms). So this
+ * poll is effectively a WebSocket handshake timeout, and it must be longer
+ * than a realistic DNS + TLS + upgrade round-trip:
+ *   - Measured on a physical iPhone behind macOS Internet Sharing (Oct 2026,
+ *     "hangs after the AI speaks" bug): WS opened at 2.5s, 3.3s, 2.5s after
+ *     `startListening()`.
+ *     The previous 1500ms ceiling tore the socket down mid-handshake every
+ *     time, the single retry did the same, and the user was stranded on the
+ *     AI-speaking screen with no recording UI.
+ *   - Stuck at `'idle'` / genuinely dead sessions (the Android audio-session
+ *     race this guard was originally added for) still get caught; they just
+ *     take up to this long to be detected before the retry kicks in.
+ * 6000ms is ~2x the worst observed healthy open while still bounding the
+ * stuck case; the retry (stop + dwell + startListening) runs after that.
  */
 const NATIVE_CONFIRM_LISTENING_POLL_MS = 25;
-const NATIVE_CONFIRM_LISTENING_TIMEOUT_MS = 1500;
+const NATIVE_CONFIRM_LISTENING_TIMEOUT_MS = 6000;
 /**
  * The native SDK does not expose `speech_final`; a chunk with `isFinal` may be
  * mid-utterance. We debounce the commit so a following interim can cancel it,
@@ -578,6 +584,12 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
           outcome = await tryStartAndConfirm();
           if (outcome !== 'listening') {
             try { stopListeningRef.current(); } catch { /* empty */ }
+            // Surface the failure instead of returning silently: without
+            // this the host never learns the mic did not open and the UI
+            // stays on the AI-speaking screen indefinitely.
+            setSttError(
+              'Speech recognition could not connect. Check your network and try again.',
+            );
             return;
           }
         }
@@ -608,6 +620,7 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
         }, INITIAL_SILENCE_TIMEOUT_MS);
       })();
     },
+    prefetchAuth: prefetchListenKey,
     stop: (): void | Promise<void> => {
       if (debugRef.current) {
         logSttAdapterStop({

@@ -359,6 +359,35 @@ After changing `.env.local`, restart the Expo dev server (`npx expo start --clea
 ---
 
 
+## Dev debug logging from a physical device
+
+Metro's console is fine for the simulator, but when you need structured runtime logs from a **physical phone** (e.g. an AI debug session whose ingest server listens on `127.0.0.1:7558` on the Mac), the phone cannot reach `localhost` on your machine. Two dev-only pieces solve this; both are no-ops in production.
+
+1. **Shared logger** — `agentDebugLog()` from `@ai-spanish/logic`. Call it anywhere in `packages/*` or `apps/mobile`:
+
+   ```ts
+   import { agentDebugLog } from '@ai-spanish/logic';
+   agentDebugLog({ location: 'stt/index.native.ts:ws-open', message: 'WS opened', data: { ms } });
+   ```
+
+   It only sends when `EXPO_PUBLIC_AGENT_DEBUG_LOG=1` **and** the bundle is a dev build. Never log tokens, keys, or PII.
+
+2. **Collectors the phone can reach**
+   - `POST ${EXPO_PUBLIC_WEB_ORIGIN}/api/agent-debug-log` (Next.js dev route, auth-exempt in dev). Appends NDJSON to `AGENT_DEBUG_LOG_PATH` (default `<repo>/.cursor/agent-debug.log`) and forwards to `AGENT_DEBUG_INGEST_URL` if set in `apps/web/.env.local`.
+   - **LAN relay** — `npm run debug:relay` (root) listens on `0.0.0.0:17558` and pipes to `127.0.0.1:7558`. Point the phone at it with `EXPO_PUBLIC_AGENT_DEBUG_INGEST_URL=http://<mac-lan-ip>:17558/ingest/<session>`. Ports are overridable via `RELAY_LISTEN_PORT` / `RELAY_TARGET_PORT`.
+
+
+| Variable (`apps/mobile/.env.local`)   | Purpose                                                                 |
+| ------------------------------------- | ----------------------------------------------------------------------- |
+| `EXPO_PUBLIC_AGENT_DEBUG_LOG=1`       | Turns the logger on (dev builds only).                                  |
+| `EXPO_PUBLIC_AGENT_DEBUG_SESSION_ID`  | Optional; sent as `sessionId` + `X-Debug-Session-Id`.                   |
+| `EXPO_PUBLIC_AGENT_DEBUG_INGEST_URL`  | Optional; full ingest URL reachable from the phone (usually the relay). |
+
+
+Restart Metro after changing these (`npx expo start --clear`). Remove `agentDebugLog` call sites before merging; the helper itself is safe to leave in place.
+
+---
+
 
 ## Troubleshooting (iPhone)
 

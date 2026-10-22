@@ -291,3 +291,4 @@ export {
   useDeclaredLevelQuery,
   DECLARED_LEVEL_QUERY_KEY,
 } from './useDeclaredLevelQuery';
+export { agentDebugLog, type AgentDebugLogPayload } from './agentDebugLog';
