@@ -72,34 +72,25 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ### Mobile app (Expo)
 
-Before running the mobile app for the first time, build the native binary:
+This app uses an **Expo development build** (not Expo Go). Full setup—simulator, iPhone over Wi‑Fi, iPhone over USB, Xcode, env vars, and troubleshooting—is in **[apps/mobile/README.md](apps/mobile/README.md)**.
+
+**Quick start (iOS Simulator):**
 
 ```bash
-npm run build:mobile        # Android (.apk)
-npm run build:mobile:ios    # iOS (.ipa)
+cd apps/web && npm run dev          # terminal 1
+cd apps/mobile && cp .env.example .env.local   # set EXPO_PUBLIC_* (see mobile README)
+cd apps/mobile && npx expo start --clear      # terminal 2; press i
 ```
 
-Or from the app directory:
-```bash
-cd apps/mobile
-eas build --profile development --platform android
-eas build --profile development --platform ios
-```
+**Install the native shell on a physical iPhone:** `cd apps/mobile && npx expo run:ios --device`, or open `apps/mobile/ios/AISpanish.xcworkspace` in Xcode and Run. Cloud alternative: `npm run build:mobile:ios`.
 
-Once built, install the binary on your device/simulator via the link EAS provides. You only need to rebuild when native dependencies change.
-
-Then start the dev server from the monorepo root:
+Then start Metro from the monorepo root:
 
 ```bash
 npm run dev:mobile
 ```
 
-Scan the QR code with the installed dev build on your device, or press `i` for iOS simulator / `a` for Android emulator.
-
-Or from the app directory:
-```bash
-cd apps/mobile && npx expo start
-```
+On a **physical device**, connect the dev client to Metro (usually `http://<your-mac-ip>:8081`) and set `EXPO_PUBLIC_WEB_ORIGIN` to the web app on port **3000**—see the mobile README for Wi‑Fi vs USB cable.
 
 > **Note:** Audio playback (`expo-av`) requires the development build above. It will not work in standard [Expo Go](https://expo.dev/go).
 
