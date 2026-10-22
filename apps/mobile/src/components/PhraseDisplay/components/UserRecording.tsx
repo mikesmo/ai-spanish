@@ -1,7 +1,6 @@
 import { EXPLAIN_ACK_AUTO_ADVANCE_MS } from "@ai-spanish/logic";
 import { useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Animated,
   LayoutChangeEvent,
   Pressable,
@@ -12,6 +11,10 @@ import {
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { getPhraseHeroLayout } from "../heroLayout";
+import {
+  HERO_CIRCLE_WAITING_BACKGROUND,
+  HeroCircleActivityIndicator,
+} from "./HeroCircleActivityIndicator";
 import type { UserRecordingProps } from "../PhraseDisplay.types";
 import { PillButton, pillStyles } from "./PillButton";
 import { SayThatAgainAckButton } from "./SayThatAgainAckButton";
@@ -75,6 +78,7 @@ export const UserRecording = ({
   const showRecordingIndicator =
     showMicChrome && !isReplaySpanishAudioPlaying && isRecording && !isCorrect;
   const isCenterMicActive = showMicChrome && !isReplaySpanishAudioPlaying && isRecording;
+  const isCenterMicLoading = showMicChrome && !isReplaySpanishAudioPlaying && !isCorrect && !isCenterMicActive;
   const shouldAnimateCenterMic = isCenterMicActive && !isCorrect;
   const showClearSpokenCaptionButton =
     showMicChrome &&
@@ -152,13 +156,14 @@ export const UserRecording = ({
             styles.micCircle,
             { left: hero.circleLeft, top: hero.circleTop },
             isCorrect && styles.micCircleCorrect,
+            isCenterMicLoading && styles.heroCircleWaiting,
             { transform: [{ scale: shouldAnimateCenterMic ? breatheScale : 1 }] },
           ]}
-          accessibilityRole={!isCenterMicActive && !isCorrect ? "progressbar" : undefined}
-          accessibilityLabel={!isCenterMicActive && !isCorrect ? "Loading" : undefined}
+          accessibilityRole={isCenterMicLoading ? "progressbar" : undefined}
+          accessibilityLabel={isCenterMicLoading ? "Loading" : undefined}
         >
-          {!isCenterMicActive && !isCorrect ? (
-            <ActivityIndicator size="large" color="#ffffff" />
+          {isCenterMicLoading ? (
+            <HeroCircleActivityIndicator />
           ) : (
             <Feather name="mic" size={28} color="white" />
           )}
@@ -173,7 +178,7 @@ export const UserRecording = ({
           accessibilityRole="progressbar"
           accessibilityLabel="Loading"
         >
-          <ActivityIndicator size="large" color="#ffffff" />
+          <HeroCircleActivityIndicator />
         </View>
       ) : hero != null && !showMicChrome ? (
         <View
@@ -181,7 +186,7 @@ export const UserRecording = ({
           accessibilityRole="progressbar"
           accessibilityLabel="Loading"
         >
-          <ActivityIndicator size="large" color="#ffffff" />
+          <HeroCircleActivityIndicator />
         </View>
       ) : null}
 
@@ -348,9 +353,12 @@ const styles = StyleSheet.create({
     width: CIRCLE_SIZE,
     height: CIRCLE_SIZE,
     borderRadius: CIRCLE_SIZE / 2,
-    backgroundColor: "#A8DDD0",
+    backgroundColor: HERO_CIRCLE_WAITING_BACKGROUND,
     alignItems: "center",
     justifyContent: "center",
+  },
+  heroCircleWaiting: {
+    backgroundColor: HERO_CIRCLE_WAITING_BACKGROUND,
   },
   micCircleCorrect: {
     backgroundColor: "rgba(29, 158, 117, 0.7)",

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Animated,
   LayoutChangeEvent,
   StyleSheet,
@@ -8,6 +7,7 @@ import {
   View,
 } from "react-native";
 import { getPhraseHeroLayout, HERO_CIRCLE_SIZE } from "../heroLayout";
+import { HeroCircleActivityIndicator } from "./HeroCircleActivityIndicator";
 import type { AISpeakingProps } from "../PhraseDisplay.types";
 
 export const AISpeaking = ({
@@ -136,7 +136,7 @@ export const AISpeaking = ({
             ]}
           >
             {isLoading ? (
-              <ActivityIndicator color="rgba(255,255,255,0.7)" size="small" />
+              <HeroCircleActivityIndicator />
             ) : (
               <Text style={styles.label}>AI</Text>
             )}
