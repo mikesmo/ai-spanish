@@ -88,13 +88,6 @@ export type UsePhraseDisplayOptions = {
    */
   debugLearningPipeline?: boolean;
   /**
-   * When set, correct answers on the first-pass pronunciation-attempt screen
-   * (`new` + first session presentation + no Try Again) invoke this instead
-   * of `playAnswerAudio` / `answer` UI. Host should advance like post-feedback
-   * Next (e.g. `runPhraseFeedbackNext`).
-   */
-  onSkipAnswerScreenAfterSuccess?: () => void;
-  /**
    * S3 batch folder for this lesson (e.g. `lesson1`). Forwards to all S3 TTS
    * `play` / `prefetch` calls so the correct mp3s load when multiple lessons
    * share phrase indices.
@@ -204,12 +197,6 @@ export function usePhraseDisplay(
   const onPresentationStartRef = useRef(options?.onPresentationStart);
   onPresentationStartRef.current = options?.onPresentationStart;
 
-  const onSkipAnswerScreenAfterSuccessRef = useRef(
-    options?.onSkipAnswerScreenAfterSuccess,
-  );
-  onSkipAnswerScreenAfterSuccessRef.current =
-    options?.onSkipAnswerScreenAfterSuccess;
-
   const presentationVersion = options?.presentationVersion;
 
   const debugLearningPipelineRef = useRef(
@@ -252,24 +239,10 @@ export function usePhraseDisplay(
    */
   const answerAudioAbortRef = useRef<AbortController | null>(null);
   /**
-   * Aborts the explain clip played on the recording screen after a correct
-   * answer (success path, `new` phrase type). Uses its own controller because
-   * the success effect's `ac` gets aborted by the status-dep cleanup when
-   * `setStatus('recordingPriming')` is called, which would otherwise cancel
-   * the explain play before the advance call runs.
-   */
-  const successExplainAbortRef = useRef<AbortController | null>(null);
-  /**
    * Aborts the "Say that again" explain replay that may be in-flight during
    * explain acknowledgment. Cleared on ack completion and on all interrupts.
    */
   const explainDialogReplayAbortRef = useRef<AbortController | null>(null);
-  /**
-   * Thunk to run when explain acknowledgment completes on the recording-screen path.
-   * Null on the feedback-screen path (ack only clears UI there).
-   * Cleared after invocation or on phrase navigation.
-   */
-  const explainAckContinuationRef = useRef<(() => void) | null>(null);
   /** Bumps on each `handleExplainSayAgain` call so an older request's `finally`
    * does not clear `isExplainAckReplayPlaying` after a newer replay started. */
   const explainSayAgainEpochRef = useRef(0);
@@ -526,14 +499,9 @@ export function usePhraseDisplay(
           const allowLessonPedagogy =
             isFirstSessionPresentationOfCurrentPhrase &&
             !hasUsedTryAgainOnCurrentCard;
-          // `new` + correct: explain already played on the recording screen
-          // (success useEffect). Skip here to avoid a second playback.
-          // All other cases (new + wrong/reveal, composite + any): play here.
-          // Repeat presentation / Try Again: no explain clips.
+          // First presentation only. Repeat visits and Try Again skip explain.
           const shouldPlayExplainOnFeedback =
-            allowLessonPedagogy &&
-            explainText !== '' &&
-            !(currentPhrase.type === 'new' && isCorrect);
+            allowLessonPedagogy && explainText !== '';
           if (shouldPlayExplainOnFeedback) {
             feedbackExplainAckPendingAfterInterruptRef.current = true;
             if (isMountedRef.current) setChainedFeedbackExplainAudioActive(true);
@@ -546,7 +514,6 @@ export function usePhraseDisplay(
                 { ...baseS3, signal: ac.signal, englishSegmentOverride: 'explain' },
               );
               if (!ac.signal.aborted && isMountedRef.current) {
-                explainAckContinuationRef.current = null;
                 setIsExplainAckOpen(true);
                 feedbackExplainAckPendingAfterInterruptRef.current = false;
               }
@@ -575,7 +542,6 @@ export function usePhraseDisplay(
   }, [
     spanishText,
     currentPhrase,
-    isCorrect,
     options?.s3LessonSegment,
     isFirstSessionPresentationOfCurrentPhrase,
     hasUsedTryAgainOnCurrentCard,
@@ -693,7 +659,6 @@ export function usePhraseDisplay(
     setChainedFeedbackExplainAudioActive(false);
     feedbackExplainAckPendingAfterInterruptRef.current = false;
     setFollowUpPlaybackCompleted(false);
-    explainAckContinuationRef.current = null;
     attemptEmittedRef.current = false;
     answerAudioInFlightRef.current = false;
     firstIsFinalAtRef.current = null;
@@ -921,14 +886,11 @@ export function usePhraseDisplay(
       // Abort the answer chain so the chained explain clip does not start after
       // the Spanish answer resolves early due to the epoch bump from tts.stop().
       answerAudioAbortRef.current?.abort();
-      // Abort the success-path explain play (recording screen) if in-flight.
-      successExplainAbortRef.current?.abort();
       // Abort any in-flight "Say that again" replay and clear explain-ack state.
       explainDialogReplayAbortRef.current?.abort();
       explainDialogReplayAbortRef.current = null;
       replaySpanishMediumAbortRef.current?.abort();
       replaySpanishMediumAbortRef.current = null;
-      explainAckContinuationRef.current = null;
       ttsRef.current.stop();
     };
     // Re-run on currentIndex change (linear navigation) AND on
@@ -1028,100 +990,7 @@ export function usePhraseDisplay(
             });
           }
         }
-        // Evaluate synchronously before any status change — the predicate reads
-        // statusRef.current === 'recording', which must still be true at this point.
-        const skipAnswerScreen =
-          currentPhrase.type === 'new' &&
-          isFirstSessionPresentationOfCurrentPhrase &&
-          !hasUsedTryAgainOnCurrentCard &&
-          statusRef.current === 'recording' &&
-          onSkipAnswerScreenAfterSuccessRef.current != null;
-
-        void (async () => {
-          // For `new` phrases that answered correctly, play `explain` on the
-          // recording screen (status=recordingPriming) before advancing.
-          // Uses its own AbortController (successExplainAbortRef) rather than
-          // `ac`, because setStatus('recordingPriming') triggers the success
-          // effect's cleanup (ac.abort()) before the play finishes.
-          const explainText = currentPhrase.English.explain.trim();
-          if (
-            currentPhrase.type === 'new' &&
-            explainText !== '' &&
-            isFirstSessionPresentationOfCurrentPhrase &&
-            !hasUsedTryAgainOnCurrentCard
-          ) {
-            const s3Opts: TtsAdapterOptions =
-              options?.s3LessonSegment != null && options.s3LessonSegment !== ''
-                ? { s3LessonSegment: options.s3LessonSegment }
-                : {};
-            // Use a separate AbortController so the success effect's ac.abort()
-            // (triggered by setStatus('recordingPriming') changing the status
-            // dep) does NOT cancel this play. successExplainAbortRef is aborted
-            // by bootstrap cleanup, handleTryAgain, handleNext, handleReplay.
-            successExplainAbortRef.current?.abort();
-            const explainAc = new AbortController();
-            successExplainAbortRef.current = explainAc;
-            // Set the continuation BEFORE awaiting audio so it is available to
-            // handleExplainInterrupted even if the user aborts the play early.
-            explainAckContinuationRef.current =
-              onSkipAnswerScreenAfterSuccessRef.current != null
-                ? () => { onSkipAnswerScreenAfterSuccessRef.current!(); }
-                : () => { void playAnswerAudio(); };
-            if (isMountedRef.current) {
-              setStatus('recordingPriming');
-              setIsAudioPlaying(true);
-            }
-            try {
-              await ttsRef.current.play(
-                explainText,
-                'en',
-                undefined,
-                phraseNameRef.current,
-                { ...s3Opts, signal: explainAc.signal, englishSegmentOverride: 'explain' },
-              );
-            } catch {
-              if (explainAc.signal.aborted) return;
-            } finally {
-              if (successExplainAbortRef.current === explainAc) {
-                successExplainAbortRef.current = null;
-              }
-              if (!explainAc.signal.aborted && isMountedRef.current) {
-                setIsAudioPlaying(false);
-              }
-            }
-            if (explainAc.signal.aborted) return;
-            if (!isMountedRef.current) return;
-
-            // Explain played to completion on the recording screen → open acknowledgment.
-            // (Continuation was already set above before the play started.)
-            setIsExplainAckOpen(true);
-            return;
-          }
-
-          // Empty explain on a `new` phrase: same recording acknowledgement as above
-          // (question + Next slider) without playing TTS — do not skip immediately.
-          const openAckWithoutExplainAudio =
-            explainText === '' && skipAnswerScreen;
-          if (openAckWithoutExplainAudio) {
-            explainAckContinuationRef.current =
-              onSkipAnswerScreenAfterSuccessRef.current != null
-                ? () => {
-                    onSkipAnswerScreenAfterSuccessRef.current!();
-                  }
-                : () => {
-                    void playAnswerAudio();
-                  };
-            if (isMountedRef.current) setIsExplainAckOpen(true);
-            return;
-          }
-
-          // No explain to play: use the original skip-answer-screen logic.
-          if (skipAnswerScreen) {
-            onSkipAnswerScreenAfterSuccessRef.current?.();
-          } else {
-            void playAnswerAudio();
-          }
-        })();
+        void playAnswerAudio();
       }, POST_SUCCESS_EXTRA_PAUSE_MS);
     })();
 
@@ -1137,9 +1006,6 @@ export function usePhraseDisplay(
     emitAttempt,
     emitPracticeAttempt,
     currentPhrase,
-    isFirstSessionPresentationOfCurrentPhrase,
-    hasUsedTryAgainOnCurrentCard,
-    options?.s3LessonSegment,
   ]);
 
   // Final wrong transcript: score synchronously the moment Deepgram closes
@@ -1201,13 +1067,11 @@ export function usePhraseDisplay(
   const handleTryAgain = () => {
     setHasUsedTryAgainOnCurrentCard(true);
     englishFirstPassOnCardRef.current = false;
-    successExplainAbortRef.current?.abort();
     answerAudioAbortRef.current?.abort();
     explainDialogReplayAbortRef.current?.abort();
     explainDialogReplayAbortRef.current = null;
     replaySpanishMediumAbortRef.current?.abort();
     replaySpanishMediumAbortRef.current = null;
-    explainAckContinuationRef.current = null;
     feedbackExplainAckPendingAfterInterruptRef.current = false;
     setIsExplainAckOpen(false);
     setIsExplainAckReplayPlaying(false);
@@ -1245,13 +1109,11 @@ export function usePhraseDisplay(
   };
 
   const handleNext = (options?: { exitToLoading?: boolean }) => {
-    successExplainAbortRef.current?.abort();
     answerAudioAbortRef.current?.abort();
     explainDialogReplayAbortRef.current?.abort();
     explainDialogReplayAbortRef.current = null;
     replaySpanishMediumAbortRef.current?.abort();
     replaySpanishMediumAbortRef.current = null;
-    explainAckContinuationRef.current = null;
     feedbackExplainAckPendingAfterInterruptRef.current = false;
     setIsExplainAckOpen(false);
     setIsExplainAckReplayPlaying(false);
@@ -1264,7 +1126,6 @@ export function usePhraseDisplay(
   };
 
   const handleReplay = async () => {
-    successExplainAbortRef.current?.abort();
     answerAudioAbortRef.current?.abort();
     replaySpanishMediumAbortRef.current?.abort();
     replaySpanishMediumAbortRef.current = null;
@@ -1404,23 +1265,14 @@ export function usePhraseDisplay(
     setIsExplainAckOpen(false);
     setIsExplainAckReplayPlaying(false);
     feedbackExplainAckPendingAfterInterruptRef.current = false;
-    const continuation = explainAckContinuationRef.current;
-    explainAckContinuationRef.current = null;
-    continuation?.();
   };
 
   /**
    * Opens the explain acknowledgment after the learner interrupted explain audio
-   * via "I have a question". Recording path: `explainAckContinuationRef` was set
-   * before success-path explain. Feedback path: `feedbackExplainAckPendingAfterInterruptRef`
-   * is set before chained explain in `playAnswerAudio`.
+   * via "I have a question" during chained explain in `playAnswerAudio`.
    */
   const handleExplainInterrupted = useCallback(() => {
     if (!isMountedRef.current) return;
-    if (explainAckContinuationRef.current !== null) {
-      setIsExplainAckOpen(true);
-      return;
-    }
     if (feedbackExplainAckPendingAfterInterruptRef.current) {
       setIsExplainAckOpen(true);
       feedbackExplainAckPendingAfterInterruptRef.current = false;
@@ -1428,7 +1280,6 @@ export function usePhraseDisplay(
   }, []);
 
   const stopAnswerAudio = useCallback(() => {
-    successExplainAbortRef.current?.abort();
     answerAudioAbortRef.current?.abort();
     explainDialogReplayAbortRef.current?.abort();
     explainDialogReplayAbortRef.current = null;

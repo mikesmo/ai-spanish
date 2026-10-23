@@ -1,4 +1,4 @@
-import type { Phrase, PhraseLessonType, UIStatus } from './types';
+import type { Phrase, UIStatus } from './types';
 
 export interface LearnerQuestionPauseProps {
   isActive: boolean;
@@ -130,13 +130,6 @@ export type PhraseDisplayHostProps = {
   phrases: Phrase[];
 };
 
-export type UserRecordingExplainAckViewProps = {
-  isOpen: boolean;
-  isReplayPlaying: boolean;
-  onSayAgain: () => void;
-  onAckOkay: () => void;
-};
-
 export type UserRecordingReplaySpanishMediumProps = {
   show: boolean;
   isPlaying: boolean;
@@ -155,28 +148,10 @@ export type UserRecordingViewProps = {
   onShowAnswer: () => void;
   /** When false, hide mic circle and recording affordances (e.g. recordingPriming). */
   showMicChrome?: boolean;
-  /** From JSON `Phrase.type`; gates "I have a question" when `isCorrect`. */
-  phraseLessonType?: PhraseLessonType;
-  /** When explain text is non-empty, show "Explain that again" during recording ack. */
-  hasRecordingExplainReplay?: boolean;
-  /** Inline explain acknowledgment on the recording screen (replaces show answer). */
-  explainAck?: UserRecordingExplainAckViewProps;
   /** Replay pronunciation-example Spanish (`answer-medium`) after follow-up priming. */
   replaySpanishMedium?: UserRecordingReplaySpanishMediumProps;
-  /** True while any lesson TTS is active (e.g. explain on recording). */
-  isAudioPlaying?: boolean;
-  /** Stops in-flight TTS when learner taps "I have a question" while audio plays. */
-  onStopAnswerAudio?: () => void;
-  /** Called when the learner dismisses "I have a question" after having interrupted explain audio. */
-  onExplainInterrupted?: () => void;
-  /** When true, show a plain "Next phrase" button instead of "Show Answer". */
-  showNextPhraseInsteadOfAnswer?: boolean;
-  /** Called when learner taps the plain "Next phrase" on the recording screen. */
-  onNextPhrase?: () => void;
-  /** Clears in-progress spoken caption and restarts recording for composite cards. */
+  /** Clears in-progress spoken caption and restarts recording. */
   onClearSpokenCaption?: () => void;
-  /** Shared pause state; drives both the pill appearance and the question sidebar. */
-  learnerQuestionPause?: LearnerQuestionPauseProps;
 };
 
 export type UserFeedbackViewProps = {

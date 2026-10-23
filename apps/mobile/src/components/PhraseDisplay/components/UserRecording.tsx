@@ -1,4 +1,3 @@
-import { EXPLAIN_ACK_AUTO_ADVANCE_MS } from "@ai-spanish/logic";
 import { useEffect, useRef, useState } from "react";
 import {
   Animated,
@@ -16,11 +15,7 @@ import {
   HeroCircleActivityIndicator,
 } from "./HeroCircleActivityIndicator";
 import type { UserRecordingProps } from "../PhraseDisplay.types";
-import { AutoAdvancePauseToggle } from "./AutoAdvancePauseToggle";
 import { PillButton, pillStyles } from "./PillButton";
-import { SayThatAgainAckButton } from "./SayThatAgainAckButton";
-
-const QUESTION_PLACEHOLDER_LABEL = "I have a question";
 
 const CIRCLE_SIZE = 120;
 /** Readable max line length for live transcript; capped by screen width minus gutters below. */
@@ -36,40 +31,11 @@ export const UserRecording = ({
   isCorrect,
   onShowAnswer,
   showMicChrome = true,
-  phraseLessonType,
-  hasRecordingExplainReplay = false,
-  explainAck,
   replaySpanishMedium,
-  isAudioPlaying = false,
-  onStopAnswerAudio,
-  onExplainInterrupted,
-  showNextPhraseInsteadOfAnswer = false,
-  onNextPhrase,
-  learnerQuestionPause,
   onClearSpokenCaption,
 }: UserRecordingProps): JSX.Element => {
   const { width: windowWidth } = useWindowDimensions();
-  const [nextPhraseSliderKey, setNextPhraseSliderKey] = useState(0);
-  const [isTimerPaused, setIsTimerPaused] = useState(false);
   const [hero, setHero] = useState<ReturnType<typeof getPhraseHeroLayout>>(null);
-  const wasQuestionActiveRef = useRef(false);
-
-  const isQuestionActive = learnerQuestionPause?.isActive ?? false;
-
-  useEffect(() => {
-    if (wasQuestionActiveRef.current && !isQuestionActive) {
-      setNextPhraseSliderKey((k) => k + 1);
-    }
-    wasQuestionActiveRef.current = isQuestionActive;
-  }, [isQuestionActive]);
-
-  useEffect(() => {
-    setIsTimerPaused(false);
-  }, [spanishLine]);
-
-  const showNewPhraseQuestionButton = isCorrect && phraseLessonType === "new";
-  const showExplainThatAgain =
-    explainAck?.isOpen === true && hasRecordingExplainReplay === true;
 
   const onStageLayout = (e: LayoutChangeEvent) => {
     setHero(getPhraseHeroLayout(e.nativeEvent.layout));
@@ -234,28 +200,6 @@ export const UserRecording = ({
             </View>
           </View>
 
-          {explainAck?.isOpen === true || showNewPhraseQuestionButton ? (
-            <View style={styles.explainAckUnderTranscript}>
-              {showNewPhraseQuestionButton ? (
-                <PillButton
-                  label={QUESTION_PLACEHOLDER_LABEL}
-                  onPress={learnerQuestionPause?.toggle ?? (() => {})}
-                  variant="secondary"
-                />
-              ) : null}
-              {showExplainThatAgain && explainAck != null ? (
-                <PillButton
-                  label="Explain that again"
-                  onPress={() => {
-                    void explainAck.onSayAgain();
-                  }}
-                  variant="secondary"
-                  disabled={explainAck.isReplayPlaying}
-                />
-              ) : null}
-            </View>
-          ) : null}
-
           {replaySpanishMedium?.show === true ? (
             <View style={styles.replaySpanishBelowTranscript}>
               <Pressable
@@ -280,33 +224,7 @@ export const UserRecording = ({
       ) : null}
 
       <View style={styles.bottomControls}>
-        {explainAck?.isOpen === true ? (
-          <View style={styles.nextPhraseWithPause}>
-            <SayThatAgainAckButton
-              key={nextPhraseSliderKey}
-              isReplayPlaying={explainAck.isReplayPlaying}
-              label="Next phrase"
-              autoAdvanceMs={EXPLAIN_ACK_AUTO_ADVANCE_MS}
-              isPaused={(showNewPhraseQuestionButton && isQuestionActive) || isTimerPaused}
-              onSayAgain={explainAck.onAckOkay}
-              onAckOkay={explainAck.onAckOkay}
-            />
-            <AutoAdvancePauseToggle
-              isPaused={isTimerPaused}
-              onToggle={() => setIsTimerPaused((paused) => !paused)}
-            />
-          </View>
-        ) : showNextPhraseInsteadOfAnswer ? (
-          <PillButton
-            label="Next phrase"
-            onPress={() => {
-              onNextPhrase?.();
-            }}
-            variant="secondary"
-          />
-        ) : (
-          <PillButton label="show answer" onPress={onShowAnswer} variant="secondary" />
-        )}
+        <PillButton label="show answer" onPress={onShowAnswer} variant="secondary" />
       </View>
     </View>
   );
@@ -483,23 +401,12 @@ const styles = StyleSheet.create({
     opacity: 0.85,
     borderColor: "#D1D5DB",
   },
-  explainAckUnderTranscript: {
-    marginTop: 16,
-    width: "100%",
-    alignSelf: "stretch",
-    gap: 12,
-  },
   bottomControls: {
     marginTop: "auto",
     width: "100%",
     alignItems: "center",
     gap: 24,
     paddingBottom: 16,
-  },
-  nextPhraseWithPause: {
-    width: "100%",
-    alignItems: "stretch",
-    gap: 12,
   },
   blinkerDot: {
     width: 10,

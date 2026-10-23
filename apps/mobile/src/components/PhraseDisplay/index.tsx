@@ -155,13 +155,6 @@ export const PhraseDisplay = ({
     lessonDeck: phrases,
   });
 
-  const showNextPhraseInsteadOfAnswer =
-    display.isCorrect &&
-    display.currentPhrase.type === "new" &&
-    display.currentPhrase.English.explain.trim() !== "" &&
-    display.isFirstSessionPresentationOfCurrentPhrase &&
-    !display.hasUsedTryAgainOnCurrentCard;
-
   const isIncorrectAnswerFeedback =
     display.status === "answer" && !display.isCorrect && !session.isComplete;
 
@@ -210,33 +203,11 @@ export const PhraseDisplay = ({
             isCorrect={display.isCorrect}
             onShowAnswer={display.handleShowAnswer}
             showMicChrome={display.status !== "recordingPriming"}
-            phraseLessonType={display.currentPhrase.type}
-            hasRecordingExplainReplay={display.currentPhrase.English.explain.trim() !== ""}
-            isAudioPlaying={display.isAudioPlaying}
-            onStopAnswerAudio={display.stopAnswerAudio}
-            onExplainInterrupted={display.handleExplainInterrupted}
-            showNextPhraseInsteadOfAnswer={showNextPhraseInsteadOfAnswer}
-            learnerQuestionPause={learnerQuestionPause}
-            onNextPhrase={() => {
-              display.stopAnswerAudio();
-              runPhraseFeedbackNext(display, session);
-            }}
             onClearSpokenCaption={
               (display.status === "tryAgain" ||
                 display.currentPhrase.type === "new" ||
                 !display.hasUsedClearSpokenCaptionOnCurrentCard)
                 ? display.handleClearSpokenCaption
-                : undefined
-            }
-            explainAck={
-              display.isExplainAckOpen &&
-              (display.status === "recording" || display.status === "recordingPriming")
-                ? {
-                    isOpen: true,
-                    isReplayPlaying: display.isExplainAckReplayPlaying,
-                    onSayAgain: display.handleExplainSayAgain,
-                    onAckOkay: display.handleExplainAckOkay,
-                  }
                 : undefined
             }
             replaySpanishMedium={

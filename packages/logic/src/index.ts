@@ -132,7 +132,6 @@ export {
 export {
   POST_SUCCESS_EXTRA_PAUSE_MS,
   FEEDBACK_AUTO_ADVANCE_MS,
-  EXPLAIN_ACK_AUTO_ADVANCE_MS,
 } from './phraseDisplayTiming';
 export {
   TRANSCRIPT_QUERY_KEY,
@@ -172,7 +171,6 @@ export {
   type UserFeedbackViewProps,
   type UserRecordingViewModel,
   type UserRecordingViewProps,
-  type UserRecordingExplainAckViewProps,
   type UserRecordingReplaySpanishMediumProps,
 } from './phraseDisplayView';
 export {

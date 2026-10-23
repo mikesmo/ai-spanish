@@ -29,7 +29,7 @@ export interface LearnerQuestionPauseHandle {
 
 /**
  * Encapsulates the "I have a question" pause state shared between the pill
- * buttons inside `UserFeedback` / `UserRecording` and the `QuestionSidebar`.
+ * buttons inside `UserFeedback` and the `QuestionSidebar`.
  */
 export function useLearnerQuestionPause({
   isCorrect,

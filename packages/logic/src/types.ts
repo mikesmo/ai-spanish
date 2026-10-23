@@ -263,8 +263,8 @@ export type PhraseDisplayAPI = {
    */
   lastAttemptDetail: LearnerLastAttempt | null;
   /**
-   * True after an `explain` clip finishes, while the learner must acknowledge
-   * (Say that again / auto-advance). Cleared by `handleExplainAckOkay` (or on phrase navigation).
+   * True after an `explain` clip finishes on the answer screen. Cleared by
+   * `handleExplainAckOkay` (or on phrase navigation).
    */
   isExplainAckOpen: boolean;
   /**
@@ -279,9 +279,7 @@ export type PhraseDisplayAPI = {
    */
   isEnglishExplainDominatingLessonControls: boolean;
   /**
-   * Completes explain acknowledgment — clears ack state and runs any pending
-   * continuation (e.g. advance to answer audio on the recording path;
-   * no-op on the feedback path beyond closing).
+   * Closes the explain acknowledgment on the answer screen (Android back).
    */
   handleExplainAckOkay: () => void;
   /**
@@ -291,7 +289,7 @@ export type PhraseDisplayAPI = {
   handleExplainSayAgain: () => void;
   /**
    * Opens explain ack after the learner interrupted lesson explain audio via "I have a question"
-   * (recording: success-path continuation; feedback: chained explain in `playAnswerAudio`).
+   * during chained explain in `playAnswerAudio`.
    * No-op if nothing was interrupted for this phrase.
    */
   handleExplainInterrupted: () => void;

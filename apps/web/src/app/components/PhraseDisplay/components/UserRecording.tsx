@@ -1,13 +1,6 @@
 "use client";
 
-import { EXPLAIN_ACK_AUTO_ADVANCE_MS } from "@ai-spanish/logic";
-import { useEffect, useRef, useState } from "react";
 import type { UserRecordingProps } from "../PhraseDisplay.types";
-import { AutoAdvancePauseToggle } from "./AutoAdvancePauseToggle";
-import { SayThatAgainAckButton } from "./SayThatAgainAckButton";
-
-
-const QUESTION_PLACEHOLDER_LABEL = "I have a question";
 
 const showAnswerPillClassName =
   "relative w-full overflow-hidden rounded-full bg-white border border-gray-200 h-[54px] flex items-center justify-center shadow-sm disabled:opacity-50 disabled:pointer-events-none";
@@ -29,36 +22,9 @@ export const UserRecording = ({
   isCorrect,
   onShowAnswer,
   showMicChrome = true,
-  phraseLessonType,
-  hasRecordingExplainReplay = false,
-  explainAck,
   replaySpanishMedium,
-  showNextPhraseInsteadOfAnswer = false,
-  onNextPhrase,
-  learnerQuestionPause,
   onClearSpokenCaption,
 }: UserRecordingProps): JSX.Element => {
-  const [nextPhraseSliderKey, setNextPhraseSliderKey] = useState(0);
-  const [isTimerPaused, setIsTimerPaused] = useState(false);
-  const wasQuestionActiveRef = useRef(false);
-
-  const isQuestionActive = learnerQuestionPause?.isActive ?? false;
-
-  useEffect(() => {
-    if (wasQuestionActiveRef.current && !isQuestionActive) {
-      setNextPhraseSliderKey((k) => k + 1);
-    }
-    wasQuestionActiveRef.current = isQuestionActive;
-  }, [isQuestionActive]);
-
-  useEffect(() => {
-    setIsTimerPaused(false);
-  }, [spanishLine]);
-
-  const showNewPhraseQuestionButton = isCorrect && phraseLessonType === "new";
-  const showExplainThatAgain =
-    explainAck?.isOpen === true && hasRecordingExplainReplay === true;
-
   const displaySpanishLine =
     showSpanishTranslation && spanishLine != null && String(spanishLine).trim() !== ""
       ? spanishLine
@@ -286,36 +252,6 @@ export const UserRecording = ({
         ) : null}
       </div>
 
-      {explainAck?.isOpen === true || showNewPhraseQuestionButton ? (
-        <div className="mt-4 flex w-full flex-col gap-3">
-          {showNewPhraseQuestionButton ? (
-            <button
-              type="button"
-              onClick={learnerQuestionPause?.toggle}
-              className={showAnswerPillClassName}
-            >
-              <span className="relative z-10 text-[16px] font-medium text-gray-900">
-                {QUESTION_PLACEHOLDER_LABEL}
-              </span>
-            </button>
-          ) : null}
-          {showExplainThatAgain ? (
-            <button
-              type="button"
-              disabled={explainAck.isReplayPlaying}
-              onClick={() => {
-                void explainAck.onSayAgain();
-              }}
-              className={showAnswerPillClassName}
-            >
-              <span className="relative z-10 text-[16px] font-medium text-gray-900">
-                Explain that again
-              </span>
-            </button>
-          ) : null}
-        </div>
-      ) : null}
-
       {replaySpanishMedium?.show === true ? (
         <button
           type="button"
@@ -354,37 +290,9 @@ export const UserRecording = ({
     </div>
 
     <div className="mt-auto flex w-full flex-col items-center gap-3 pt-4">
-      {explainAck?.isOpen === true ? (
-        <div className="flex w-full flex-col items-stretch gap-3">
-          <SayThatAgainAckButton
-            key={nextPhraseSliderKey}
-            isReplayPlaying={explainAck.isReplayPlaying}
-            label="Next phrase"
-            autoAdvanceMs={EXPLAIN_ACK_AUTO_ADVANCE_MS}
-            isPaused={(showNewPhraseQuestionButton && isQuestionActive) || isTimerPaused}
-            onSayAgain={explainAck.onAckOkay}
-            onAckOkay={explainAck.onAckOkay}
-          />
-          <AutoAdvancePauseToggle
-            isPaused={isTimerPaused}
-            onToggle={() => setIsTimerPaused((paused) => !paused)}
-          />
-        </div>
-      ) : showNextPhraseInsteadOfAnswer ? (
-        <button
-          type="button"
-          onClick={() => {
-            onNextPhrase?.();
-          }}
-          className={showAnswerPillClassName}
-        >
-          <span className="relative z-10 text-[16px] font-medium text-gray-900">Next phrase</span>
-        </button>
-      ) : (
-        <button type="button" onClick={onShowAnswer} className={showAnswerPillClassName}>
-          <span className="relative z-10 text-[16px] font-medium text-gray-900">show answer</span>
-        </button>
-      )}
+      <button type="button" onClick={onShowAnswer} className={showAnswerPillClassName}>
+        <span className="relative z-10 text-[16px] font-medium text-gray-900">show answer</span>
+      </button>
     </div>
   </div>
   );
