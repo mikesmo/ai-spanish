@@ -236,16 +236,23 @@ export const UserFeedback = ({
           {isCorrect ? (
             <View style={styles.correctStageColumn}>
               <Text style={styles.correctPhrase}>{spanishPhrase}</Text>
-              <View style={styles.correctQuestionBlock}>
-                <PillButton
-                  label={QUESTION_PLACEHOLDER_LABEL}
-                  onPress={handleQuestionToggle}
-                  variant="secondary"
+              <View style={styles.incorrectPlaybackCluster}>
+                <AudioControls
+                  isAudioPlaying={isAudioPlaying}
+                  isEnglishExplainDominatingLessonControls={isEnglishExplainDominatingLessonControls}
+                  speed={speed}
+                  onSpeedChange={onSpeedChange}
+                  onReplay={onReplay}
                 />
+                <View style={styles.incorrectQuestionBlock}>
+                  <PillButton
+                    label={QUESTION_PLACEHOLDER_LABEL}
+                    onPress={handleQuestionToggle}
+                    variant="secondary"
+                  />
+                </View>
+                {explainAckActions}
               </View>
-              {explainAckActions != null ? (
-                <View style={styles.explainAckBelowCorrectPhrase}>{explainAckActions}</View>
-              ) : null}
             </View>
           ) : (
             <View style={styles.incorrectStageColumn}>
@@ -356,10 +363,6 @@ const styles = StyleSheet.create({
     width: "100%",
     alignItems: "center",
   },
-  correctQuestionBlock: {
-    marginTop: 24,
-    width: "100%",
-  },
   incorrectStageColumn: {
     width: "100%",
     alignItems: "center",
@@ -377,11 +380,6 @@ const styles = StyleSheet.create({
   },
   incorrectQuestionBlock: {
     width: "100%",
-  },
-  explainAckBelowCorrectPhrase: {
-    marginTop: 32,
-    width: "100%",
-    alignItems: "center",
   },
   explainAckActions: {
     width: "100%",

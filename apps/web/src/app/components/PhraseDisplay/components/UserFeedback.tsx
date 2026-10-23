@@ -313,16 +313,23 @@ export const UserFeedback = ({
         {isCorrect ? (
           <div className="flex flex-col items-center w-full">
             <p className="text-[18px] text-[#1D9E75] text-center leading-relaxed">{spanishPhrase}</p>
-            <div className="mt-6 flex w-full flex-col gap-4">
-              <PillNavButton
-                label={QUESTION_PLACEHOLDER_LABEL}
-                onClick={handleQuestionToggle}
-                variant="secondary"
+            <div className="pt-4 flex w-full flex-col items-center gap-8">
+              <AudioControls
+                isAudioPlaying={isAudioPlaying}
+                isEnglishExplainDominatingLessonControls={isEnglishExplainDominatingLessonControls}
+                speed={speed}
+                onSpeedChange={onSpeedChange}
+                onReplay={onReplay}
               />
+              <div className="flex w-full flex-col gap-4">
+                <PillNavButton
+                  label={QUESTION_PLACEHOLDER_LABEL}
+                  onClick={handleQuestionToggle}
+                  variant="secondary"
+                />
+              </div>
+              {explainAckActions}
             </div>
-            {explainAckActions != null ? (
-              <div className="mt-8 flex w-full flex-col items-center">{explainAckActions}</div>
-            ) : null}
           </div>
         ) : (
           <div className="flex w-full flex-col items-center">
