@@ -11,6 +11,7 @@ import {
   type TextStyle,
 } from "react-native";
 import type { UserFeedbackProps } from "../PhraseDisplay.types";
+import { AutoAdvancePauseToggle } from "./AutoAdvancePauseToggle";
 import { PillButton, pillStyles } from "./PillButton";
 
 const NEXT_PHRASE_LABEL = "Next phrase";
@@ -144,21 +145,31 @@ interface NextPhraseAfterAudioButtonProps {
   isPaused?: boolean;
 }
 
+/** Pause toggle always shown so the timer can be disabled before it starts. */
 const NextPhraseAfterAudioButton = ({
   isAudioPlaying,
   onNext,
   isPaused = false,
 }: NextPhraseAfterAudioButtonProps): JSX.Element => {
-  if (isAudioPlaying) {
-    return <PillButton label={NEXT_PHRASE_LABEL} onPress={onNext} variant="secondary" />;
-  }
+  const [isTimerPaused, setIsTimerPaused] = useState(false);
+
   return (
-    <AutoNextButton
-      label={NEXT_PHRASE_LABEL}
-      onPress={onNext}
-      onTimeout={onNext}
-      isPaused={isPaused}
-    />
+    <View style={styles.autoAdvanceWithPause}>
+      {isAudioPlaying ? (
+        <PillButton label={NEXT_PHRASE_LABEL} onPress={onNext} variant="secondary" />
+      ) : (
+        <AutoNextButton
+          label={NEXT_PHRASE_LABEL}
+          onPress={onNext}
+          onTimeout={onNext}
+          isPaused={isPaused || isTimerPaused}
+        />
+      )}
+      <AutoAdvancePauseToggle
+        isPaused={isTimerPaused}
+        onToggle={() => setIsTimerPaused((paused) => !paused)}
+      />
+    </View>
   );
 };
 
@@ -391,6 +402,11 @@ const styles = StyleSheet.create({
     width: "100%",
     gap: 16,
     alignItems: "stretch",
+  },
+  autoAdvanceWithPause: {
+    width: "100%",
+    alignItems: "stretch",
+    gap: 12,
   },
   pillWithProgress: {
     position: "relative",

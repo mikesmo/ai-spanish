@@ -7,6 +7,7 @@ import {
   type DiffEntry,
 } from "@ai-spanish/logic";
 import type { UserFeedbackProps } from "../PhraseDisplay.types";
+import { AutoAdvancePauseToggle } from "./AutoAdvancePauseToggle";
 
 
 interface AutoNextButtonProps {
@@ -117,23 +118,31 @@ interface ContinueAfterAudioButtonProps {
   isPaused?: boolean;
 }
 
-/** Auto-advance + progress bar only after Spanish TTS is idle. */
+/** Auto-advance + progress bar only after Spanish TTS is idle. Pause toggle always shown. */
 const NextPhraseAfterAudioButton = ({
   isAudioPlaying,
   onNext,
   isPaused = false,
 }: ContinueAfterAudioButtonProps): JSX.Element => {
-  if (isAudioPlaying) {
-    return <PillNavButton label={NEXT_PHRASE_LABEL} onClick={onNext} />;
-  }
+  const [isTimerPaused, setIsTimerPaused] = useState(false);
 
   return (
-    <AutoNextButton
-      label={NEXT_PHRASE_LABEL}
-      onPress={onNext}
-      onTimeout={onNext}
-      isPaused={isPaused}
-    />
+    <div className="flex w-full flex-col items-stretch gap-3">
+      {isAudioPlaying ? (
+        <PillNavButton label={NEXT_PHRASE_LABEL} onClick={onNext} />
+      ) : (
+        <AutoNextButton
+          label={NEXT_PHRASE_LABEL}
+          onPress={onNext}
+          onTimeout={onNext}
+          isPaused={isPaused || isTimerPaused}
+        />
+      )}
+      <AutoAdvancePauseToggle
+        isPaused={isTimerPaused}
+        onToggle={() => setIsTimerPaused((paused) => !paused)}
+      />
+    </div>
   );
 };
 

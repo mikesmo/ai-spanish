@@ -3,6 +3,7 @@
 import { EXPLAIN_ACK_AUTO_ADVANCE_MS } from "@ai-spanish/logic";
 import { useEffect, useRef, useState } from "react";
 import type { UserRecordingProps } from "../PhraseDisplay.types";
+import { AutoAdvancePauseToggle } from "./AutoAdvancePauseToggle";
 import { SayThatAgainAckButton } from "./SayThatAgainAckButton";
 
 
@@ -38,6 +39,7 @@ export const UserRecording = ({
   onClearSpokenCaption,
 }: UserRecordingProps): JSX.Element => {
   const [nextPhraseSliderKey, setNextPhraseSliderKey] = useState(0);
+  const [isTimerPaused, setIsTimerPaused] = useState(false);
   const wasQuestionActiveRef = useRef(false);
 
   const isQuestionActive = learnerQuestionPause?.isActive ?? false;
@@ -48,6 +50,10 @@ export const UserRecording = ({
     }
     wasQuestionActiveRef.current = isQuestionActive;
   }, [isQuestionActive]);
+
+  useEffect(() => {
+    setIsTimerPaused(false);
+  }, [spanishLine]);
 
   const showNewPhraseQuestionButton = isCorrect && phraseLessonType === "new";
   const showExplainThatAgain =
@@ -349,15 +355,21 @@ export const UserRecording = ({
 
     <div className="mt-auto flex w-full flex-col items-center gap-3 pt-4">
       {explainAck?.isOpen === true ? (
-        <SayThatAgainAckButton
-          key={nextPhraseSliderKey}
-          isReplayPlaying={explainAck.isReplayPlaying}
-          label="Next phrase"
-          autoAdvanceMs={EXPLAIN_ACK_AUTO_ADVANCE_MS}
-          isPaused={showNewPhraseQuestionButton && isQuestionActive}
-          onSayAgain={explainAck.onAckOkay}
-          onAckOkay={explainAck.onAckOkay}
-        />
+        <div className="flex w-full flex-col items-stretch gap-3">
+          <SayThatAgainAckButton
+            key={nextPhraseSliderKey}
+            isReplayPlaying={explainAck.isReplayPlaying}
+            label="Next phrase"
+            autoAdvanceMs={EXPLAIN_ACK_AUTO_ADVANCE_MS}
+            isPaused={(showNewPhraseQuestionButton && isQuestionActive) || isTimerPaused}
+            onSayAgain={explainAck.onAckOkay}
+            onAckOkay={explainAck.onAckOkay}
+          />
+          <AutoAdvancePauseToggle
+            isPaused={isTimerPaused}
+            onToggle={() => setIsTimerPaused((paused) => !paused)}
+          />
+        </div>
       ) : showNextPhraseInsteadOfAnswer ? (
         <button
           type="button"
