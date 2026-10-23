@@ -268,25 +268,15 @@ export type PhraseDisplayAPI = {
    */
   isExplainAckOpen: boolean;
   /**
-   * True while `handleExplainSayAgain` is replaying the explain TTS — UI should
-   * show a disabled Say that again control until replay completes.
-   */
-  isExplainAckReplayPlaying: boolean;
-  /**
    * True while English explain dominates feedback lesson replay chrome —
-   * feedback chained explain (`playAnswerAudio`) or explain-ack replay. Spanish
-   * replay control stays visually inactive (grey) during these segments.
+   * the chained explain clip in `playAnswerAudio`. Spanish replay control
+   * stays visually inactive (grey) during that segment.
    */
   isEnglishExplainDominatingLessonControls: boolean;
   /**
    * Closes the explain acknowledgment on the answer screen (Android back).
    */
   handleExplainAckOkay: () => void;
-  /**
-   * Replays the `explain` clip; disables the Say that again control until
-   * playback ends.
-   */
-  handleExplainSayAgain: () => void;
   /**
    * Opens explain ack after the learner interrupted lesson explain audio via "I have a question"
    * during chained explain in `playAnswerAudio`.

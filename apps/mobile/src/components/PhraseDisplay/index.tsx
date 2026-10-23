@@ -232,8 +232,7 @@ export const PhraseDisplay = ({
               display.isEnglishExplainDominatingLessonControls
             }
             isExplainAckOpen={display.isExplainAckOpen}
-            isExplainAckReplayPlaying={display.isExplainAckReplayPlaying}
-            handleExplainSayAgain={display.handleExplainSayAgain}
+            explainText={display.currentPhrase.English.explain}
             speed={display.speed}
             onSpeedChange={display.setSpeed}
             onReplay={display.handleReplay}

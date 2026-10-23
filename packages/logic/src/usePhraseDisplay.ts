@@ -149,8 +149,6 @@ export function usePhraseDisplay(
   const [isFirstSessionPresentationOfCurrentPhrase, setIsFirstOfCurrentPhrase] =
     useState(true);
   const [isExplainAckOpen, setIsExplainAckOpen] = useState(false);
-  const [isExplainAckReplayPlaying, setIsExplainAckReplayPlaying] =
-    useState(false);
   /**
    * True while `playAnswerAudio` is playing English explain on the feedback path
    * (segment after Spanish). Keeps replay chrome “Spanish-only” visually.
@@ -239,17 +237,9 @@ export function usePhraseDisplay(
    */
   const answerAudioAbortRef = useRef<AbortController | null>(null);
   /**
-   * Aborts the "Say that again" explain replay that may be in-flight during
-   * explain acknowledgment. Cleared on ack completion and on all interrupts.
-   */
-  const explainDialogReplayAbortRef = useRef<AbortController | null>(null);
-  /** Bumps on each `handleExplainSayAgain` call so an older request's `finally`
-   * does not clear `isExplainAckReplayPlaying` after a newer replay started. */
-  const explainSayAgainEpochRef = useRef(0);
-  /**
    * Set before chained feedback-screen explain TTS begins; cleared when ack opens
    * normally. If aborted mid-chain, stays true until `handleExplainInterrupted`
-   * or navigation clears it — drives reopening explain ack pills.
+   * or navigation clears it — drives showing the explanation text.
    */
   const feedbackExplainAckPendingAfterInterruptRef = useRef(false);
   /** Aborts in-flight recording-screen `answer-medium` replay. */
@@ -655,7 +645,6 @@ export function usePhraseDisplay(
     setHasUsedTryAgainOnCurrentCard(false);
     setHasUsedClearSpokenCaptionOnCurrentCard(false);
     setIsExplainAckOpen(false);
-    setIsExplainAckReplayPlaying(false);
     setChainedFeedbackExplainAudioActive(false);
     feedbackExplainAckPendingAfterInterruptRef.current = false;
     setFollowUpPlaybackCompleted(false);
@@ -886,9 +875,6 @@ export function usePhraseDisplay(
       // Abort the answer chain so the chained explain clip does not start after
       // the Spanish answer resolves early due to the epoch bump from tts.stop().
       answerAudioAbortRef.current?.abort();
-      // Abort any in-flight "Say that again" replay and clear explain-ack state.
-      explainDialogReplayAbortRef.current?.abort();
-      explainDialogReplayAbortRef.current = null;
       replaySpanishMediumAbortRef.current?.abort();
       replaySpanishMediumAbortRef.current = null;
       ttsRef.current.stop();
@@ -1068,13 +1054,10 @@ export function usePhraseDisplay(
     setHasUsedTryAgainOnCurrentCard(true);
     englishFirstPassOnCardRef.current = false;
     answerAudioAbortRef.current?.abort();
-    explainDialogReplayAbortRef.current?.abort();
-    explainDialogReplayAbortRef.current = null;
     replaySpanishMediumAbortRef.current?.abort();
     replaySpanishMediumAbortRef.current = null;
     feedbackExplainAckPendingAfterInterruptRef.current = false;
     setIsExplainAckOpen(false);
-    setIsExplainAckReplayPlaying(false);
     setChainedFeedbackExplainAudioActive(false);
     ttsRef.current.stop();
     sttRef.current.clearTranscription();
@@ -1110,13 +1093,10 @@ export function usePhraseDisplay(
 
   const handleNext = (options?: { exitToLoading?: boolean }) => {
     answerAudioAbortRef.current?.abort();
-    explainDialogReplayAbortRef.current?.abort();
-    explainDialogReplayAbortRef.current = null;
     replaySpanishMediumAbortRef.current?.abort();
     replaySpanishMediumAbortRef.current = null;
     feedbackExplainAckPendingAfterInterruptRef.current = false;
     setIsExplainAckOpen(false);
-    setIsExplainAckReplayPlaying(false);
     setChainedFeedbackExplainAudioActive(false);
     sttRef.current.clearTranscription();
     if (options?.exitToLoading) {
@@ -1129,8 +1109,6 @@ export function usePhraseDisplay(
     answerAudioAbortRef.current?.abort();
     replaySpanishMediumAbortRef.current?.abort();
     replaySpanishMediumAbortRef.current = null;
-    explainDialogReplayAbortRef.current?.abort();
-    explainDialogReplayAbortRef.current = null;
     const s3Opts: TtsAdapterOptions =
       options?.s3LessonSegment != null && options.s3LessonSegment !== ''
         ? {
@@ -1259,11 +1237,9 @@ export function usePhraseDisplay(
   }, [phrases, spanishText, options?.s3LessonSegment]);
 
   const handleExplainAckOkay = () => {
-    explainDialogReplayAbortRef.current = null;
     replaySpanishMediumAbortRef.current?.abort();
     replaySpanishMediumAbortRef.current = null;
     setIsExplainAckOpen(false);
-    setIsExplainAckReplayPlaying(false);
     feedbackExplainAckPendingAfterInterruptRef.current = false;
   };
 
@@ -1281,59 +1257,16 @@ export function usePhraseDisplay(
 
   const stopAnswerAudio = useCallback(() => {
     answerAudioAbortRef.current?.abort();
-    explainDialogReplayAbortRef.current?.abort();
-    explainDialogReplayAbortRef.current = null;
     replaySpanishMediumAbortRef.current?.abort();
     replaySpanishMediumAbortRef.current = null;
     ttsRef.current.stop();
     if (isMountedRef.current) {
       setIsAudioPlaying(false);
-      setIsExplainAckReplayPlaying(false);
       setChainedFeedbackExplainAudioActive(false);
     }
   }, []);
 
-  const handleExplainSayAgain = async () => {
-    const explainTextTrimmed = currentPhrase.English.explain.trim();
-    if (explainTextTrimmed === '') return;
-
-    explainDialogReplayAbortRef.current?.abort();
-    replaySpanishMediumAbortRef.current?.abort();
-    replaySpanishMediumAbortRef.current = null;
-    const replayAc = new AbortController();
-    explainDialogReplayAbortRef.current = replayAc;
-    const epoch = ++explainSayAgainEpochRef.current;
-    if (isMountedRef.current) setIsExplainAckReplayPlaying(true);
-    const s3Opts: TtsAdapterOptions =
-      options?.s3LessonSegment != null && options.s3LessonSegment !== ''
-        ? { s3LessonSegment: options.s3LessonSegment }
-        : {};
-    try {
-      if (isMountedRef.current) setIsAudioPlaying(true);
-      await ttsRef.current.play(
-        explainTextTrimmed,
-        'en',
-        undefined,
-        phraseNameRef.current,
-        { ...s3Opts, signal: replayAc.signal, englishSegmentOverride: 'explain' },
-      );
-    } catch {
-      // Aborts (user tapped Say Again again, or navigated away) are expected.
-    } finally {
-      if (explainDialogReplayAbortRef.current === replayAc) {
-        explainDialogReplayAbortRef.current = null;
-      }
-      if (!replayAc.signal.aborted && isMountedRef.current) {
-        setIsAudioPlaying(false);
-      }
-      if (epoch === explainSayAgainEpochRef.current && isMountedRef.current) {
-        setIsExplainAckReplayPlaying(false);
-      }
-    }
-  };
-
-  const isEnglishExplainDominatingLessonControls =
-    isExplainAckReplayPlaying || chainedFeedbackExplainAudioActive;
+  const isEnglishExplainDominatingLessonControls = chainedFeedbackExplainAudioActive;
 
   return {
     status,
@@ -1363,9 +1296,7 @@ export function usePhraseDisplay(
     lastScoreBreakdown,
     lastAttemptDetail,
     isExplainAckOpen,
-    isExplainAckReplayPlaying,
     handleExplainAckOkay,
-    handleExplainSayAgain,
     handleExplainInterrupted,
   };
 }

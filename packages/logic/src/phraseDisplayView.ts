@@ -160,8 +160,8 @@ export type UserFeedbackViewProps = {
   isCorrect: boolean;
   isAudioPlaying: boolean;
   /**
-   * True while English explain is active for feedback UX — chained explain after Spanish
-   * or Explain-that-again replay. Spanish replay chrome stays visually idle.
+   * True while English explain is playing after the Spanish answer.
+   * Spanish replay chrome stays visually idle.
    */
   isEnglishExplainDominatingLessonControls: boolean;
   speed: '1x' | 'slow';
@@ -171,9 +171,9 @@ export type UserFeedbackViewProps = {
   onTryAgain: () => void;
   onNext: () => void;
   isExplainAckOpen: boolean;
-  isExplainAckReplayPlaying: boolean;
-  handleExplainSayAgain: () => void;
-  /** After interrupting feedback explain chain, reopen explain ack pills. */
+  /** English explanation shown in place of the former replay control. */
+  explainText: string;
+  /** After interrupting feedback explain chain, show the explanation text. */
   onExplainInterrupted?: () => void;
   /** Shared pause state; drives both the pill appearance and the question sidebar. */
   learnerQuestionPause?: LearnerQuestionPauseProps;

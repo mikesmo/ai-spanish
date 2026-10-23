@@ -203,29 +203,21 @@ export const UserFeedback = ({
   onTryAgain,
   onNext,
   isExplainAckOpen,
-  isExplainAckReplayPlaying,
-  handleExplainSayAgain,
+  explainText,
   learnerQuestionPause,
 }: UserFeedbackProps): JSX.Element => {
   const diff = transcription.trim() ? diffWords(transcription, spanishPhrase) : null;
-  const explainAckDisabled = isAudioPlaying || isExplainAckReplayPlaying;
 
   const isQuestionActive = learnerQuestionPause?.isActive ?? false;
   const handleQuestionToggle = learnerQuestionPause?.toggle ?? (() => {});
 
-  const explainAckActions =
-    isExplainAckOpen ? (
-      <View style={styles.explainAckActions}>
-        <PillButton
-          label="Explain that again"
-          onPress={() => {
-            void handleExplainSayAgain();
-          }}
-          variant="secondary"
-          disabled={explainAckDisabled}
-        />
-      </View>
-    ) : null;
+  const trimmedExplainText = explainText.trim();
+  const showExplainText =
+    trimmedExplainText !== "" &&
+    (isEnglishExplainDominatingLessonControls || isExplainAckOpen);
+  const explainAckText = showExplainText ? (
+    <Text style={styles.explainAckText}>{trimmedExplainText}</Text>
+  ) : null;
 
   return (
     <View style={styles.container}>
@@ -251,8 +243,8 @@ export const UserFeedback = ({
                     variant="secondary"
                   />
                 </View>
-                {explainAckActions}
               </View>
+              {explainAckText}
             </View>
           ) : (
             <View style={styles.incorrectStageColumn}>
@@ -310,14 +302,14 @@ export const UserFeedback = ({
                   />
                 </View>
 
-                {explainAckActions}
+                {explainAckText}
               </View>
             </View>
           )}
         </View>
       </View>
 
-      <View style={[styles.footer, isExplainAckOpen && styles.footerWithExplainAckAbove]}>
+      <View style={styles.footer}>
         {isCorrect ? (
           <NextPhraseAfterAudioButton
             isAudioPlaying={isAudioPlaying}
@@ -381,10 +373,16 @@ const styles = StyleSheet.create({
   incorrectQuestionBlock: {
     width: "100%",
   },
-  explainAckActions: {
-    width: "100%",
-    flexDirection: "column",
-    gap: 16,
+  explainAckText: {
+    position: "absolute",
+    top: "100%",
+    left: 0,
+    right: 0,
+    marginTop: 24,
+    fontSize: 16,
+    lineHeight: 24,
+    color: "#4b5563",
+    textAlign: "center",
   },
   footer: {
     width: "100%",
@@ -392,9 +390,6 @@ const styles = StyleSheet.create({
     paddingTop: 24,
     paddingBottom: 16,
     gap: 16,
-  },
-  footerWithExplainAckAbove: {
-    paddingTop: 40,
   },
   buttonGroup: {
     width: "100%",

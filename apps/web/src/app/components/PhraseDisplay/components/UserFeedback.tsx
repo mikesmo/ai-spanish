@@ -281,26 +281,22 @@ export const UserFeedback = ({
   onTryAgain,
   onNext,
   isExplainAckOpen,
-  isExplainAckReplayPlaying,
-  handleExplainSayAgain,
+  explainText,
   learnerQuestionPause,
 }: UserFeedbackProps): JSX.Element => {
   const diff = transcription.trim() ? diffWords(transcription, spanishPhrase) : null;
-  const explainAckDisabled = isAudioPlaying || isExplainAckReplayPlaying;
 
   const isQuestionActive = learnerQuestionPause?.isActive ?? false;
   const handleQuestionToggle = learnerQuestionPause?.toggle ?? (() => {});
 
-  const explainAckActions = isExplainAckOpen ? (
-    <div className="flex w-full flex-col gap-4">
-      <PillNavButton
-        label="Explain that again"
-        onClick={() => {
-          void handleExplainSayAgain();
-        }}
-        disabled={explainAckDisabled}
-      />
-    </div>
+  const trimmedExplainText = explainText.trim();
+  const showExplainText =
+    trimmedExplainText !== "" &&
+    (isEnglishExplainDominatingLessonControls || isExplainAckOpen);
+  const explainAckText = showExplainText ? (
+    <p className="absolute inset-x-0 top-full z-10 mt-8 max-h-36 overflow-y-auto text-center text-[16px] leading-relaxed text-gray-600">
+      {trimmedExplainText}
+    </p>
   ) : null;
 
   return (
@@ -311,7 +307,7 @@ export const UserFeedback = ({
         }`}
       >
         {isCorrect ? (
-          <div className="flex flex-col items-center w-full">
+          <div className="relative flex w-full flex-col items-center">
             <p className="text-[18px] text-[#1D9E75] text-center leading-relaxed">{spanishPhrase}</p>
             <div className="pt-4 flex w-full flex-col items-center gap-8">
               <AudioControls
@@ -328,8 +324,8 @@ export const UserFeedback = ({
                   variant="secondary"
                 />
               </div>
-              {explainAckActions}
             </div>
+            {explainAckText}
           </div>
         ) : (
           <div className="flex w-full flex-col items-center">
@@ -349,7 +345,7 @@ export const UserFeedback = ({
               </div>
             </div>
 
-            <div className="pt-4 flex w-full flex-col items-center gap-8">
+            <div className="relative pt-4 flex w-full flex-col items-center gap-8">
               <AudioControls
                 isAudioPlaying={isAudioPlaying}
                 isEnglishExplainDominatingLessonControls={isEnglishExplainDominatingLessonControls}
@@ -366,17 +362,13 @@ export const UserFeedback = ({
                 />
               </div>
 
-              {explainAckActions}
+              {explainAckText}
             </div>
           </div>
         )}
       </div>
 
-      <div
-        className={`mt-auto flex w-full flex-col gap-4 pb-[max(1rem,env(safe-area-inset-bottom))] ${
-          isExplainAckOpen ? "pt-12" : "pt-6"
-        }`}
-      >
+      <div className="mt-auto flex w-full flex-col gap-4 pt-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
         {isCorrect ? (
           <NextPhraseAfterAudioButton
             isAudioPlaying={isAudioPlaying}
