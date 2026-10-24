@@ -60,6 +60,11 @@ export function normalizeLessonSegment(raw: string | undefined): string | undefi
  *
  * Mirrors the key layout written by tts-batch/src/writer.ts.
  */
+/** S3 list prefix for a lesson's clips: `{prefix}[/{lesson}]/audio/`. */
+export function buildS3AudioFolderPrefix(prefix: string, lesson: string | undefined): string {
+  return `${[prefix, lesson, 'audio'].filter((p): p is string => Boolean(p)).join('/')}/`;
+}
+
 export function buildS3AudioKey(
   prefix: string,
   lesson: string | undefined,

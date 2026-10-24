@@ -34,6 +34,19 @@ function copyCookies(from: NextResponse, to: NextResponse): NextResponse {
 }
 
 export async function updateSession(request: NextRequest): Promise<NextResponse> {
+  const pathname = request.nextUrl.pathname;
+
+  // Bearer API calls are verified by the route (assertApiUser); a cookie
+  // getUser() here would be an extra Supabase round trip whose result is unused.
+  const authHeader = request.headers.get('authorization');
+  if (
+    pathname.startsWith('/api/') &&
+    authHeader?.startsWith('Bearer ') &&
+    authHeader.slice(7).trim().length > 0
+  ) {
+    return NextResponse.next({ request });
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -66,17 +79,6 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  const pathname = request.nextUrl.pathname;
-
-  const authHeader = request.headers.get('authorization');
-  if (
-    pathname.startsWith('/api/') &&
-    authHeader?.startsWith('Bearer ') &&
-    authHeader.slice(7).trim().length > 0
-  ) {
-    return supabaseResponse;
-  }
 
   if (user && pathname === '/login') {
     const next = safeNextPath(request.nextUrl.searchParams.get('next'));

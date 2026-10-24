@@ -2,39 +2,14 @@ import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { NextResponse, type NextRequest } from 'next/server';
 import {
+  AUDIO_CLIP_SEGMENTS,
+  AUDIO_PHRASE_NAME_PATTERN,
   buildS3AudioKey,
+  isAudioClipSegment,
   normalizeAudioContentPrefix,
   normalizeLessonSegment,
 } from '@ai-spanish/logic';
 import { assertApiUser } from '@/lib/auth/assert-api-user';
-
-/**
- * Allowed segment values — must stay in sync with `buildPhraseAudioClipSpecs`
- * clip suffixes (`first-intro`, `second-intro`, `follow-up`, `explain`, `answer`,
- * `answer-medium`, `answer-slow`). `question` is kept for ad-hoc presigns even though tts-batch
- * does not synthesize it.
- */
-const ALLOWED_SEGMENTS = [
-  'first-intro',
-  'second-intro',
-  'follow-up',
-  'explain',
-  'question',
-  'answer',
-  'answer-medium',
-  'answer-slow',
-] as const;
-type Segment = (typeof ALLOWED_SEGMENTS)[number];
-
-function isAllowedSegment(s: string): s is Segment {
-  return (ALLOWED_SEGMENTS as readonly string[]).includes(s);
-}
-
-/**
- * Phrase name format guard: lowercase ASCII letters, digits, and hyphens.
- * Matches the `name` slug field on transcript phrases.
- */
-const PHRASE_NAME_PATTERN = /^[a-z0-9-]+$/;
 
 /**
  * GET /api/audio?phrase=<phraseName>&segment=<segment>[&lesson=<lesson>]
@@ -53,16 +28,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const segment = searchParams.get('segment');
   const lessonParam = searchParams.get('lesson') ?? undefined;
 
-  if (!phraseRaw || !PHRASE_NAME_PATTERN.test(phraseRaw)) {
+  if (!phraseRaw || !AUDIO_PHRASE_NAME_PATTERN.test(phraseRaw)) {
     return NextResponse.json(
       { error: 'Invalid phrase: must be a non-empty slug (a-z, 0-9, -)' },
       { status: 400 }
     );
   }
 
-  if (!segment || !isAllowedSegment(segment)) {
+  if (!segment || !isAudioClipSegment(segment)) {
     return NextResponse.json(
-      { error: `Invalid segment: must be one of ${ALLOWED_SEGMENTS.join(', ')}` },
+      { error: `Invalid segment: must be one of ${AUDIO_CLIP_SEGMENTS.join(', ')}` },
       { status: 400 }
     );
   }

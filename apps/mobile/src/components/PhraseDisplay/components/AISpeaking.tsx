@@ -26,9 +26,12 @@ export const AISpeaking = ({
   const ring2Scale = useRef(new Animated.Value(1)).current;
   const ring2Opacity = useRef(new Animated.Value(0)).current;
   const breatheScale = useRef(new Animated.Value(1)).current;
+  const isHeroMounted = hero != null;
 
   useEffect(() => {
-    if (!isAudioPlaying) {
+    // Native-driver loops started before the animated views mount never drive
+    // them; with cached audio, playback can begin before the first layout.
+    if (!isAudioPlaying || !isHeroMounted) {
       ring1Opacity.setValue(0);
       ring2Opacity.setValue(0);
       breatheScale.setValue(1);
@@ -96,6 +99,7 @@ export const AISpeaking = ({
   }, [
     breatheScale,
     isAudioPlaying,
+    isHeroMounted,
     ring1Opacity,
     ring1Scale,
     ring2Opacity,

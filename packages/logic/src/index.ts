@@ -23,8 +23,20 @@ export {
   DEFAULT_AUDIO_CONTENT_PREFIX,
   normalizeAudioContentPrefix,
   normalizeLessonSegment,
+  buildS3AudioFolderPrefix,
   buildS3AudioKey,
 } from './s3-keys';
+export {
+  AUDIO_BATCH_PRESIGN_PATH,
+  AUDIO_CLIP_SEGMENTS,
+  AUDIO_PHRASE_NAME_PATTERN,
+  LESSON_AUDIO_BATCH_MAX_CLIPS,
+  buildLessonAudioClipList,
+  isAudioClipSegment,
+  lessonAudioClipId,
+  type AudioClipSegment,
+  type LessonAudioClip,
+} from './lessonAudioClips';
 export type { S3PathConfig } from './s3-keys';
 export {
   DEEPGRAM_KEYWORD_LIVE_BOOST,

@@ -1,26 +1,26 @@
 import { useCallback, useRef } from 'react';
-import type { Language, TTSAdapter, TtsAdapterOptions } from '@ai-spanish/logic';
+import type {
+  Language,
+  LessonAudioClip,
+  TTSAdapter,
+  TtsAdapterOptions,
+} from '@ai-spanish/logic';
 import {
-  PRESIGNED_URL_CACHE_TTL_MS,
-  fetchPresignedUrl as _fetchPresignedUrl,
+  createS3ClipUrlResolver,
+  fetchBatchPresignedUrls,
+  fetchPresignedUrl,
+  s3ClipCacheKey,
   segmentsForLanguage,
+  type S3ClipUrlResolver,
 } from './s3-shared';
 
-type CachedUrl = { url: string; fetchedAt: number };
-
-function fetchPresignedUrl(
-  phraseName: string,
-  segment: string,
-  signal: AbortSignal | undefined,
-  s3LessonSegment: string | undefined
-): Promise<string | null> {
-  return _fetchPresignedUrl(
-    '',
-    phraseName,
-    segment,
-    signal,
-    s3LessonSegment
-  );
+function createWebClipUrlResolver(): S3ClipUrlResolver {
+  return createS3ClipUrlResolver({
+    fetchSingle: (phraseName, segment, s3LessonSegment, signal) =>
+      fetchPresignedUrl('', phraseName, segment, signal, s3LessonSegment),
+    fetchBatch: (clips, s3LessonSegment) =>
+      fetchBatchPresignedUrls('', clips, s3LessonSegment),
+  });
 }
 
 /**
@@ -33,24 +33,18 @@ function fetchPresignedUrl(
  * - Missing clips (skipped at batch time due to empty text) are silently skipped.
  * - Requires a valid phraseName; calls without one are no-ops so the adapter
  *   stays compatible with the TTSAdapter interface.
+ * - `preloadLesson` presigns every clip in one request. Audio bytes are not
+ *   preloaded: the S3 bucket sends no CORS headers, so `fetch` cannot read them.
  */
 export function useS3TTS(): TTSAdapter {
-  /** Cache: `${phraseName}-${segment}` → presigned URL + time (S3 presigns expire in ~5 min). */
-  const urlCache = useRef<Map<string, CachedUrl>>(new Map());
+  const resolverRef = useRef<S3ClipUrlResolver | null>(null);
+  if (resolverRef.current === null) {
+    resolverRef.current = createWebClipUrlResolver();
+  }
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const stoppedRef = useRef(false);
   /** Bumped on `stop()` and on each new `play()`; invalidates in-flight playback promises. */
   const playEpochRef = useRef(0);
-
-  const getUrlFromCache = (key: string): string | null => {
-    const e = urlCache.current.get(key);
-    if (!e) return null;
-    if (Date.now() - e.fetchedAt > PRESIGNED_URL_CACHE_TTL_MS) {
-      urlCache.current.delete(key);
-      return null;
-    }
-    return e.url;
-  };
 
   const stop = useCallback(() => {
     playEpochRef.current += 1;
@@ -75,17 +69,23 @@ export function useS3TTS(): TTSAdapter {
       if (phraseName === undefined || phraseName === '') return;
       const signal = options?.signal;
       const s3 = options?.s3LessonSegment;
-      const lessonKey = s3 ?? '';
+      const resolver = resolverRef.current!;
       await Promise.all(
         segmentsForLanguage(lang, options).map(async (seg) => {
           if (signal?.aborted) return;
-          const cacheKey = `${lessonKey}|${phraseName}-${seg}`;
-          if (getUrlFromCache(cacheKey) != null) return;
-          const url = await fetchPresignedUrl(phraseName, seg, signal, s3);
-          if (signal?.aborted) return;
-          if (url) urlCache.current.set(cacheKey, { url, fetchedAt: Date.now() });
+          await resolver.resolve(phraseName, seg, s3, signal);
         })
       );
+    },
+    []
+  );
+
+  const preloadLesson = useCallback(
+    async (
+      clips: readonly LessonAudioClip[],
+      options?: { s3LessonSegment?: string; signal?: AbortSignal },
+    ): Promise<void> => {
+      await resolverRef.current!.presignLesson(clips, options?.s3LessonSegment);
     },
     []
   );
@@ -109,32 +109,21 @@ export function useS3TTS(): TTSAdapter {
       const el = audioRef.current;
 
       const s3 = options?.s3LessonSegment;
-      const lessonKey = s3 ?? '';
 
       for (const seg of segmentsForLanguage(lang, options)) {
         if (playEpochRef.current !== myEpoch || stoppedRef.current || signal?.aborted) {
           return;
         }
 
-        const cacheKey = `${lessonKey}|${phraseName}-${seg}`;
-        let url: string | null = getUrlFromCache(cacheKey);
-        if (!url) {
-          const fetched = await fetchPresignedUrl(phraseName, seg, signal, s3);
-          if (fetched) {
-            url = fetched;
-            // Only write to cache when this play is still the current one;
-            // a superseded play's URL is valid but shouldn't count as cached.
-            if (playEpochRef.current === myEpoch) {
-              urlCache.current.set(cacheKey, { url, fetchedAt: Date.now() });
-            }
-          }
-        }
+        const cacheKey = s3ClipCacheKey(phraseName, seg, s3);
+        /* eslint-disable no-await-in-loop -- segments play sequentially; stop() advances epoch */
+        const clip = await resolverRef.current!.resolve(phraseName, seg, s3, signal);
+        const url = clip?.url ?? null;
         if (playEpochRef.current !== myEpoch || !url || stoppedRef.current || signal?.aborted) {
           if (playEpochRef.current === myEpoch && signal?.aborted) return;
           continue;
         }
 
-        /* eslint-disable no-await-in-loop -- segments play sequentially; stop() advances epoch */
         await new Promise<void>((resolve, reject) => {
           if (playEpochRef.current !== myEpoch || signal?.aborted) {
             resolve();
@@ -162,10 +151,6 @@ export function useS3TTS(): TTSAdapter {
 
           const onEnded = () => {
             cleanup();
-            if (playEpochRef.current !== myEpoch) {
-              resolve();
-              return;
-            }
             resolve();
           };
 
@@ -185,7 +170,7 @@ export function useS3TTS(): TTSAdapter {
           el.onended = onEnded;
           el.onerror = onError;
           el.playbackRate = rate;
-          el.src = url!;
+          el.src = url;
           void el.play().catch((err: unknown) => {
             cleanup();
             if (playEpochRef.current !== myEpoch) {
@@ -203,5 +188,5 @@ export function useS3TTS(): TTSAdapter {
     []
   );
 
-  return { play, prefetch, stop };
+  return { play, prefetch, preloadLesson, stop };
 }

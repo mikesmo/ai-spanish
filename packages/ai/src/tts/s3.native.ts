@@ -4,16 +4,21 @@ import type { AVPlaybackStatus } from 'expo-av';
 import * as FileSystem from 'expo-file-system';
 import {
   type Language,
+  type LessonAudioClip,
   type TTSAdapter,
   type TtsAdapterOptions,
 } from '@ai-spanish/logic';
 import {
-  PRESIGNED_URL_CACHE_TTL_MS,
-  fetchPresignedUrl as _fetchPresignedUrl,
+  createS3ClipUrlResolver,
+  fetchBatchPresignedUrls,
+  fetchPresignedUrl,
+  s3ClipCacheKey,
   segmentsForLanguage,
+  type S3ClipUrlResolver,
 } from './s3-shared';
 
-type PresignedEntry = { url: string; fetchedAt: number };
+/** Parallel downloads while preloading a lesson in the background. */
+const PRELOAD_CONCURRENCY = 4;
 
 /**
  * Resolved per presign request (runs after {@link registerNativeS3PresignAuthHeaders}).
@@ -33,57 +38,58 @@ function getWebOrigin(): string {
   return (process.env.EXPO_PUBLIC_WEB_ORIGIN ?? '').replace(/\/$/, '');
 }
 
-function fetchPresignedUrl(
-  phraseName: string,
-  segment: string,
-  presignedByKey: Map<string, PresignedEntry>,
-  cacheKey: string,
-  signal: AbortSignal | undefined,
-  s3LessonSegment: string | undefined
-): Promise<string | null> {
-  const origin = getWebOrigin();
-  if (!origin) return Promise.resolve(null);
-  const e = presignedByKey.get(cacheKey);
-  if (e && Date.now() - e.fetchedAt <= PRESIGNED_URL_CACHE_TTL_MS) {
-    return Promise.resolve(e.url);
-  }
-  return (async () => {
-    if (signal?.aborted) return null;
-    const authHeaders =
-      typeof resolveNativeS3PresignAuthHeaders === 'function'
-        ? (await resolveNativeS3PresignAuthHeaders()) ?? undefined
-        : undefined;
-    const url = await _fetchPresignedUrl(
-      origin,
-      phraseName,
-      segment,
-      signal,
-      s3LessonSegment,
-      authHeaders && Object.keys(authHeaders).length > 0 ? authHeaders : undefined,
-    );
-    if (url) presignedByKey.set(cacheKey, { url, fetchedAt: Date.now() });
-    return url;
-  })();
+async function getAuthHeaders(): Promise<Record<string, string> | undefined> {
+  if (typeof resolveNativeS3PresignAuthHeaders !== 'function') return undefined;
+  const headers = await resolveNativeS3PresignAuthHeaders();
+  return headers && Object.keys(headers).length > 0 ? headers : undefined;
 }
 
+function createNativeClipUrlResolver(): S3ClipUrlResolver {
+  return createS3ClipUrlResolver({
+    fetchSingle: async (phraseName, segment, s3LessonSegment, signal) => {
+      const origin = getWebOrigin();
+      if (!origin || signal?.aborted) return null;
+      return fetchPresignedUrl(
+        origin,
+        phraseName,
+        segment,
+        signal,
+        s3LessonSegment,
+        await getAuthHeaders(),
+      );
+    },
+    fetchBatch: async (clips, s3LessonSegment) => {
+      const origin = getWebOrigin();
+      if (!origin) return null;
+      return fetchBatchPresignedUrls(origin, clips, s3LessonSegment, await getAuthHeaders());
+    },
+  });
+}
+
+/**
+ * Versioned paths embed the S3 ETag, so a file on disk always matches the
+ * current clip and can be reused across sessions and app restarts.
+ * Unversioned paths (single-clip presigns) are only trusted in memory.
+ */
 function localCachePath(
   phraseName: string,
   segment: string,
-  s3LessonSegment?: string
+  s3LessonSegment: string | undefined,
+  version: string | null,
 ): string {
   const p =
     s3LessonSegment != null && s3LessonSegment !== ''
       ? `${s3LessonSegment}-`
       : '';
-  return `${FileSystem.cacheDirectory}s3audio-${p}${phraseName}-${segment}.mp3`;
+  const v = version ? `-${version.replace(/[^a-zA-Z0-9]/g, '').slice(0, 16)}` : '';
+  return `${FileSystem.cacheDirectory}s3audio-${p}${phraseName}-${segment}${v}.mp3`;
 }
 
-function fileCacheKey(
-  phraseName: string,
-  segment: string,
-  s3LessonSegment: string | undefined
-): string {
-  return `${s3LessonSegment ?? ''}|${phraseName}-${segment}`;
+interface LocalClipCache {
+  /** Clip cache key → local file URI. */
+  files: Map<string, string>;
+  /** Clip cache key → download in progress. */
+  inFlight: Map<string, Promise<string | null>>;
 }
 
 /**
@@ -91,63 +97,79 @@ function fileCacheKey(
  * turns out to be unplayable so the next presentation re-downloads instead of
  * replaying a poisoned cache entry.
  */
-async function evictLocalFile(
-  phraseName: string,
-  segment: string,
-  fileCache: Map<string, string>,
-  s3LessonSegment: string | undefined
-): Promise<void> {
-  fileCache.delete(fileCacheKey(phraseName, segment, s3LessonSegment));
-  await FileSystem.deleteAsync(
-    localCachePath(phraseName, segment, s3LessonSegment),
-    { idempotent: true },
-  ).catch(() => {});
+async function evictLocalFile(cacheKey: string, cache: LocalClipCache): Promise<void> {
+  const uri = cache.files.get(cacheKey);
+  cache.files.delete(cacheKey);
+  if (!uri) return;
+  await FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => {});
 }
 
+async function downloadClip(
+  phraseName: string,
+  segment: string,
+  s3LessonSegment: string | undefined,
+  resolver: S3ClipUrlResolver,
+): Promise<string | null> {
+  const clip = await resolver.resolve(phraseName, segment, s3LessonSegment);
+  if (!clip) return null;
+
+  const dest = localCachePath(phraseName, segment, s3LessonSegment, clip.version);
+  if (clip.version) {
+    const info = await FileSystem.getInfoAsync(dest);
+    if (info.exists && info.size > 0) return dest;
+  }
+
+  const result = await FileSystem.downloadAsync(clip.url, dest);
+  if (result.status !== 200) {
+    // A presigned URL for a missing object yields an S3 XML error body.
+    // downloadAsync saves that body regardless; caching it as .mp3 poisons the
+    // cache and makes expo-av fail with "media may be damaged" on every later play.
+    // Treat it as a missing clip (skipped silently, per adapter contract).
+    await FileSystem.deleteAsync(result.uri, { idempotent: true }).catch(() => {});
+    return null;
+  }
+  return result.uri;
+}
+
+/**
+ * Local file for one clip. Concurrent callers (card prefetch, lesson preload,
+ * play) share a single download per clip; that download ignores caller
+ * signals so one caller aborting cannot fail the others.
+ */
 async function ensureLocalFile(
   phraseName: string,
   segment: string,
-  fileCache: Map<string, string>,
-  presignedByKey: Map<string, PresignedEntry>,
+  s3LessonSegment: string | undefined,
+  resolver: S3ClipUrlResolver,
+  cache: LocalClipCache,
   signal: AbortSignal | undefined,
-  s3LessonSegment: string | undefined
 ): Promise<string | null> {
   if (signal?.aborted) return null;
-  const cacheKey = fileCacheKey(phraseName, segment, s3LessonSegment);
-  const cachedUri = fileCache.get(cacheKey);
+  const cacheKey = s3ClipCacheKey(phraseName, segment, s3LessonSegment);
+  const cachedUri = cache.files.get(cacheKey);
   if (cachedUri) {
     const info = await FileSystem.getInfoAsync(cachedUri);
     if (info.exists) {
       return cachedUri;
     }
-    fileCache.delete(cacheKey);
+    cache.files.delete(cacheKey);
   }
 
-  const presigned = await fetchPresignedUrl(
-    phraseName,
-    segment,
-    presignedByKey,
-    cacheKey,
-    signal,
-    s3LessonSegment
-  );
-  if (!presigned) return null;
-  if (signal?.aborted) return null;
-
-  const dest = localCachePath(phraseName, segment, s3LessonSegment);
-  const result = await FileSystem.downloadAsync(presigned, dest);
-  if (signal?.aborted) return null;
-  if (result.status !== 200) {
-    // `/api/audio` presigns without checking the object exists, so a missing
-    // clip yields a URL that S3 answers with an XML error body. downloadAsync
-    // saves that body regardless; caching it as .mp3 poisons the cache and
-    // makes expo-av fail with "media may be damaged" on every later play.
-    // Treat it as a missing clip (skipped silently, per adapter contract).
-    await FileSystem.deleteAsync(result.uri, { idempotent: true }).catch(() => {});
-    return null;
+  let pending = cache.inFlight.get(cacheKey);
+  if (!pending) {
+    pending = downloadClip(phraseName, segment, s3LessonSegment, resolver)
+      .then((uri) => {
+        if (uri) cache.files.set(cacheKey, uri);
+        return uri;
+      })
+      .catch(() => null)
+      .finally(() => {
+        cache.inFlight.delete(cacheKey);
+      });
+    cache.inFlight.set(cacheKey, pending);
   }
-  fileCache.set(cacheKey, result.uri);
-  return result.uri;
+  const uri = await pending;
+  return signal?.aborted ? null : uri;
 }
 
 /**
@@ -159,10 +181,15 @@ async function ensureLocalFile(
  *   `options.spanishSegmentOverride`.
  * - Missing clips are skipped silently.
  * - Requires phraseName; calls without it are no-ops.
+ * - `preloadLesson` presigns the whole lesson in one request and downloads
+ *   clips to the versioned disk cache in the background.
  */
 export function useS3TTS(): TTSAdapter {
-  const fileCacheRef = useRef<Map<string, string>>(new Map());
-  const presignedByKeyRef = useRef<Map<string, PresignedEntry>>(new Map());
+  const resolverRef = useRef<S3ClipUrlResolver | null>(null);
+  if (resolverRef.current === null) {
+    resolverRef.current = createNativeClipUrlResolver();
+  }
+  const localCacheRef = useRef<LocalClipCache>({ files: new Map(), inFlight: new Map() });
   const currentSoundRef = useRef<Audio.Sound | null>(null);
   const stoppedRef = useRef(false);
   const stopIntentionallyRef = useRef(false);
@@ -305,19 +332,43 @@ export function useS3TTS(): TTSAdapter {
       if (phraseName === undefined || phraseName === '') return;
       const signal = options?.signal;
       const s3 = options?.s3LessonSegment;
+      const resolver = resolverRef.current!;
       await Promise.all(
-        segmentsForLanguage(lang, options).map(async (seg) => {
-          if (signal?.aborted) return;
-          await ensureLocalFile(
-            phraseName,
-            seg,
-            fileCacheRef.current,
-            presignedByKeyRef.current,
-            signal,
-            s3
-          ).catch(() => {});
-        })
+        segmentsForLanguage(lang, options).map((seg) =>
+          ensureLocalFile(phraseName, seg, s3, resolver, localCacheRef.current, signal),
+        ),
       );
+    },
+    []
+  );
+
+  const preloadLesson = useCallback(
+    async (
+      clips: readonly LessonAudioClip[],
+      options?: { s3LessonSegment?: string; signal?: AbortSignal },
+    ): Promise<void> => {
+      const s3 = options?.s3LessonSegment;
+      const signal = options?.signal;
+      const resolver = resolverRef.current!;
+      const isBatchReady = await resolver.presignLesson(clips, s3);
+      if (!isBatchReady || signal?.aborted) return;
+
+      const queue = clips.values();
+      const worker = async (): Promise<void> => {
+        for (const clip of queue) {
+          if (signal?.aborted) return;
+          /* eslint-disable-next-line no-await-in-loop -- bounded worker pool */
+          await ensureLocalFile(
+            clip.phraseName,
+            clip.segment,
+            s3,
+            resolver,
+            localCacheRef.current,
+            signal,
+          );
+        }
+      };
+      await Promise.all(Array.from({ length: PRELOAD_CONCURRENCY }, worker));
     },
     []
   );
@@ -350,38 +401,37 @@ export function useS3TTS(): TTSAdapter {
       });
       if (signal?.aborted || stoppedRef.current) return;
 
+      const s3 = options?.s3LessonSegment;
       for (const seg of segmentsForLanguage(lang, options)) {
         if (stoppedRef.current || signal?.aborted) return;
 
+        /* eslint-disable no-await-in-loop */
         const uri = await ensureLocalFile(
           phraseName,
           seg,
-          fileCacheRef.current,
-          presignedByKeyRef.current,
+          s3,
+          resolverRef.current!,
+          localCacheRef.current,
           signal,
-          options?.s3LessonSegment
         );
         if (!uri || stoppedRef.current || signal?.aborted) continue;
 
         try {
-          /* eslint-disable no-await-in-loop */
           await playSegment(uri, rate, signal);
-          /* eslint-enable no-await-in-loop */
         } catch {
           // Skip failed segments (network/playback); matches silent skip for
           // missing clips. Evict the cached file so a corrupt/poisoned download
           // (e.g. an S3 error body saved as .mp3) is not replayed next time.
           await evictLocalFile(
-            phraseName,
-            seg,
-            fileCacheRef.current,
-            options?.s3LessonSegment,
+            s3ClipCacheKey(phraseName, seg, s3),
+            localCacheRef.current,
           );
         }
+        /* eslint-enable no-await-in-loop */
       }
     },
-    [awaitUnload, playSegment, unloadWithTracking]
+    [playSegment, unloadWithTracking]
   );
 
-  return { play, prefetch, stop };
+  return { play, prefetch, preloadLesson, stop };
 }

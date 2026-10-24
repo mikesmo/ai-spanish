@@ -519,7 +519,9 @@ export function usePhraseDisplay(
           console.error('[usePhraseDisplay] Error playing answer chain:', error);
         }
       } finally {
-        if (isMountedRef.current) {
+        // An aborted chain was superseded (next phrase bootstrap, replay, or
+        // stopAnswerAudio), which owns isAudioPlaying from here on.
+        if (!ac.signal.aborted && isMountedRef.current) {
           setIsAudioPlaying(false);
         }
       }
@@ -715,8 +717,15 @@ export function usePhraseDisplay(
         const hintedName = phraseNameRef.current;
         const followUpTextForPrefetch = currentPhrase.English['follow-up'].trim();
         const explainTextForPrefetch = currentPhrase.English.explain.trim();
-        await Promise.all([
-          ttsRef.current.prefetch(englishText, 'en', hintedName, enOpts),
+        // Only the opening English clip gates the loading spinner; later clips
+        // keep downloading while it plays and `play` reuses the in-flight fetch.
+        const englishPrefetch = ttsRef.current.prefetch(
+          englishText,
+          'en',
+          hintedName,
+          enOpts,
+        );
+        void Promise.all([
           ttsRef.current.prefetch(
             spanishText,
             'es',
@@ -750,7 +759,8 @@ export function usePhraseDisplay(
                 { ...s3, englishSegmentOverride: 'explain' } as TtsAdapterOptions,
               )
             : Promise.resolve(),
-        ]);
+        ]).catch(() => {});
+        await englishPrefetch;
         if (bootstrapSignal.aborted) return;
         if (!isMountedRef.current) return;
         sttRef.current.prefetchAuth?.();
@@ -1059,6 +1069,7 @@ export function usePhraseDisplay(
     feedbackExplainAckPendingAfterInterruptRef.current = false;
     setIsExplainAckOpen(false);
     setChainedFeedbackExplainAudioActive(false);
+    setIsAudioPlaying(false);
     ttsRef.current.stop();
     sttRef.current.clearTranscription();
     // Try Again starts a new practice session for this phrase — we do NOT

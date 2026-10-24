@@ -1,3 +1,5 @@
+export * from './audioBatchPresign';
+export * from './audioBatchPresign';
 export * from './cefrLevel';
 export * from './completedLessonsList';
 export * from './grammarSummary';

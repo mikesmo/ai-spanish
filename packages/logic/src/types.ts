@@ -1,5 +1,6 @@
 import type { PartOfSpeech } from './weights';
 import type { LearnerLastAttempt } from './learnerQuestionPrompt';
+import type { LessonAudioClip } from './lessonAudioClips';
 
 export type Language = 'en' | 'es';
 
@@ -158,6 +159,15 @@ export type TTSAdapter = {
     lang: Language,
     phraseName?: string,
     options?: TtsAdapterOptions,
+  ) => Promise<void>;
+  /**
+   * Optional lesson-wide warm-up: presign every clip in one request, then load
+   * clips in the background in list order. Per-card `prefetch`/`play` keep
+   * working while this runs and reuse whatever it has already fetched.
+   */
+  preloadLesson?: (
+    clips: readonly LessonAudioClip[],
+    options?: { s3LessonSegment?: string; signal?: AbortSignal },
   ) => Promise<void>;
   stop: () => void;
 };
