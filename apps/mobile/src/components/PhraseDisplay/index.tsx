@@ -217,13 +217,7 @@ export const PhraseDisplay = ({
             onShowAnswer={display.handleShowAnswer}
             showMicChrome={display.status !== "recordingPriming"}
             error={stt.error}
-            onClearSpokenCaption={
-              (display.status === "tryAgain" ||
-                display.currentPhrase.type === "new" ||
-                !display.hasUsedClearSpokenCaptionOnCurrentCard)
-                ? display.handleClearSpokenCaption
-                : undefined
-            }
+            onClearSpokenCaption={display.handleClearSpokenCaption}
             replaySpanishMedium={
               display.showReplaySpanishMedium
                 ? {

@@ -256,8 +256,6 @@ export type PhraseDisplayAPI = {
   handleTryAgain: () => void;
   /** Clears the in-progress spoken caption and immediately resumes listening. */
   handleClearSpokenCaption: () => void;
-  /** True once clear-caption was used on a limited-clear pass of this card. */
-  hasUsedClearSpokenCaptionOnCurrentCard: boolean;
   /**
    * `exitToLoading`: set when another card will load — leaves the feedback
    * screen in the same paint as clearing STT, before `advance()` updates the

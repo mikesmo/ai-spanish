@@ -40,7 +40,6 @@ export const UserRecording = ({
     showMicChrome &&
     !isReplaySpanishAudioPlaying &&
     !isCorrect &&
-    transcription.trim().length > 0 &&
     onClearSpokenCaption != null;
 
   return (

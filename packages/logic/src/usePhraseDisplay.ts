@@ -157,8 +157,6 @@ export function usePhraseDisplay(
     useState<LearnerLastAttempt | null>(null);
   const [hasUsedTryAgainOnCurrentCard, setHasUsedTryAgainOnCurrentCard] =
     useState(false);
-  const [hasUsedClearSpokenCaptionOnCurrentCard, setHasUsedClearSpokenCaptionOnCurrentCard] =
-    useState(false);
   const [isFirstSessionPresentationOfCurrentPhrase, setIsFirstOfCurrentPhrase] =
     useState(true);
   const [isExplainAckOpen, setIsExplainAckOpen] = useState(false);
@@ -664,7 +662,6 @@ export function usePhraseDisplay(
     setLastScoreBreakdown(null);
     setLastAttemptDetail(null);
     setHasUsedTryAgainOnCurrentCard(false);
-    setHasUsedClearSpokenCaptionOnCurrentCard(false);
     setIsExplainAckOpen(false);
     setChainedFeedbackExplainAudioActive(false);
     feedbackExplainAckPendingAfterInterruptRef.current = false;
@@ -1135,12 +1132,6 @@ export function usePhraseDisplay(
     const currentStatus = statusRef.current;
     if (currentStatus !== 'recording' && currentStatus !== 'tryAgain') return;
     if (isExplainAckOpen) return;
-    const isUnlimitedClear =
-      currentStatus === 'tryAgain' || currentPhrase.type === 'new';
-    if (!isUnlimitedClear && hasUsedClearSpokenCaptionOnCurrentCard) return;
-    if (!isUnlimitedClear) {
-      setHasUsedClearSpokenCaptionOnCurrentCard(true);
-    }
     attemptEmittedRef.current = false;
     firstIsFinalAtRef.current = null;
     sttRef.current.clearTranscription();
@@ -1345,7 +1336,6 @@ export function usePhraseDisplay(
     stopAnswerAudio,
     handleTryAgain,
     handleClearSpokenCaption,
-    hasUsedClearSpokenCaptionOnCurrentCard,
     handleNext,
     handleReplay,
     showReplaySpanishMedium,
