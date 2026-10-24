@@ -19,7 +19,7 @@ import {
   usePhraseDisplayWithDeck,
 } from "@ai-spanish/logic";
 import { useS3TTS, useSTT } from "@ai-spanish/ai";
-import { playSuccessChime } from "@/lib/playSuccessChime";
+import { playSuccessChime, prefetchSuccessChime } from "@/lib/playSuccessChime";
 import { postLessonCompletion } from "@/lib/postLessonCompletion";
 import { webLessonProgressFetcher } from "@/lib/lessonProgressApi";
 import { postGrammarGrading } from "@/lib/grammarGrading";
@@ -55,6 +55,10 @@ export const PhraseDisplay = ({
     playSuccessChime,
     s3LessonSegment: s3LessonFolderForTranscriptLessonId(lessonId),
   });
+
+  useEffect(() => {
+    void prefetchSuccessChime().catch(() => {});
+  }, []);
 
   const { bindCurrentPhrase } = session;
   useEffect(() => {
@@ -250,6 +254,7 @@ export const PhraseDisplay = ({
           transcription={display.caption}
           isRecording={stt.isRecording}
           isCorrect={display.isCorrect}
+          isSuccessCelebrationVisible={display.isSuccessCelebrationVisible}
           onShowAnswer={display.handleShowAnswer}
           showMicChrome={display.status !== "recordingPriming"}
           onClearSpokenCaption={

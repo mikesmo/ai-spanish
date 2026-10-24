@@ -1,5 +1,8 @@
 import { Audio } from "expo-av";
-import { fetchPackageAudioUri } from "./fetchPackageAudioUri";
+import {
+  fetchPackageAudioUri,
+  prefetchPackageAudio,
+} from "./fetchPackageAudioUri";
 
 function abortError(): Error {
   const e = new Error("Aborted");
@@ -7,13 +10,27 @@ function abortError(): Error {
   return e;
 }
 
+export interface PlaySuccessChimeOptions {
+  /** Called when playback is about to start (after the clip is ready). */
+  onStart?: () => void;
+}
+
+/** Prefetches the success chime into the on-disk cache. */
+export function prefetchSuccessChime(): Promise<string> {
+  return prefetchPackageAudio("success");
+}
+
 /**
  * Plays the success clip from the authenticated package-audio API.
  */
-export async function playSuccessChime(signal: AbortSignal): Promise<void> {
+export async function playSuccessChime(
+  signal: AbortSignal,
+  opts?: PlaySuccessChimeOptions,
+): Promise<void> {
   if (signal.aborted) throw abortError();
 
   const uri = await fetchPackageAudioUri("success");
+  if (signal.aborted) throw abortError();
 
   await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
   const { sound } = await Audio.Sound.createAsync({ uri });
@@ -51,8 +68,11 @@ export async function playSuccessChime(signal: AbortSignal): Promise<void> {
         }
       });
 
+      opts?.onStart?.();
       void sound.playAsync().catch((err: unknown) => {
-        finish(() => reject(err instanceof Error ? err : new Error(String(err))));
+        finish(() =>
+          reject(err instanceof Error ? err : new Error(String(err))),
+        );
       });
     });
   } finally {

@@ -24,7 +24,7 @@ import {
 } from "@ai-spanish/logic";
 import { useSTT, useS3TTS } from "@ai-spanish/ai";
 import { useQueryClient } from "@tanstack/react-query";
-import { playSuccessChime } from "../../lib/playSuccessChime";
+import { playSuccessChime, prefetchSuccessChime } from "../../lib/playSuccessChime";
 import { postLessonCompletion } from "../../services/lessonCompletion.service";
 import { mobileLessonProgressFetcher } from "../../services/lessonProgressTransport";
 import type { PhraseDisplayProps } from "./PhraseDisplay.types";
@@ -53,6 +53,10 @@ export const PhraseDisplay = ({
     playSuccessChime,
     s3LessonSegment: s3LessonFolderForTranscriptLessonId(lessonId),
   });
+
+  useEffect(() => {
+    void prefetchSuccessChime().catch(() => {});
+  }, []);
 
   const explainAckOkayRef = useRef(display.handleExplainAckOkay);
   explainAckOkayRef.current = display.handleExplainAckOkay;
@@ -209,6 +213,7 @@ export const PhraseDisplay = ({
             transcription={display.caption}
             isRecording={stt.isRecording}
             isCorrect={display.isCorrect}
+            isSuccessCelebrationVisible={display.isSuccessCelebrationVisible}
             onShowAnswer={display.handleShowAnswer}
             showMicChrome={display.status !== "recordingPriming"}
             onClearSpokenCaption={

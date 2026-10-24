@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
       status: 200,
       headers: {
         'Content-Type': 'audio/mpeg',
-        'Cache-Control': 'private, no-store',
+        'Cache-Control': 'private, max-age=86400',
       },
     });
   } catch (err) {

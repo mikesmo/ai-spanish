@@ -226,6 +226,11 @@ export type PhraseDisplayAPI = {
   spanishText: string;
   caption: string;
   isCorrect: boolean;
+  /**
+   * True when the success chime starts (or fails to start) during recording.
+   * Drives the "Bien hecho" label so it appears with the sound, not before.
+   */
+  isSuccessCelebrationVisible: boolean;
   isAudioPlaying: boolean;
   /**
    * False until the first card's opening English clip is ready to play

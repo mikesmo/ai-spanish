@@ -49,11 +49,22 @@ import type { LearnerLastAttempt } from './learnerQuestionPrompt';
 
 const PLAYBACK_RATES: Record<'1x' | 'slow', number> = { '1x': 1.0, slow: 0.5 };
 
-const noopSuccessChime = async (_signal: AbortSignal): Promise<void> => {};
+export type PlaySuccessChimeOptions = {
+  /** Called when playback is about to start (after the clip is ready). */
+  onStart?: () => void;
+};
+
+const noopSuccessChime = async (
+  _signal: AbortSignal,
+  _opts?: PlaySuccessChimeOptions,
+): Promise<void> => {};
 
 export type UsePhraseDisplayOptions = {
-  /** Web: play a short success sound; must resolve when finished or reject on abort. */
-  playSuccessChime?: (signal: AbortSignal) => Promise<void>;
+  /** Play a short success sound; must resolve when finished or reject on abort. */
+  playSuccessChime?: (
+    signal: AbortSignal,
+    opts?: PlaySuccessChimeOptions,
+  ) => Promise<void>;
   /**
    * Called once per attempt / practice-attempt / reveal. Host apps wire this
    * up to a ProgressStore + SessionEngine to drive mastery and SRS.
@@ -160,6 +171,12 @@ export function usePhraseDisplay(
   const [followUpPlaybackCompleted, setFollowUpPlaybackCompleted] =
     useState(false);
   const [isReplaySpanishMediumPlaying, setIsReplaySpanishMediumPlaying] =
+    useState(false);
+  /**
+   * True once the success chime has started (or failed to load). Gates the
+   * "Bien hecho" label so it appears with the sound, not before.
+   */
+  const [isSuccessCelebrationVisible, setIsSuccessCelebrationVisible] =
     useState(false);
   const isFirstOfCurrentPhraseForBootstrapRef = useRef(true);
   /**
@@ -652,6 +669,7 @@ export function usePhraseDisplay(
     setChainedFeedbackExplainAudioActive(false);
     feedbackExplainAckPendingAfterInterruptRef.current = false;
     setFollowUpPlaybackCompleted(false);
+    setIsSuccessCelebrationVisible(false);
     attemptEmittedRef.current = false;
     answerAudioInFlightRef.current = false;
     firstIsFinalAtRef.current = null;
@@ -941,8 +959,8 @@ export function usePhraseDisplay(
     }
   }, [stt.isFinal]);
 
-  // Correct: chime, then pause, then Spanish answer. Attempt/PracticeAttempt
-  // event is emitted before the answer plays.
+  // Correct: chime (in parallel with STT stop), then pause, then Spanish answer.
+  // Attempt/PracticeAttempt event is emitted before the answer plays.
   useEffect(() => {
     if (!isCorrect || (status !== 'recording' && status !== 'tryAgain')) {
       return;
@@ -950,15 +968,29 @@ export function usePhraseDisplay(
 
     const ac = new AbortController();
     let postSoundTimer: ReturnType<typeof setTimeout> | null = null;
+    let celebrationShown = false;
+
+    const showCelebration = (): void => {
+      if (celebrationShown || ac.signal.aborted || !isMountedRef.current) return;
+      celebrationShown = true;
+      setIsSuccessCelebrationVisible(true);
+    };
 
     void (async () => {
-      await Promise.resolve(sttRef.current.stop());
+      const stopPromise = Promise.resolve(sttRef.current.stop());
+      const chimePromise = playSuccessChimeRef.current(ac.signal, {
+        onStart: showCelebration,
+      });
+
+      await stopPromise;
       if (ac.signal.aborted) return;
 
       try {
-        await playSuccessChimeRef.current(ac.signal);
+        await chimePromise;
+        showCelebration();
       } catch {
         if (ac.signal.aborted) return;
+        showCelebration();
       }
       if (ac.signal.aborted) return;
 
@@ -1080,6 +1112,7 @@ export function usePhraseDisplay(
     feedbackExplainAckPendingAfterInterruptRef.current = false;
     setIsExplainAckOpen(false);
     setChainedFeedbackExplainAudioActive(false);
+    setIsSuccessCelebrationVisible(false);
     setIsAudioPlaying(false);
     ttsRef.current.stop();
     sttRef.current.clearTranscription();
@@ -1299,6 +1332,7 @@ export function usePhraseDisplay(
     spanishText,
     caption,
     isCorrect,
+    isSuccessCelebrationVisible,
     isAudioPlaying,
     isOpeningAudioReady,
     isEnglishExplainDominatingLessonControls,

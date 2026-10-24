@@ -20,6 +20,7 @@ export const UserRecording = ({
   transcription,
   isRecording,
   isCorrect,
+  isSuccessCelebrationVisible = false,
   onShowAnswer,
   showMicChrome = true,
   replaySpanishMedium,
@@ -50,7 +51,7 @@ export const UserRecording = ({
       </div>
     ) : null}
 
-    {isCorrect ? (
+    {isSuccessCelebrationVisible ? (
       <div className="pointer-events-none absolute left-1/2 top-[calc(40%_-_60px_-_1.5rem)] z-0 flex w-full -translate-x-1/2 -translate-y-full flex-col items-center">
         <div className="flex shrink-0 items-center justify-center gap-2">
           <svg

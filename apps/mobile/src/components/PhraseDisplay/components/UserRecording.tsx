@@ -29,6 +29,7 @@ export const UserRecording = ({
   transcription,
   isRecording,
   isCorrect,
+  isSuccessCelebrationVisible = false,
   onShowAnswer,
   showMicChrome = true,
   replaySpanishMedium,
@@ -107,7 +108,7 @@ export const UserRecording = ({
         </View>
       ) : null}
 
-      {hero != null && isCorrect ? (
+      {hero != null && isSuccessCelebrationVisible ? (
         <View style={[styles.aboveLabel, { top: hero.aboveCircleLabelTop }]}>
           <View style={styles.bienHechoRow}>
             <Feather name="check-circle" size={20} color="#1D9E75" />

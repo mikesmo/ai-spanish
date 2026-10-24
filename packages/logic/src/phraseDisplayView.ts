@@ -145,6 +145,11 @@ export type UserRecordingViewProps = {
   transcription: string;
   isRecording: boolean;
   isCorrect: boolean;
+  /**
+   * When true, show "Bien hecho" (synced to success-chime playback start).
+   * Independent of exact-match `isCorrect`, which can flip earlier.
+   */
+  isSuccessCelebrationVisible?: boolean;
   onShowAnswer: () => void;
   /** When false, hide mic circle and recording affordances (e.g. recordingPriming). */
   showMicChrome?: boolean;
