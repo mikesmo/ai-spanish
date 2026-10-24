@@ -1,4 +1,12 @@
-import { AppState, BackHandler, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  AppState,
+  BackHandler,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useEffect, useRef } from "react";
 import {
   buildDeckFingerprint,
@@ -258,6 +266,12 @@ export const PhraseDisplay = ({
         newWords={display.currentPhrase.Spanish.newWords}
         lastAttempt={display.lastAttemptDetail}
       />
+      {!display.isOpeningAudioReady ? (
+        <View style={styles.openingCover}>
+          <ActivityIndicator />
+          <Text style={styles.openingCoverText}>Loading lesson...</Text>
+        </View>
+      ) : null}
     </View>
   );
 };
@@ -325,5 +339,16 @@ const styles = StyleSheet.create({
     flex: 1,
     width: "100%",
     minHeight: 0,
+  },
+  openingCover: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+    backgroundColor: "#ffffff",
+    zIndex: 50,
+  },
+  openingCoverText: {
+    color: "#6b7280",
   },
 });

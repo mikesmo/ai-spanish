@@ -137,6 +137,8 @@ export function usePhraseDisplay(
   const [currentIndex, setCurrentIndex] = useState(0);
   const [status, setStatus] = useState<UIStatus>('loading');
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const [isOpeningAudioReady, setIsOpeningAudioReady] = useState(false);
+  const isOpeningAudioReadyRef = useRef(false);
   const [speed, setSpeed] = useState<'1x' | 'slow'>('1x');
   const [lastScoreBreakdown, setLastScoreBreakdown] =
     useState<ScoreBreakdown | null>(null);
@@ -712,6 +714,13 @@ export function usePhraseDisplay(
     // aborting in-flight /api/audio during HMR or a duplicate effect run only
     // produced NS_BINDING_ABORTED noise and a redundant second fetch.
 
+    const releaseOpeningAudioGate = (): void => {
+      if (bootstrapSignal.aborted || !isMountedRef.current) return;
+      if (isOpeningAudioReadyRef.current) return;
+      isOpeningAudioReadyRef.current = true;
+      setIsOpeningAudioReady(true);
+    };
+
     const init = async () => {
       try {
         const hintedName = phraseNameRef.current;
@@ -764,6 +773,7 @@ export function usePhraseDisplay(
         if (bootstrapSignal.aborted) return;
         if (!isMountedRef.current) return;
         sttRef.current.prefetchAuth?.();
+        releaseOpeningAudioGate();
         setStatus('idle');
         setIsAudioPlaying(true);
         await ttsRef.current.play(
@@ -868,6 +878,7 @@ export function usePhraseDisplay(
         }
         if (isMountedRef.current) {
           console.error('[usePhraseDisplay] Error loading phrase audio:', error);
+          releaseOpeningAudioGate();
           setStatus('idle');
           setIsAudioPlaying(false);
         }
@@ -1289,6 +1300,7 @@ export function usePhraseDisplay(
     caption,
     isCorrect,
     isAudioPlaying,
+    isOpeningAudioReady,
     isEnglishExplainDominatingLessonControls,
     speed,
     setSpeed,
