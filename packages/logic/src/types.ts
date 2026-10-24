@@ -227,6 +227,12 @@ export type PhraseDisplayAPI = {
   caption: string;
   isCorrect: boolean;
   isAudioPlaying: boolean;
+  /**
+   * False until the first card's opening English clip is ready to play
+   * (or that load fails). Stays true for the rest of the session so later
+   * cards can use the AI circle spinner.
+   */
+  isOpeningAudioReady: boolean;
   speed: '1x' | 'slow';
   setSpeed: (s: '1x' | 'slow') => void;
   handleShowAnswer: () => void;
