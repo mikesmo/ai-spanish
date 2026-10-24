@@ -117,7 +117,7 @@ export const UserRecording = ({
       ) : hero != null ? (
         <View style={[styles.aboveLabel, { top: hero.aboveCircleLabelTop }]}>
           <View style={styles.nowYouTryRow}>
-            <Text style={styles.diffLabel}>Now you try</Text>
+            <Text style={styles.diffLabel}>NOW YOU TRY</Text>
           </View>
         </View>
       ) : null}
@@ -331,10 +331,10 @@ const styles = StyleSheet.create({
     color: "#ffffff",
   },
   englishLine: {
-    fontSize: 15,
+    fontSize: 18,
     color: "#6B7280",
     textAlign: "center",
-    lineHeight: 22,
+    lineHeight: 26,
   },
   spanishTarget: {
     fontSize: 18,
@@ -344,7 +344,8 @@ const styles = StyleSheet.create({
     lineHeight: 26,
   },
   englishText: {
-    fontSize: 15,
+    fontSize: 18,
+    lineHeight: 26,
     color: "#999",
     textAlign: "center",
     maxWidth: 280,

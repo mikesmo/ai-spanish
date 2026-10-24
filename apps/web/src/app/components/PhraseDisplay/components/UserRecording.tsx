@@ -201,7 +201,7 @@ export const UserRecording = ({
       {displaySpanishLine ? (
         <div className="flex max-w-[280px] flex-col items-center gap-1 self-center">
           {showEnglishInHint ? (
-            <p className="text-center text-[15px] leading-snug text-gray-500">{englishText}</p>
+            <p className="text-center text-[18px] leading-relaxed text-gray-500">{englishText}</p>
           ) : null}
           <p className="text-center text-[18px] font-medium leading-relaxed text-[#1D1D1D]">
             {displaySpanishLine}
@@ -209,7 +209,7 @@ export const UserRecording = ({
         </div>
       ) : (
         <p
-          className="max-w-[280px] self-center text-center text-[15px] text-gray-400"
+          className="max-w-[280px] self-center text-center text-[18px] leading-relaxed text-gray-400"
           style={{ opacity: 0.45 }}
         >
           {englishText}
