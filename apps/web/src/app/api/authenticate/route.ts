@@ -4,6 +4,9 @@ import { assertApiUser } from "@/lib/auth/assert-api-user";
 
 export const revalidate = 0;
 
+/** Module-scope Deepgram project id so we skip getProjects on every key mint. */
+let cachedProjectId: string | null = null;
+
 export async function GET(request: NextRequest) {
   // exit early so we don't request 70000000 keys while in devmode
   if (process.env.DEEPGRAM_ENV === "development") {
@@ -19,26 +22,39 @@ export async function GET(request: NextRequest) {
   const url = request.url;
   const deepgram = createClient(process.env.DEEPGRAM_API_KEY ?? "");
 
-  const { result: projectsResult, error: projectsError } =
-    await deepgram.manage.getProjects();
+  let projectId = cachedProjectId;
+  if (!projectId) {
+    const { result: projectsResult, error: projectsError } =
+      await deepgram.manage.getProjects();
 
-  if (projectsError) {
-    return NextResponse.json(projectsError, { status: 500 });
+    if (projectsError) {
+      return NextResponse.json(projectsError, { status: 500 });
+    }
+
+    const project = projectsResult?.projects[0];
+
+    if (!project) {
+      return NextResponse.json(
+        new DeepgramError(
+          "Cannot find a Deepgram project. Please create a project first."
+        ),
+        { status: 500 }
+      );
+    }
+
+    projectId = project.project_id;
+    cachedProjectId = projectId;
   }
 
-  const project = projectsResult?.projects[0];
-
-  if (!project) {
+  if (!projectId) {
     return NextResponse.json(
-      new DeepgramError(
-        "Cannot find a Deepgram project. Please create a project first."
-      ),
-      { status: 500 }
+      new DeepgramError("Cannot find a Deepgram project. Please create a project first."),
+      { status: 500 },
     );
   }
 
   const { result: newKeyResult, error: newKeyError } =
-    await deepgram.manage.createProjectKey(project.project_id, {
+    await deepgram.manage.createProjectKey(projectId, {
       comment: "Temporary API key",
       scopes: ["usage:write"],
       tags: ["next.js"],
@@ -46,6 +62,7 @@ export async function GET(request: NextRequest) {
     });
 
   if (newKeyError) {
+    cachedProjectId = null;
     return NextResponse.json(newKeyError, { status: 500 });
   }
 

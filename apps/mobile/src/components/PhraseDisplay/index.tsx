@@ -216,6 +216,7 @@ export const PhraseDisplay = ({
             isSuccessCelebrationVisible={display.isSuccessCelebrationVisible}
             onShowAnswer={display.handleShowAnswer}
             showMicChrome={display.status !== "recordingPriming"}
+            error={stt.error}
             onClearSpokenCaption={
               (display.status === "tryAgain" ||
                 display.currentPhrase.type === "new" ||

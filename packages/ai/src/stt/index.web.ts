@@ -4,15 +4,23 @@ import { useMicrophone, MicrophoneState } from './web/useMicrophone';
 import type {
   SpeechToTextHandle,
   SpokenWord,
+  SttConnectionState,
+  SttPrewarmOptions,
   SttStartOptions,
+  SttStartupPath,
+  SttStartupTimeline,
 } from '@ai-spanish/logic';
 import {
+  createSttAudioRingBuffer,
   getDefaultLearningPipelineDebug,
   logSttAdapterStart,
   logSttAdapterStop,
   logSttClear,
   logSttSegment,
+  logSttStartupTimeline,
   logSttUtteranceEnd,
+  reduceAcceptGate,
+  selectSttStartPath,
   toDeepgramLiveKeywordParams,
 } from '@ai-spanish/logic';
 
@@ -94,6 +102,7 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
   const {
     connectionState,
     connectionStateRef,
+    connectingRef,
     connectionFailedSignal,
     onTranscriptRef,
     onUtteranceEndRef,
@@ -101,7 +110,26 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
     disconnectFromDeepgram,
     finalizeUtterance,
     sendVoiceData,
+    sendBlob,
+    prefetchApiKey,
   } = useDeepgramConnection();
+
+  const ringBufferRef = useRef(
+    createSttAudioRingBuffer<Blob>((b) => b.size),
+  );
+  const connectedKeywordsRef = useRef<string[]>([]);
+  const clearStartedAtRef = useRef<number | null>(null);
+  const timelineRef = useRef<SttStartupTimeline>({
+    t0: Date.now(),
+    path: 'cold',
+    micLiveMs: null,
+    wsOpenMs: null,
+    firstChunkMs: null,
+    audioChunkCount: 0,
+    firstTranscriptMs: null,
+    bufferedChunksFlushed: 0,
+    clearToGateReopenMs: null,
+  });
 
   const {
     microphoneState,
@@ -110,7 +138,24 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
     stopMicrophone,
     teardownMicrophone,
     isStreamReady,
-  } = useMicrophone(sendVoiceData);
+  } = useMicrophone((ev) => {
+    if (
+      connectionStateRef.current === LiveConnectionState.OPEN
+    ) {
+      sendVoiceData(ev);
+      if (timelineRef.current.firstChunkMs === null && ev.data.size > 0) {
+        timelineRef.current.firstChunkMs = Date.now() - timelineRef.current.t0;
+        timelineRef.current.audioChunkCount += 1;
+        logSttStartupTimeline({ ...timelineRef.current });
+      } else if (ev.data.size > 0) {
+        timelineRef.current.audioChunkCount += 1;
+      }
+      return;
+    }
+    if (ev.data.size > 0) {
+      ringBufferRef.current.push(ev.data);
+    }
+  });
 
   const microphoneStateRef = useRef<MicrophoneState>(microphoneState);
   microphoneStateRef.current = microphoneState;
@@ -141,6 +186,7 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
   const [caption, setCaption] = useState('');
   const [isFinal, setIsFinal] = useState(false);
   const [words, setWords] = useState<SpokenWord[]>([]);
+  const [sttError, setSttError] = useState<string | null>(null);
   const paragraphRef = useRef('');
   const lastCaptionRef = useRef('');
   const finalizedWordsRef = useRef<SpokenWord[]>([]);
@@ -241,20 +287,30 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
     // this is our real utterance-close signal. is_final=true alone only means
     // a chunk of words has been frozen — the utterance can still continue.
     const isSpeechFinal = d?.speech_final ?? false;
+    const fromFinalize = (data as { from_finalize?: boolean }).from_finalize === true;
     const rawWords = alt?.words ?? [];
-    if (!acceptingTranscriptsRef.current) {
-      // Drop pre-clear leftover events. Re-open the gate when we observe
-      // the post-`Finalize` flush — empirically this is the first
-      // `is_final=true` arriving after `clearTranscription`, regardless
-      // of `speech_final` (Deepgram emits speech_final inconsistently
-      // for the Finalize-induced flush). The flush event itself still
-      // carries the cumulative pre-clear text, so we drop it via the
-      // early return below. The very next interim belongs to the fresh
-      // utterance Deepgram starts after flushing.
-      if (isFinalChunk) {
-        acceptingTranscriptsRef.current = true;
-      }
+    const gate = reduceAcceptGate(
+      { accepting: acceptingTranscriptsRef.current },
+      { type: 'transcript', isFinal: isFinalChunk, fromFinalize },
+    );
+    acceptingTranscriptsRef.current = gate.accepting;
+    if (
+      clearStartedAtRef.current !== null &&
+      gate.accepting
+    ) {
+      timelineRef.current.clearToGateReopenMs =
+        Date.now() - clearStartedAtRef.current;
+      timelineRef.current.finalizeFlushPayload = data;
+      clearStartedAtRef.current = null;
+      logSttStartupTimeline({ ...timelineRef.current });
+    }
+    if (!gate.acceptEvent) {
       return;
+    }
+    if (timelineRef.current.firstTranscriptMs === null && transcript !== '') {
+      timelineRef.current.firstTranscriptMs =
+        Date.now() - timelineRef.current.t0;
+      logSttStartupTimeline({ ...timelineRef.current });
     }
 
     const segmentWords: SpokenWord[] = rawWords
@@ -394,9 +450,17 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
       );
     }
     if (!acceptingTranscriptsRef.current) {
-      // Post-clear closer: re-open the gate, drop this event (it belongs to
-      // the pre-clear utterance that we forced shut via `Finalize`).
-      acceptingTranscriptsRef.current = true;
+      const gate = reduceAcceptGate(
+        { accepting: false },
+        { type: 'transcript', isFinal: true, fromFinalize: true },
+      );
+      acceptingTranscriptsRef.current = gate.accepting;
+      if (clearStartedAtRef.current !== null) {
+        timelineRef.current.clearToGateReopenMs =
+          Date.now() - clearStartedAtRef.current;
+        clearStartedAtRef.current = null;
+        logSttStartupTimeline({ ...timelineRef.current });
+      }
       return;
     }
     if (!watchdogWasArmed) {
@@ -436,30 +500,72 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
       : baseOptions;
   };
 
+  const requestedKeywordParams = (): string[] => {
+    const kws = nextKeywordsRef.current;
+    return kws.length > 0 ? toDeepgramLiveKeywordParams(kws) : [];
+  };
+
+  const currentConnState = (): SttConnectionState => {
+    if (connectionStateRef.current === LiveConnectionState.OPEN) return 'open';
+    if (connectingRef.current) return 'connecting';
+    return 'closed';
+  };
+
   const start = (options?: SttStartOptions) => {
     if (options?.signal?.aborted) {
       return;
     }
+    setSttError(null);
     isIntentionalStop.current = false;
     isUserStarted.current = true;
-    // Only re-open the accept-gate when a fresh WebSocket will be created
-    // (paths `connect-direct` and `setupMic-async`). On `startMic-direct`
-    // the WS is already OPEN and `start()` may follow a `clearTranscription`
-    // that intentionally closed the gate — we must NOT clobber it; the
-    // gate will reopen when Deepgram emits the post-`Finalize` closer.
-    if (connectionStateRef.current !== LiveConnectionState.OPEN) {
-      acceptingTranscriptsRef.current = true;
-    }
     nextKeywordsRef.current = options?.keywords ?? [];
+    const requested = requestedKeywordParams();
+    const machinePath = selectSttStartPath({
+      connectionState: currentConnState(),
+      connectedKeywords: connectedKeywordsRef.current,
+      requestedKeywords: requested,
+    });
 
-    // Three-way branch over the current (mic, conn) state (use `microphoneStateRef` — not stale state).
-    //   - conn OPEN                → startMic-direct (fast path; pre-warm was on)
-    //   - mic Ready, conn not OPEN → connect-direct (mic warm from prior attempt,
-    //                                 WS closed by last stop; open a fresh WS now)
-    //   - mic NotSetup / Stopped   → setupMic-async (cold start; mic-Ready effect
-    //                                 will then connect, gated on isUserStarted)
-    const path: 'startMic-direct' | 'connect-direct' | 'setupMic-async' =
-      connectionStateRef.current === LiveConnectionState.OPEN
+    if (microphoneStateRef.current === MicrophoneState.Open) {
+      if (debugRef.current) {
+        logSttAdapterStart({
+          connState: String(connectionStateRef.current),
+          micState: String(microphoneStateRef.current),
+          path: 'startMic-direct',
+          keywords: nextKeywordsRef.current,
+        });
+      }
+      armInitialSilenceOnce();
+      return;
+    }
+
+    const opened = reduceAcceptGate(
+      { accepting: acceptingTranscriptsRef.current },
+      { type: 'openAfterStoppedMic' },
+    );
+    acceptingTranscriptsRef.current = opened.accepting;
+
+    const logPath: SttStartupPath =
+      machinePath === 'warm'
+        ? 'warm'
+        : microphoneStateRef.current === MicrophoneState.Ready && isStreamReady()
+          ? 'connect'
+          : 'cold';
+    timelineRef.current = {
+      t0: Date.now(),
+      path: logPath,
+      micLiveMs: null,
+      wsOpenMs: null,
+      firstChunkMs: null,
+      audioChunkCount: 0,
+      firstTranscriptMs: null,
+      bufferedChunksFlushed: 0,
+      clearToGateReopenMs: null,
+    };
+    ringBufferRef.current.clear();
+
+    const adapterPath: 'startMic-direct' | 'connect-direct' | 'setupMic-async' =
+      machinePath === 'warm'
         ? 'startMic-direct'
         : microphoneStateRef.current === MicrophoneState.Ready && isStreamReady()
           ? 'connect-direct'
@@ -469,27 +575,60 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
       logSttAdapterStart({
         connState: String(connectionStateRef.current),
         micState: String(microphoneStateRef.current),
-        path,
+        path: adapterPath,
         keywords: nextKeywordsRef.current,
       });
     }
 
-    if (path === 'startMic-direct') {
+    if (machinePath === 'keyword-mismatch') {
+      void disconnectFromDeepgram();
+    }
+
+    if (machinePath === 'warm') {
       startMicrophone();
-      // WS already open, mic starting synchronously from here — arm the
-      // no-speech-ever safety net now. The connectionState useEffect won't
-      // re-fire (edge-triggered) so this is the only arming point for this
-      // path.
+      timelineRef.current.micLiveMs = 0;
+      logSttStartupTimeline({ ...timelineRef.current });
       armInitialSilenceOnce();
-    } else if (path === 'connect-direct') {
-      // Mic stack is warm from a prior attempt (setupMicrophone is now
-      // idempotent and stopMicrophone leaves us in Ready), but the WS was
-      // closed by the adapter.stop() that ended the previous attempt. Open
-      // a fresh WS with the current keyword bias; the WS-open effect will
-      // call startMicrophone() once it connects and isUserStarted is true.
-      connectToDeepgram(buildConnectOptions());
+      return;
+    }
+
+    if (microphoneStateRef.current === MicrophoneState.Ready && isStreamReady()) {
+      startMicrophone();
+      timelineRef.current.micLiveMs = 0;
+      logSttStartupTimeline({ ...timelineRef.current });
+      armInitialSilenceOnce();
     } else {
       setupMicrophone();
+    }
+
+    if (
+      connectionStateRef.current !== LiveConnectionState.OPEN &&
+      !connectingRef.current
+    ) {
+      connectToDeepgram(buildConnectOptions());
+    }
+  };
+
+  const prewarm = (options?: SttPrewarmOptions) => {
+    if (options?.signal?.aborted) return;
+    nextKeywordsRef.current = options?.keywords ?? [];
+    void prefetchApiKey();
+    void setupMicrophone();
+    const requested = requestedKeywordParams();
+    const path = selectSttStartPath({
+      connectionState: currentConnState(),
+      connectedKeywords: connectedKeywordsRef.current,
+      requestedKeywords: requested,
+    });
+    if (path === 'warm') return;
+    if (path === 'keyword-mismatch') {
+      void disconnectFromDeepgram();
+    }
+    if (
+      connectionStateRef.current !== LiveConnectionState.OPEN &&
+      !connectingRef.current
+    ) {
+      connectToDeepgram(buildConnectOptions());
     }
   };
 
@@ -511,7 +650,10 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
     reconnectAttempts.current = 0;
     clearWatchdog();
     await stopMicrophone();
+    finalizeUtterance();
     await disconnectFromDeepgram();
+    connectedKeywordsRef.current = [];
+    ringBufferRef.current.clear();
   };
 
   const stop = (): Promise<void> => {
@@ -543,12 +685,13 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
     pendingInterimWordsRef.current = [];
     clearWatchdog();
     if (wsOpen) {
-      // Close the accept-gate before forcing Deepgram to flush. Deepgram
-      // will emit a final transcript carrying the cumulative pre-clear
-      // text (which the gate will drop) followed by a close signal
-      // (`is_final && speech_final` or `UtteranceEnd`) that re-opens the
-      // gate. The next interim then comes from a fresh utterance.
-      acceptingTranscriptsRef.current = false;
+      const gate = reduceAcceptGate(
+        { accepting: acceptingTranscriptsRef.current },
+        { type: 'close' },
+      );
+      acceptingTranscriptsRef.current = gate.accepting;
+      clearStartedAtRef.current = Date.now();
+      timelineRef.current.path = 'clear';
       finalizeUtterance();
     }
   };
@@ -580,32 +723,48 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Connect to Deepgram once microphone is ready — but only if the user
-  // has called start(). Without this guard, completing setupMicrophone()
-  // (e.g. after a stop/start cycle leaves the mic Ready) would
-  // auto-open a WebSocket before the next start(), defeating the
-  // pre-warm-disabled policy.
+  // After setupMicrophone() from start() or prewarm: if the user already
+  // called start(), open the recorder immediately (spinner ends) and
+  // connect if needed. Prewarm leaves isUserStarted false so this does
+  // not start the recorder during TTS.
   useEffect(() => {
     if (microphoneState === MicrophoneState.Ready && isUserStarted.current) {
-      connectToDeepgram(buildConnectOptions());
+      startMicrophone();
+      if (timelineRef.current.micLiveMs === null) {
+        timelineRef.current.micLiveMs = Date.now() - timelineRef.current.t0;
+        logSttStartupTimeline({ ...timelineRef.current });
+      }
+      armInitialSilenceOnce();
+      if (
+        connectionStateRef.current !== LiveConnectionState.OPEN &&
+        !connectingRef.current
+      ) {
+        connectToDeepgram(buildConnectOptions());
+      }
     }
   }, [microphoneState]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Start microphone once connection opens (if user has called start()).
-  // Arm the initial-silence watchdog here so a zero-words-ever session
-  // (e.g. Firefox silent mic, or voice below ASR threshold) still force-
-  // closes instead of hanging the adapter.
+  // Flush buffered blobs when the socket opens. Start the recorder only if
+  // the user has called start() and it is not already open (prewarm opens
+  // the socket with isUserStarted false).
   useEffect(() => {
-    if (connectionState === LiveConnectionState.OPEN && isUserStarted.current) {
-      // A fresh WebSocket is a fresh utterance context. Re-open the
-      // accept-gate unconditionally so transcripts on this connection
-      // are processed. (No-op when already true; matters only when a
-      // prior `clearTranscription` closed the gate but the WS then
-      // closed unexpectedly and reconnected before the closer arrived.)
-      acceptingTranscriptsRef.current = true;
-      startMicrophone();
-      armInitialSilenceOnce();
+    if (connectionState !== LiveConnectionState.OPEN) return;
+    connectedKeywordsRef.current = requestedKeywordParams();
+    timelineRef.current.wsOpenMs = Date.now() - timelineRef.current.t0;
+    const flushed = ringBufferRef.current.flush();
+    timelineRef.current.bufferedChunksFlushed += flushed.length;
+    for (const blob of flushed) {
+      sendBlob(blob);
     }
+    logSttStartupTimeline({ ...timelineRef.current });
+    if (!isUserStarted.current) return;
+    if (microphoneState !== MicrophoneState.Open) {
+      startMicrophone();
+      if (timelineRef.current.micLiveMs === null) {
+        timelineRef.current.micLiveMs = Date.now() - timelineRef.current.t0;
+      }
+    }
+    armInitialSilenceOnce();
   }, [connectionState, microphoneState]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fast reconnect on unexpected disconnect
@@ -632,17 +791,22 @@ export function useSTT(hookOptions?: UseSttOptions): SpeechToTextHandle {
       reconnectTimer.current = setTimeout(() => {
         connectToDeepgram(buildConnectOptions());
       }, delay);
+    } else {
+      setSttError(
+        'Speech recognition could not connect. Check your network and try again.',
+      );
     }
   }, [connectionFailedSignal]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
     start,
+    prewarm,
     stop,
     isRecording: microphoneState === MicrophoneState.Open,
     caption,
     words,
     isFinal,
     clearTranscription,
-    error: null,
+    error: sttError,
   };
 }

@@ -34,6 +34,7 @@ export const UserRecording = ({
   showMicChrome = true,
   replaySpanishMedium,
   onClearSpokenCaption,
+  error,
 }: UserRecordingProps): JSX.Element => {
   const { width: windowWidth } = useWindowDimensions();
   const [hero, setHero] = useState<ReturnType<typeof getPhraseHeroLayout>>(null);
@@ -225,6 +226,7 @@ export const UserRecording = ({
       ) : null}
 
       <View style={styles.bottomControls}>
+        {error ? <Text style={styles.sttError}>{error}</Text> : null}
         <PillButton label="show answer" onPress={onShowAnswer} variant="secondary" />
       </View>
     </View>
@@ -419,5 +421,11 @@ const styles = StyleSheet.create({
   recordingLabel: {
     fontSize: 12,
     color: "#9ca3af",
+  },
+  sttError: {
+    fontSize: 13,
+    color: "#B42318",
+    textAlign: "center",
+    paddingHorizontal: 16,
   },
 });

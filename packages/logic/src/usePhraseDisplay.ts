@@ -790,7 +790,10 @@ export function usePhraseDisplay(
         await englishPrefetch;
         if (bootstrapSignal.aborted) return;
         if (!isMountedRef.current) return;
-        sttRef.current.prefetchAuth?.();
+        sttRef.current.prewarm({
+          keywords: deepgramLiveKeywordTokensForPhrase(currentPhrase),
+          signal: bootstrapSignal,
+        });
         releaseOpeningAudioGate();
         setStatus('idle');
         setIsAudioPlaying(true);

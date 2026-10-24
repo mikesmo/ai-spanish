@@ -134,7 +134,31 @@ export {
   logSttMicStartSkipped,
   logSttMicStop,
   logSttSegment,
+  logSttStartupTimeline,
   logSttUtteranceEnd,
+  type SttStartupPath,
+  type SttStartupTimeline,
+} from './learningPipelineDebug';
+export {
+  bumpSttEpoch,
+  createSttAudioRingBuffer,
+  isCurrentSttEpoch,
+  keywordsMatch,
+  reduceAcceptGate,
+  selectSttStartPath,
+  STT_AUDIO_BUFFER_MAX_BYTES,
+  STT_AUDIO_BUFFER_MAX_MS,
+  STT_PCM_BYTES_PER_MS,
+} from './sttSessionMachine';
+export type {
+  SttAcceptGateEvent,
+  SttAcceptGateResult,
+  SttAcceptGateState,
+  SttAudioRingBuffer,
+  SttConnectionState,
+  SttStartPath,
+} from './sttSessionMachine';
+export {
   logGrammarGradingStarted,
   logGrammarGradingResult,
   logGrammarGradingFailure,

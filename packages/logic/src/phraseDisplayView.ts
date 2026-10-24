@@ -157,6 +157,8 @@ export type UserRecordingViewProps = {
   replaySpanishMedium?: UserRecordingReplaySpanishMediumProps;
   /** Clears in-progress spoken caption and restarts recording. */
   onClearSpokenCaption?: () => void;
+  /** Last STT start/connect failure; screens stay presentational. */
+  error?: string | null;
 };
 
 export type UserFeedbackViewProps = {

@@ -5,6 +5,7 @@ import type { FluencyBreakdown } from './fluency';
 import { fluencyForMastery } from './mastery';
 import type { GrammarGradingRequest, GrammarGradingResult } from './grammarGrading';
 import type { SpokenWord, WordMeta } from './types';
+import { agentDebugLog } from './agentDebugLog';
 
 const PREFIX = '[ai-spanish/learn]';
 const STT_PREFIX = '[ai-spanish/stt]';
@@ -414,6 +415,56 @@ export function logSttDeepgramFirstBlobDropped(ctx: {
     connState: ctx.connState,
     hasConnRef: ctx.hasConnRef,
     blobSize: ctx.blobSize,
+  });
+}
+
+export type SttStartupPath = 'warm' | 'connect' | 'cold' | 'clear';
+
+export interface SttStartupTimeline {
+  t0: number;
+  path: SttStartupPath;
+  micLiveMs: number | null;
+  wsOpenMs: number | null;
+  firstChunkMs: number | null;
+  audioChunkCount: number;
+  firstTranscriptMs: number | null;
+  bufferedChunksFlushed: number;
+  clearToGateReopenMs: number | null;
+  finalizeFlushPayload?: unknown;
+}
+
+/**
+ * Milestone log for mic/WS startup. Always forwarded to `agentDebugLog`
+ * (no-op unless `EXPO_PUBLIC_AGENT_DEBUG_LOG=1`). Console output follows
+ * the usual learning-pipeline debug flag at the call site.
+ */
+export function logSttStartupTimeline(ctx: SttStartupTimeline): void {
+  console.log(`${STT_PREFIX} startup-timeline`, {
+    path: ctx.path,
+    micLiveMs: ctx.micLiveMs,
+    wsOpenMs: ctx.wsOpenMs,
+    firstChunkMs: ctx.firstChunkMs,
+    audioChunkCount: ctx.audioChunkCount,
+    firstTranscriptMs: ctx.firstTranscriptMs,
+    bufferedChunksFlushed: ctx.bufferedChunksFlushed,
+    clearToGateReopenMs: ctx.clearToGateReopenMs,
+    finalizeFlushPayload: ctx.finalizeFlushPayload ?? null,
+  });
+  agentDebugLog({
+    location: 'learningPipelineDebug.ts:stt-startup',
+    message: 'stt-startup-timeline',
+    data: {
+      path: ctx.path,
+      t0: ctx.t0,
+      micLiveMs: ctx.micLiveMs,
+      wsOpenMs: ctx.wsOpenMs,
+      firstChunkMs: ctx.firstChunkMs,
+      audioChunkCount: ctx.audioChunkCount,
+      firstTranscriptMs: ctx.firstTranscriptMs,
+      bufferedChunksFlushed: ctx.bufferedChunksFlushed,
+      clearToGateReopenMs: ctx.clearToGateReopenMs,
+      finalizeFlushPayload: ctx.finalizeFlushPayload ?? null,
+    },
   });
 }
 

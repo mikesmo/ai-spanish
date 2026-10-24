@@ -30,6 +30,7 @@ export function useDeepgramConnection() {
   const nextApiKeyRef = useRef<{ key: string; fetchedAt: number } | null>(null);
   const [connectionFailedSignal, setConnectionFailedSignal] = useState(0);
   const connectionIdRef = useRef(0);
+  const connectingRef = useRef(false);
 
   const getApiKey = async (): Promise<string> => {
     const response = await fetch("/api/authenticate", { cache: "no-store" });
@@ -68,6 +69,7 @@ export function useDeepgramConnection() {
   };
 
   const connectToDeepgram = useCallback(async (options: LiveSchema) => {
+    connectingRef.current = true;
     const kw = options.keywords;
     if (Array.isArray(kw) && kw.length > 0) {
       logSttDeepgramKeywordsSent(kw);
@@ -86,6 +88,7 @@ export function useDeepgramConnection() {
         key = await getApiKey();
       }
       if (connectionIdRef.current !== myId) {
+        connectingRef.current = false;
         return;
       }
 
@@ -106,6 +109,7 @@ export function useDeepgramConnection() {
           return;
         }
         opened = true;
+        connectingRef.current = false;
         connectionRef.current = conn;
         connectionStateRef.current = LiveConnectionState.OPEN;
         setConnectionState(LiveConnectionState.OPEN);
@@ -115,6 +119,7 @@ export function useDeepgramConnection() {
 
       conn.addListener(LiveTranscriptionEvents.Close, () => {
         if (connectionIdRef.current !== myId) return;
+        connectingRef.current = false;
         stopKeepAlive();
         connectionStateRef.current = LiveConnectionState.CLOSED;
         setConnectionState(LiveConnectionState.CLOSED);
@@ -146,6 +151,7 @@ export function useDeepgramConnection() {
       connectionRef.current = conn;
     } catch (err) {
       if (connectionIdRef.current === myId) {
+        connectingRef.current = false;
         console.error(`[Deepgram connection ${myId}] failed to create:`, err);
         connectionStateRef.current = LiveConnectionState.CLOSED;
         setConnectionState(LiveConnectionState.CLOSED);
@@ -173,6 +179,7 @@ export function useDeepgramConnection() {
   }, []);
 
   const disconnectFromDeepgram = useCallback(async () => {
+    connectingRef.current = false;
     connectionIdRef.current++;
     if (connectionRef.current) {
       try {
@@ -219,6 +226,20 @@ export function useDeepgramConnection() {
     firstSentAt: 0 as number | 0,
     firstDroppedAt: 0 as number | 0,
   });
+
+  const sendBlob = useCallback((blob: Blob) => {
+    if (
+      connectionRef.current &&
+      connectionStateRef.current === LiveConnectionState.OPEN &&
+      blob.size > 0
+    ) {
+      try {
+        connectionRef.current.send(blob);
+      } catch {
+        /* empty */
+      }
+    }
+  }, []);
 
   const sendVoiceData = useCallback((e: BlobEvent) => {
     if (connectionRef.current && connectionStateRef.current === LiveConnectionState.OPEN && e.data.size > 0) {
@@ -291,6 +312,7 @@ export function useDeepgramConnection() {
   return {
     connectionState,
     connectionStateRef,
+    connectingRef,
     connectionFailedSignal,
     onTranscriptRef,
     onUtteranceEndRef,
@@ -298,5 +320,7 @@ export function useDeepgramConnection() {
     disconnectFromDeepgram,
     finalizeUtterance,
     sendVoiceData,
+    sendBlob,
+    prefetchApiKey,
   };
 }

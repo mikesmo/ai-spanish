@@ -193,13 +193,20 @@ export type SttStartOptions = {
   signal?: AbortSignal;
 };
 
+export type SttPrewarmOptions = {
+  keywords?: string[];
+  signal?: AbortSignal;
+};
+
 export type SpeechToTextHandle = {
   start: (options?: SttStartOptions) => void;
   stop: () => void | Promise<void>;
   /**
-   * Optional: warm Deepgram listen auth while TTS plays (native). No-op on web.
+   * Open the Deepgram listen socket (and on web, acquire the MediaStream)
+   * without starting the recorder. Called during phrase bootstrap while TTS
+   * plays so `start()` only has to open the mic.
    */
-  prefetchAuth?: () => void;
+  prewarm: (options?: SttPrewarmOptions) => void;
   isRecording: boolean;
   caption: string;
   /** Word-level timestamps for the active attempt, if the adapter supports them. */

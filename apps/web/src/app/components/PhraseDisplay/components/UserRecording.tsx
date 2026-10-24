@@ -25,6 +25,7 @@ export const UserRecording = ({
   showMicChrome = true,
   replaySpanishMedium,
   onClearSpokenCaption,
+  error,
 }: UserRecordingProps): JSX.Element => {
   const displaySpanishLine =
     showSpanishTranslation && spanishLine != null && String(spanishLine).trim() !== ""
@@ -291,6 +292,9 @@ export const UserRecording = ({
     </div>
 
     <div className="mt-auto flex w-full flex-col items-center gap-3 pt-4">
+      {error ? (
+        <p className="px-4 text-center text-[13px] text-red-700">{error}</p>
+      ) : null}
       <button type="button" onClick={onShowAnswer} className={showAnswerPillClassName}>
         <span className="relative z-10 text-[16px] font-medium text-gray-900">show answer</span>
       </button>
